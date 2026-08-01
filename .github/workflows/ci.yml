@@ -1,0 +1,330 @@
+name: CI
+
+permissions:
+  contents: read
+
+env:
+  HELM_VERSION: v3.21.0
+  KIND_VERSION: v0.32.0
+  KUBECTL_VERSION: v1.34.8
+  POSTGRES_IMAGE: postgres:17.10-alpine3.23
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Make Maven wrapper executable
+        working-directory: backend
+        run: chmod +x ./mvnw
+
+      # Testcontainers démarre PostgreSQL via Docker — pas de service GitHub Actions.
+      # Le comportement est identique aux tests locaux (@Testcontainers + PostgreSQLContainer).
+      #
+      # Important :
+      # Ne pas définir SUBNETORY_ADMIN_DEFAULT_PASSWORD ici.
+      # Les tests utilisent le profil test et attendent admin / admin.
+      #
+      # verify (au lieu de test) : déclenche la phase verify de Maven,
+      # ce qui exécute les tests ET génère le rapport JaCoCo (goal report lié à verify).
+      - name: Run tests and generate JaCoCo report
+        working-directory: backend
+        run: ./mvnw clean "-Dtest=*Test,*IT" verify -B
+        env:
+          SUBNETORY_JWT_SECRET: ci-test-secret-minimum-32-characters-here
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results
+          path: backend/target/surefire-reports/
+          retention-days: 7
+
+      - name: Upload JaCoCo report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: jacoco-report
+          path: backend/target/site/jacoco/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  compose-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validate Docker Compose availability
+        run: docker compose version
+
+      - name: Run autonomous Compose smoke test
+        shell: pwsh
+        run: ./scripts/smoke-test-compose.ps1 -RepositoryPath "$env:GITHUB_WORKSPACE" -RedactedLogPath "$env:RUNNER_TEMP/subnetory-compose-smoke.redacted.log"
+
+      - name: Upload redacted Compose logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: compose-smoke-redacted-logs
+          path: ${{ runner.temp }}/subnetory-compose-smoke.redacted.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  compose-https-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validate Docker Compose availability
+        run: docker compose version
+
+      - name: Run HTTPS reverse-proxy overlay smoke test
+        shell: pwsh
+        run: ./scripts/smoke-test-compose-https.ps1 -RepositoryPath "$env:GITHUB_WORKSPACE" -RedactedLogPath "$env:RUNNER_TEMP/subnetory-compose-https-smoke.redacted.log"
+
+      - name: Upload redacted Compose HTTPS logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: compose-https-smoke-redacted-logs
+          path: ${{ runner.temp }}/subnetory-compose-https-smoke.redacted.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  backup-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Pull pinned PostgreSQL image
+        run: docker pull "${POSTGRES_IMAGE}"
+
+      - name: Validate backup integrity and retention
+        shell: pwsh
+        run: >-
+          ./scripts/test-postgres-backup-script.ps1
+          -RepositoryPath "$env:GITHUB_WORKSPACE"
+          -PostgresImage "$env:POSTGRES_IMAGE"
+
+      - name: Reject hostile restore inputs in an isolated drill
+        shell: pwsh
+        run: >-
+          ./scripts/test-postgres-restore-drill.ps1
+          -RepositoryPath "$env:GITHUB_WORKSPACE"
+          -PostgresImage "$env:POSTGRES_IMAGE"
+
+  dependency-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # aquasecurity/trivy-action a subi une compromission de supply-chain
+      # critique (GHSA-69fq-xp46-6x23 / CVE-2026-33634, mars 2026) : 76 des 77
+      # tags historiques du depot avaient ete force-pousses vers des commits
+      # malveillants. Epinglage strict sur le commit SHA de la release
+      # immutable et signee v0.36.0 (posterieure a l'incident) — voir
+      # backend/docs/README.md, section "Actions GitHub tierces".
+      - name: Scan Maven dependencies (source)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: backend
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: 1
+          format: table
+
+      - name: Build Docker image for scanning
+        run: docker build -t subnetory:dependency-scan backend
+
+      # Scan de l'image construite : paquets OS (eclipse-temurin/alpine) et
+      # dependances Maven embarquees dans le JAR Spring Boot executable.
+      # Couverture complementaire au scan "fs" ci-dessus, qui ne resout pas
+      # toujours l'arbre transitif complet sans artefact construit.
+      - name: Scan Docker image (OS packages + embedded JAR)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: subnetory:dependency-scan
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: 1
+          format: table
+
+  helm-static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install pinned Helm
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="helm-${HELM_VERSION}-linux-amd64.tar.gz"
+          mkdir -p "${RUNNER_TEMP}/bin" "${RUNNER_TEMP}/helm"
+          curl --fail --location --silent --show-error \
+            --output "${RUNNER_TEMP}/${archive}" \
+            "https://get.helm.sh/${archive}"
+          curl --fail --location --silent --show-error \
+            --output "${RUNNER_TEMP}/${archive}.sha256sum" \
+            "https://get.helm.sh/${archive}.sha256sum"
+          (cd "${RUNNER_TEMP}" && sha256sum --check "${archive}.sha256sum")
+          tar --extract --gzip \
+            --file "${RUNNER_TEMP}/${archive}" \
+            --directory "${RUNNER_TEMP}/helm"
+          install -m 0755 \
+            "${RUNNER_TEMP}/helm/linux-amd64/helm" \
+            "${RUNNER_TEMP}/bin/helm"
+          echo "${RUNNER_TEMP}/bin" >> "${GITHUB_PATH}"
+
+      - name: Validate chart, schema and rendered secret handling
+        shell: bash
+        run: |
+          set -euo pipefail
+          chart="charts/subnetory"
+          rendered="${RUNNER_TEMP}/subnetory-rendered.yaml"
+          rendered_external="${RUNNER_TEMP}/subnetory-rendered-external.yaml"
+
+          helm lint "${chart}" --strict
+          helm template subnetory "${chart}" --namespace subnetory \
+            > "${rendered}"
+          helm template subnetory-external "${chart}" \
+            --namespace subnetory \
+            --set postgresql.enabled=false \
+            --set externalDatabase.enabled=true \
+            --set externalDatabase.host=postgres.example.internal \
+            > "${rendered_external}"
+
+          if helm template invalid "${chart}" \
+              --set replicaCount=2 > /dev/null 2>&1; then
+            echo "values.schema.json accepted replicaCount > 1" >&2
+            exit 1
+          fi
+          if helm template invalid "${chart}" \
+              --set postgresql.enabled=false \
+              --set externalDatabase.enabled=false > /dev/null 2>&1; then
+            echo "values.schema.json accepted no database mode" >&2
+            exit 1
+          fi
+          if helm template invalid "${chart}" \
+              --set postgresql.enabled=true \
+              --set externalDatabase.enabled=true \
+              --set externalDatabase.host=postgres.example.internal \
+              > /dev/null 2>&1; then
+            echo "values.schema.json accepted both database modes" >&2
+            exit 1
+          fi
+
+          if grep -Eq \
+              '^(kind: Secret|[[:space:]]*- name: (SUBNETORY_JWT_SECRET|SUBNETORY_ADMIN_DEFAULT_PASSWORD|SPRING_DATASOURCE_PASSWORD|POSTGRES_PASSWORD)[[:space:]]*$)' \
+              "${rendered}" "${rendered_external}"; then
+            echo "Rendered manifests expose a clear-text secret resource or variable" >&2
+            exit 1
+          fi
+
+      - name: Validate scheduled backup safety invariants
+        shell: pwsh
+        run: >-
+          ./scripts/test-helm-backup-static.ps1
+          -RepositoryPath "$env:GITHUB_WORKSPACE"
+          -HelmPath helm
+
+  helm-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install pinned Helm, kind and kubectl
+        shell: bash
+        run: |
+          set -euo pipefail
+          bin="${RUNNER_TEMP}/bin"
+          mkdir -p "${bin}" "${RUNNER_TEMP}/helm"
+
+          archive="helm-${HELM_VERSION}-linux-amd64.tar.gz"
+          curl --fail --location --silent --show-error \
+            --output "${RUNNER_TEMP}/${archive}" \
+            "https://get.helm.sh/${archive}"
+          curl --fail --location --silent --show-error \
+            --output "${RUNNER_TEMP}/${archive}.sha256sum" \
+            "https://get.helm.sh/${archive}.sha256sum"
+          (cd "${RUNNER_TEMP}" && sha256sum --check "${archive}.sha256sum")
+          tar --extract --gzip \
+            --file "${RUNNER_TEMP}/${archive}" \
+            --directory "${RUNNER_TEMP}/helm"
+          install -m 0755 "${RUNNER_TEMP}/helm/linux-amd64/helm" "${bin}/helm"
+
+          curl --fail --location --silent --show-error \
+            --output "${bin}/kind" \
+            "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
+          curl --fail --location --silent --show-error \
+            --output "${RUNNER_TEMP}/kind.sha256sum" \
+            "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64.sha256sum"
+          kind_checksum="$(awk '{print $1}' "${RUNNER_TEMP}/kind.sha256sum")"
+          echo "${kind_checksum}  ${bin}/kind" \
+            | sha256sum --check
+          chmod 0755 "${bin}/kind"
+
+          curl --fail --location --silent --show-error \
+            --output "${bin}/kubectl" \
+            "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+          curl --fail --location --silent --show-error \
+            --output "${RUNNER_TEMP}/kubectl.sha256" \
+            "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl.sha256"
+          echo "$(cat "${RUNNER_TEMP}/kubectl.sha256")  ${bin}/kubectl" \
+            | sha256sum --check
+          chmod 0755 "${bin}/kubectl"
+
+          echo "${bin}" >> "${GITHUB_PATH}"
+
+      - name: Validate Docker availability
+        run: docker version
+
+      - name: Run both Helm deployment profiles on kind
+        shell: pwsh
+        run: >-
+          ./scripts/smoke-test-helm.ps1
+          -RepositoryPath "$env:GITHUB_WORKSPACE"
+          -KindPath kind
+          -KubectlPath kubectl
+          -HelmPath helm
+          -Profile All
+          -RedactedLogPath "$env:RUNNER_TEMP/subnetory-helm-smoke.redacted.log"
+
+      - name: Upload redacted Helm logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: helm-smoke-redacted-logs
+          path: ${{ runner.temp }}/subnetory-helm-smoke.redacted.log
+          if-no-files-found: ignore
+          retention-days: 7

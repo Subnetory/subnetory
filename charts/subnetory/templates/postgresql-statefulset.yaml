@@ -1,0 +1,121 @@
+{{- if .Values.postgresql.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "subnetory.postgresql.fullname" . }}
+  labels:
+    {{- include "subnetory.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+spec:
+  serviceName: {{ include "subnetory.postgresql.fullname" . }}
+  replicas: 1
+  podManagementPolicy: OrderedReady
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  selector:
+    matchLabels:
+      {{- include "subnetory.postgresql.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "subnetory.postgresql.selectorLabels" . | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ .Values.postgresql.terminationGracePeriodSeconds }}
+      securityContext:
+        {{- toYaml .Values.postgresql.podSecurityContext | nindent 8 }}
+      containers:
+        - name: postgresql
+          image: "{{ .Values.postgresql.image.repository }}:{{ .Values.postgresql.image.tag }}"
+          imagePullPolicy: {{ .Values.postgresql.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.postgresql.containerSecurityContext | nindent 12 }}
+          ports:
+            - name: postgresql
+              containerPort: {{ .Values.postgresql.service.port }}
+              protocol: TCP
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.postgresql.auth.database | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.postgresql.auth.username | quote }}
+            - name: POSTGRES_PASSWORD_FILE
+              value: /run/secrets/postgres-password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          startupProbe:
+            exec:
+              command:
+                - pg_isready
+                - --host=127.0.0.1
+                - --port={{ .Values.postgresql.service.port }}
+                - --username={{ .Values.postgresql.auth.username }}
+                - --dbname={{ .Values.postgresql.auth.database }}
+            periodSeconds: {{ .Values.postgresql.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.postgresql.startupProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.postgresql.startupProbe.failureThreshold }}
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - --host=127.0.0.1
+                - --port={{ .Values.postgresql.service.port }}
+                - --username={{ .Values.postgresql.auth.username }}
+                - --dbname={{ .Values.postgresql.auth.database }}
+            periodSeconds: {{ .Values.postgresql.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.postgresql.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.postgresql.livenessProbe.failureThreshold }}
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - --host=127.0.0.1
+                - --port={{ .Values.postgresql.service.port }}
+                - --username={{ .Values.postgresql.auth.username }}
+                - --dbname={{ .Values.postgresql.auth.database }}
+            periodSeconds: {{ .Values.postgresql.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.postgresql.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.postgresql.readinessProbe.failureThreshold }}
+          resources:
+            {{- toYaml .Values.postgresql.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: runtime-secrets
+              mountPath: /run/secrets
+              readOnly: true
+            - name: temporary-directory
+              mountPath: /tmp
+            - name: runtime-directory
+              mountPath: /var/run/postgresql
+      volumes:
+        - name: runtime-secrets
+          secret:
+            secretName: {{ .Values.secrets.existingSecretRuntime }}
+            defaultMode: 0440
+            items:
+              - key: postgres-password
+                path: postgres-password
+        - name: temporary-directory
+          emptyDir:
+            sizeLimit: {{ .Values.postgresql.temporaryDirectory.sizeLimit }}
+        - name: runtime-directory
+          emptyDir:
+            sizeLimit: {{ .Values.postgresql.runtimeDirectory.sizeLimit }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          {{- include "subnetory.labels" . | nindent 10 }}
+          app.kubernetes.io/component: postgresql
+      spec:
+        accessModes:
+          {{- toYaml .Values.postgresql.persistence.accessModes | nindent 10 }}
+        {{- if .Values.postgresql.persistence.storageClass }}
+        storageClassName: {{ .Values.postgresql.persistence.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.postgresql.persistence.size }}
+{{- end }}

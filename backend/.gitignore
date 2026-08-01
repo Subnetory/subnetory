@@ -1,0 +1,60 @@
+# Build artifacts
+target/
+*.class
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.project
+.classpath
+.settings/
+*.sublime-*
+.factorypath
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Runtime data
+data/
+docker-data/
+volumes/
+*.pid
+
+# Secrets — JAMAIS dans Git
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+secrets/
+credentials/
+application-local.yml
+application-local.properties
+
+# Bases de données locales (si on ajoute H2 ou SQLite plus tard)
+*.db
+*.sqlite
+*.sqlite3
+*.mv.db
+*.trace.db
+
+# Caches Maven Wrapper locaux (NON le maven-wrapper.jar, qui est versionné)
+.mvn/wrapper/dists/
+
+# Fichiers temporaires
+*.tmp
+*.bak
+*.swp
+*~

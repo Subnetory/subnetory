@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity6">
+<body>
+
+<!--
+  Sommaire lateral de l'aide generale (/help/**), accessible a tout
+  utilisateur authentifie. Parametre "active" = slug de la page courante,
+  pour surligner le lien correspondant (01/08/2026).
+-->
+<div th:fragment="sidebar-user(active)" class="sn-help-sidebar">
+    <a th:href="@{/help}" class="sn-help-sidebar__back">&larr; Sommaire de l'aide</a>
+
+    <div class="sn-help-sidebar__group">
+        <div class="sn-help-sidebar__group-title">Prise en main</div>
+        <a th:href="@{/help/prise-en-main}" class="sn-help-sidebar__link"
+           th:classappend="${active == 'prise-en-main'} ? ' active'">Découvrir Subnetory</a>
+    </div>
+
+    <div class="sn-help-sidebar__group">
+        <div class="sn-help-sidebar__group-title">Réseau</div>
+        <a th:href="@{/help/reseau}" class="sn-help-sidebar__link"
+           th:classappend="${active == 'reseau'} ? ' active'">Contextes, sites, VLAN, sous-réseaux</a>
+        <a th:href="@{/help/adresses-ip}" class="sn-help-sidebar__link"
+           th:classappend="${active == 'adresses-ip'} ? ' active'">Adresses IP</a>
+        <a th:href="@{/help/import-export}" class="sn-help-sidebar__link"
+           th:classappend="${active == 'import-export'} ? ' active'">Import &amp; export</a>
+    </div>
+
+    <div class="sn-help-sidebar__group">
+        <div class="sn-help-sidebar__group-title">Compte</div>
+        <a th:href="@{/help/compte-securite}" class="sn-help-sidebar__link"
+           th:classappend="${active == 'compte-securite'} ? ' active'">Mon compte &amp; sécurité</a>
+    </div>
+
+    <div class="sn-help-sidebar__group">
+        <div class="sn-help-sidebar__group-title">Développeurs</div>
+        <a th:href="@{/help/api}" class="sn-help-sidebar__link"
+           th:classappend="${active == 'api'} ? ' active'">API &amp; automatisation</a>
+    </div>
+
+    <div class="sn-help-sidebar__group" sec:authorize="hasRole('ADMIN')">
+        <div class="sn-help-sidebar__group-title">Administration</div>
+        <a th:href="@{/admin/help}" class="sn-help-sidebar__link">Guide admin &amp; déploiement →</a>
+    </div>
+</div>
+
+<!--
+  Sommaire lateral de l'aide administrateur (/admin/help/**), reservee
+  ROLE_ADMIN via la regle de securite existante sur /admin/** (aucune regle
+  dediee necessaire). Parametre "active" = slug de la page courante.
+-->
+<div th:fragment="sidebar-admin(active)" class="sn-help-sidebar">
+    <a th:href="@{/admin/help}" class="sn-help-sidebar__back">&larr; Sommaire admin</a>
+
+    <div class="sn-help-sidebar__group">
+        <div class="sn-help-sidebar__group-title">Comptes &amp; sécurité</div>
+        <a th:href="@{/admin/help/utilisateurs-roles}" class="sn-help-sidebar__link"
+           th:classappend="${active == 'utilisateurs-roles'} ? ' active'">Utilisateurs, rôles &amp; MFA</a>
+        <a th:href="@{/admin/help/audit}" class="sn-help-sidebar__link"
+           th:classappend="${active == 'audit'} ? ' active'">Audit &amp; journalisation</a>
+    </div>
+
+    <div class="sn-help-sidebar__group">
+        <div class="sn-help-sidebar__group-title">Sauvegardes</div>
+        <a th:href="@{/admin/help/sauvegardes}" class="sn-help-sidebar__link"
+           th:classappend="${active == 'sauvegardes'} ? ' active'">Sauvegarde &amp; restauration</a>
+    </div>
+
+    <div class="sn-help-sidebar__group">
+        <div class="sn-help-sidebar__group-title">Déploiement</div>
+        <a th:href="@{/admin/help/deploiement-docker}" class="sn-help-sidebar__link"
+           th:classappend="${active == 'deploiement-docker'} ? ' active'">Docker Compose &amp; HTTPS</a>
+        <a th:href="@{/admin/help/deploiement-kubernetes}" class="sn-help-sidebar__link"
+           th:classappend="${active == 'deploiement-kubernetes'} ? ' active'">Kubernetes</a>
+    </div>
+
+    <div class="sn-help-sidebar__group">
+        <div class="sn-help-sidebar__group-title">Utilisateur</div>
+        <a th:href="@{/help}" class="sn-help-sidebar__link">← Aide générale</a>
+    </div>
+</div>
+
+</body>
+</html>

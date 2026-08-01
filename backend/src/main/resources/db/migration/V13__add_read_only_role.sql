@@ -1,0 +1,4 @@
+INSERT INTO roles (name)
+VALUES ('ROLE_READ_ONLY')
+ON CONFLICT (name) DO NOTHING;
+

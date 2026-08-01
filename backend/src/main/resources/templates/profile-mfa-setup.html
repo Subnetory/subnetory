@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<head><title>Activer le MFA - Subnetory</title></head>
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <div class="sn-page__header">
+        <div>
+            <h1 class="sn-page__title">Activer l'authentification a deux facteurs</h1>
+            <p class="sn-page__subtitle">Scannez le QR code avec une application TOTP (Google Authenticator, Authy, etc.)</p>
+        </div>
+        <nav class="sn-section-tabs" aria-label="Navigation">
+            <a th:href="@{/profile}" class="sn-section-tabs__item active">Profil</a>
+        </nav>
+    </div>
+
+    <div th:if="${flashError}" class="sn-alert sn-alert--error" th:text="${flashError}"></div>
+
+    <div class="sn-card sn-card--padded">
+        <div class="sn-card__header">
+            <h2 class="sn-card__title">1. Scanner le QR code</h2>
+        </div>
+
+        <img th:src="${qrCodeDataUri}" alt="QR code MFA" class="sn-mfa-qrcode">
+
+        <p class="sn-text-muted">
+            Impossible de scanner ? Saisissez cette cle manuellement dans votre application :
+        </p>
+        <div class="sn-command-preview">
+            <span>Cle secrete</span>
+            <code th:text="${secret}">SECRET</code>
+        </div>
+    </div>
+
+    <div class="sn-card sn-card--padded">
+        <div class="sn-card__header">
+            <h2 class="sn-card__title">2. Confirmer avec un code genere</h2>
+        </div>
+
+        <form th:action="@{/profile/mfa/setup}" th:object="${form}" method="post" class="sn-form">
+            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+            <div class="sn-form__group">
+                <label for="mfaCode" class="sn-form__label">Code a 6 chiffres</label>
+                <input id="mfaCode" type="text" inputmode="numeric" autocomplete="one-time-code"
+                       th:field="*{code}" class="sn-input" autofocus>
+                <div th:if="${#fields.hasErrors('code')}" th:errors="*{code}" class="sn-form__error"></div>
+            </div>
+
+            <div class="sn-form__actions">
+                <button type="submit" class="sn-btn sn-btn--primary">Activer le MFA</button>
+                <a th:href="@{/profile}" class="sn-btn sn-btn--secondary">Annuler</a>
+            </div>
+        </form>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

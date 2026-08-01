@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<head><title th:text="${pageTitle} + ' — Subnetory'">Adresse IP — Subnetory</title></head>
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <div class="sn-page__header">
+        <div>
+            <h1 class="sn-page__title" th:text="${pageTitle}">Adresse IP</h1>
+            <p class="sn-page__subtitle">Renseignez l'adresse, son sous-réseau et ses informations d'identification.</p>
+        </div>
+    </div>
+
+    <div th:if="${formError}" class="sn-alert sn-alert--error" th:text="${formError}"></div>
+
+    <div class="sn-card sn-card--padded sn-form-card">
+        <div class="sn-card__header">
+            <h2 class="sn-card__title" th:text="${pageTitle}">Adresse IP</h2>
+        </div>
+
+        <form th:action="${formAction}" th:object="${form}" method="post" novalidate class="sn-form">
+
+            <input type="hidden" th:field="*{id}" />
+
+            <div class="sn-form__group" th:classappend="${#fields.hasErrors('address')} ? ' sn-form__group--error'">
+                <label for="address" class="sn-form__label">
+                    Adresse IP <span class="sn-form-required">*</span>
+                </label>
+                <input type="text"
+                       id="address"
+                       th:field="*{address}"
+                       class="sn-input sn-text-mono"
+                       placeholder="ex : 192.168.1.10"
+                       autocomplete="off"
+                       maxlength="45"
+                       required
+                       aria-required="true" />
+                <span class="sn-form__error"
+                      th:if="${#fields.hasErrors('address')}"
+                      th:errors="*{address}"></span>
+            </div>
+
+            <div class="sn-form__group" th:classappend="${#fields.hasErrors('subnetId')} ? ' sn-form__group--error'">
+                <label for="subnetId" class="sn-form__label">
+                    Sous-réseau <span class="sn-form-required">*</span>
+                </label>
+                <select id="subnetId" th:field="*{subnetId}" class="sn-input" required aria-required="true">
+                    <option value="">— Sélectionner un sous-réseau —</option>
+                    <option th:each="s : ${allSubnets}"
+                            th:value="${s.id}"
+                            th:text="|${s.network} — ${s.siteName}|">Subnet</option>
+                </select>
+                <span class="sn-form__error"
+                      th:if="${#fields.hasErrors('subnetId')}"
+                      th:errors="*{subnetId}"></span>
+            </div>
+            <div class="sn-form__group"
+                 data-ip-suggestion
+                 data-subnet-select-id="subnetId"
+                 data-address-input-id="address"
+                 data-count="5">
+                <button type="button"
+                        class="sn-btn sn-btn--ghost"
+                        data-ip-suggest-button
+                        disabled>
+                    Suggérer une IP disponible
+                </button>
+                <div class="sn-form__error" data-ip-suggest-message>
+                    Sélectionnez un sous-réseau pour activer la suggestion.
+                </div>
+                <div data-ip-suggest-results hidden></div>
+            </div>
+
+            <div class="sn-form__group" th:classappend="${#fields.hasErrors('hostname')} ? ' sn-form__group--error'">
+                <label for="hostname" class="sn-form__label">Hostname</label>
+                <input type="text"
+                       id="hostname"
+                       th:field="*{hostname}"
+                       class="sn-input"
+                       placeholder="ex : srv-web-01 (optionnel)"
+                       autocomplete="off"
+                       maxlength="100" />
+                <span class="sn-form__error"
+                      th:if="${#fields.hasErrors('hostname')}"
+                      th:errors="*{hostname}"></span>
+            </div>
+
+            <div class="sn-form__group" th:classappend="${#fields.hasErrors('mac')} ? ' sn-form__group--error'">
+                <label for="mac" class="sn-form__label">Adresse MAC</label>
+                <input type="text"
+                       id="mac"
+                       th:field="*{mac}"
+                       class="sn-input sn-text-mono"
+                       placeholder="ex : aa:bb:cc:dd:ee:ff (optionnel)"
+                       autocomplete="off"
+                       maxlength="17" />
+                <span class="sn-form__error"
+                      th:if="${#fields.hasErrors('mac')}"
+                      th:errors="*{mac}"></span>
+            </div>
+
+            <div class="sn-form__group" th:classappend="${#fields.hasErrors('description')} ? ' sn-form__group--error'">
+                <label for="description" class="sn-form__label">Description</label>
+                <textarea id="description"
+                          th:field="*{description}"
+                          class="sn-input"
+                          rows="2"
+                          placeholder="Description optionnelle"
+                          maxlength="500"></textarea>
+                <span class="sn-form__error"
+                      th:if="${#fields.hasErrors('description')}"
+                      th:errors="*{description}"></span>
+            </div>
+
+            <div class="sn-form__group sn-form__group--checkbox">
+                <label class="sn-chip-checkbox">
+                    <input type="checkbox" th:field="*{temporary}" class="sn-chip-checkbox__input" />
+                    <span class="sn-chip-checkbox__pill">IP temporaire</span>
+                </label>
+            </div>
+
+            <div class="sn-form__actions">
+                <button type="submit" class="sn-btn sn-btn--primary">Enregistrer</button>
+                <a th:href="${cancelUrl}" class="sn-btn sn-btn--secondary">Annuler</a>
+            </div>
+
+        </form>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity6"
+      th:fragment="layout(content)">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle != null ? pageTitle + ' - Subnetory' : 'Subnetory'}">Subnetory</title>
+    <meta name="_csrf" th:content="${_csrf != null ? _csrf.token : ''}">
+    <meta name="_csrf_header" th:content="${_csrf != null ? _csrf.headerName : 'X-CSRF-TOKEN'}">
+    <link rel="stylesheet" th:href="@{/assets/css/app.css}">
+</head>
+<body>
+
+<header class="sn-appbar">
+    <div class="sn-appbar__left">
+        <a th:href="@{/}" class="sn-brand" aria-label="Accueil Subnetory">
+            <span class="sn-brand__mark">S</span><span>Subnetory</span>
+        </a>
+        <a th:href="@{/}" class="sn-nav-tile" th:classappend="${activeSection == 'dashboard' ? ' active' : ''}">
+            <span class="sn-nav-tile__icon" aria-hidden="true">⌂</span><span>Tableau de bord</span>
+        </a>
+    </div>
+
+    <div class="sn-appbar__center">
+        <div class="sn-context-switcher">
+            <form th:action="@{/context-selection}" method="post" class="sn-context-switcher__form">
+                <input type="hidden" name="returnTo" th:value="${currentRequestPath}">
+                <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <label for="globalContext" class="sn-context-switcher__label">Contexte actif</label>
+                <select id="globalContext" name="contextId" data-auto-submit class="sn-context-switcher__select"
+                        aria-label="Sélectionner le contexte actif">
+                    <option value="" disabled th:selected="${activeContextId == null}">Choisir un contexte</option>
+                    <option th:each="ctx : ${navigationContexts}" th:value="${ctx.id}"
+                            th:text="${ctx.name}" th:selected="${ctx.id == activeContextId}">Contexte</option>
+                </select>
+            </form>
+            <form th:action="@{/context-selection/reset}" method="post" class="sn-context-switcher__reset">
+                <input type="hidden" name="returnTo" th:value="${currentRequestPath}">
+                <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <button type="submit" class="sn-icon-button" title="Réinitialiser le contexte" aria-label="Réinitialiser le contexte">↺</button>
+            </form>
+        </div>
+
+        <nav class="sn-main-nav" aria-label="Navigation réseau">
+            <a th:href="@{/network/contexts}" class="sn-nav-tile" th:classappend="${activeSection == 'contexts' ? ' active' : ''}"><span class="sn-nav-tile__icon">◎</span><span>Contextes</span></a>
+            <a th:href="@{/network/sites}" class="sn-nav-tile" th:classappend="${activeSection == 'sites' ? ' active' : ''}"><span class="sn-nav-tile__icon">⌖</span><span>Sites</span></a>
+            <a th:href="@{/network/vlans}" class="sn-nav-tile" th:classappend="${activeSection == 'vlans' ? ' active' : ''}"><span class="sn-nav-tile__icon">◇</span><span>VLAN</span></a>
+            <a th:href="@{/network/subnets}" class="sn-nav-tile" th:classappend="${activeSection == 'subnets' ? ' active' : ''}"><span class="sn-nav-tile__icon">▦</span><span>Sous-réseaux</span></a>
+            <a th:href="@{/network/addresses}" class="sn-nav-tile" th:classappend="${activeSection == 'addresses' ? ' active' : ''}"><span class="sn-nav-tile__icon">⌁</span><span>Adresses IP</span></a>
+        </nav>
+    </div>
+
+    <div class="sn-appbar__right">
+        <div class="sn-admin-cluster" aria-label="Administration et profil">
+            <a sec:authorize="hasRole('ADMIN')" th:href="@{/admin/users}" class="sn-admin-icon"
+               th:classappend="${activeSection == 'admin' ? ' active' : ''}"
+               title="Administration" aria-label="Administration">
+                <span aria-hidden="true">⚙</span>
+            </a>
+            <a th:href="@{/help}" class="sn-admin-icon"
+               th:classappend="${activeSection == 'help' ? ' active' : ''}"
+               title="Aide" aria-label="Aide">
+                <span aria-hidden="true">?</span>
+            </a>
+            <a th:href="@{/profile}" class="sn-profile-chip" th:classappend="${activeSection == 'profile' ? ' active' : ''}">
+                <span class="sn-profile-chip__avatar" sec:authentication="name">U</span>
+                <span class="sn-profile-chip__text"><small>Profil</small><strong sec:authentication="name">Utilisateur</strong></span>
+            </a>
+        </div>
+        <form th:action="@{/logout}" method="post" class="sn-logout-form">
+            <button type="submit" class="sn-icon-button" title="Déconnexion" aria-label="Déconnexion">⇥</button>
+        </form>
+    </div>
+</header>
+
+<div class="sn-context-banner" th:if="${activeContextId != null}">
+    <span class="sn-context-banner__dot"></span>
+    Les données affichées appartiennent au contexte <strong th:text="${activeContextName}">Contexte</strong>.
+</div>
+
+<main class="sn-layout"><th:block th:insert="${content}"></th:block></main>
+<script th:src="@{/assets/js/app.js}"></script>
+</body>
+</html>

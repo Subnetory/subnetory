@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<head><title th:text="${pageTitle} + ' — Subnetory'">Sous-réseau — Subnetory</title></head>
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <div class="sn-page__header">
+        <div>
+            <h1 class="sn-page__title" th:text="${pageTitle}">Sous-réseau</h1>
+            <p class="sn-page__subtitle">Définissez le réseau, la passerelle et le site de rattachement.</p>
+        </div>
+    </div>
+
+    <div th:if="${formError}" class="sn-alert sn-alert--error" th:text="${formError}"></div>
+
+    <div class="sn-card sn-card--padded sn-form-card">
+        <div class="sn-card__header">
+            <h2 class="sn-card__title" th:text="${pageTitle}">Sous-réseau</h2>
+        </div>
+
+        <form th:action="${formAction}" th:object="${form}" method="post" novalidate class="sn-form">
+
+            <input type="hidden" th:field="*{id}" />
+
+            <div class="sn-form__group" th:classappend="${#fields.hasErrors('network')} ? ' sn-form__group--error'">
+                <label for="network" class="sn-form__label">
+                    Réseau <span class="sn-form-required">*</span>
+                </label>
+                <input type="text"
+                       id="network"
+                       th:field="*{network}"
+                       class="sn-input sn-text-mono"
+                       placeholder="ex : 192.168.1.0/24"
+                       autocomplete="off"
+                       maxlength="50"
+                       required
+                       aria-required="true" />
+                <span class="sn-form__error"
+                      th:if="${#fields.hasErrors('network')}"
+                      th:errors="*{network}"></span>
+            </div>
+
+            <div class="sn-form__group" th:classappend="${#fields.hasErrors('description')} ? ' sn-form__group--error'">
+                <label for="description" class="sn-form__label">Description</label>
+                <textarea id="description"
+                          th:field="*{description}"
+                          class="sn-input"
+                          rows="2"
+                          placeholder="Description optionnelle"
+                          maxlength="500"></textarea>
+                <span class="sn-form__error"
+                      th:if="${#fields.hasErrors('description')}"
+                      th:errors="*{description}"></span>
+            </div>
+
+            <div class="sn-form__group">
+                <label for="gateway" class="sn-form__label">Gateway</label>
+                <input type="text"
+                       id="gateway"
+                       th:field="*{gateway}"
+                       class="sn-input sn-text-mono"
+                       placeholder="ex : 192.168.1.1 (optionnel)"
+                       autocomplete="off"
+                       maxlength="45" />
+            </div>
+
+            <div class="sn-form__group" th:classappend="${#fields.hasErrors('contextId')} ? ' sn-form__group--error'">
+                <label for="contextId" class="sn-form__label">
+                    Contexte <span class="sn-form-required">*</span>
+                </label>
+                <select id="contextId" th:field="*{contextId}" class="sn-input" required aria-required="true">
+                    <option value="">— Sélectionner un contexte —</option>
+                    <option th:each="ctx : ${allContexts}"
+                            th:value="${ctx.id}"
+                            th:text="${ctx.name}">Contexte</option>
+                </select>
+                <span class="sn-form__error"
+                      th:if="${#fields.hasErrors('contextId')}"
+                      th:errors="*{contextId}"></span>
+            </div>
+
+            <div class="sn-form__group" th:classappend="${#fields.hasErrors('siteId')} ? ' sn-form__group--error'">
+                <label for="siteId" class="sn-form__label">
+                    Site <span class="sn-form-required">*</span>
+                </label>
+                <select id="siteId" th:field="*{siteId}" class="sn-input" required aria-required="true">
+                    <option value="">— Sélectionner un site —</option>
+                    <option th:each="site : ${allSites}"
+                            th:value="${site.id}"
+                            th:text="|${site.code} — ${site.name}|">Site</option>
+                </select>
+                <span class="sn-form__error"
+                      th:if="${#fields.hasErrors('siteId')}"
+                      th:errors="*{siteId}"></span>
+            </div>
+
+            <div class="sn-form__group">
+                <label for="vlanId" class="sn-form__label">VLAN</label>
+                <select id="vlanId" th:field="*{vlanId}" class="sn-input">
+                    <option value="">— Aucun VLAN —</option>
+                    <option th:each="vlan : ${allVlans}"
+                            th:value="${vlan.id}"
+                            th:text="|VLAN ${vlan.vid} — ${vlan.siteName}|">VLAN</option>
+                </select>
+            </div>
+
+            <div class="sn-form__group">
+                <label for="parentId" class="sn-form__label">Sous-réseau parent</label>
+                <select id="parentId" th:field="*{parentId}" class="sn-input">
+                    <option value="">— Aucun parent —</option>
+                    <option th:each="s : ${allSubnets}"
+                            th:if="${form.id == null or s.id != form.id}"
+                            th:value="${s.id}"
+                            th:text="|${s.network} — ${s.siteName}|">Subnet</option>
+                </select>
+            </div>
+
+            <div class="sn-form__actions">
+                <button type="submit" class="sn-btn sn-btn--primary">Enregistrer</button>
+                <a th:href="${cancelUrl}" class="sn-btn sn-btn--secondary">Annuler</a>
+            </div>
+
+        </form>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

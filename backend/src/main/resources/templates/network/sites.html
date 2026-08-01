@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity6"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<head><title>Sites — Subnetory</title></head>
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <div class="sn-page__header">
+        <div>
+            <h1 class="sn-page__title">Sites</h1>
+            <p class="sn-page__subtitle">Organisez vos emplacements physiques ou logiques par contexte.</p>
+        </div>
+        <div th:if="${canManage}">
+            <a href="/network/sites/new" class="sn-btn sn-btn--primary">+ Nouveau site</a>
+        </div>
+    </div>
+
+    <div th:if="${flashSuccess}" class="sn-alert sn-alert--success" th:text="${flashSuccess}"></div>
+    <div th:if="${flashError}"   class="sn-alert sn-alert--error"   th:text="${flashError}"></div>
+
+    <form th:action="@{/network/sites}" method="get" class="sn-search sn-filter-bar">
+        <select name="contextId" class="sn-search__select"
+                data-auto-submit>
+            <option value="">Tous les contextes</option>
+            <option th:each="ctx : ${contexts}"
+                    th:value="${ctx.id}"
+                    th:text="${ctx.name}"
+                    th:selected="${ctx.id == selectedContextId}">Default</option>
+        </select>
+    </form>
+
+    <div class="sn-card">
+        <div class="sn-table-wrapper">
+            <table class="sn-table">
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Nom</th>
+                        <th>Contexte</th>
+                        <th>Créé le</th>
+                        <th th:if="${canManage}" class="sn-table-col-actions">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="site : ${sites}" class="clickable"
+                        th:attr="data-href=@{/network/vlans(siteId=${site.id})}">
+                        <td><span class="sn-badge sn-badge--neutral" th:text="${site.code}">SITE</span></td>
+                        <td><strong th:text="${site.name}">Site</strong></td>
+                        <td class="sn-text-secondary" th:text="${site.contextName}">Default</td>
+                        <td class="sn-text-muted"
+                            th:text="${#temporals.format(site.createdAt, 'dd/MM/yyyy')}">01/01/2026</td>
+                        <td th:if="${canManage}" class="sn-table-actions">
+                            <a th:href="@{/network/sites/{id}/edit(id=${site.id})}"
+                               class="sn-btn sn-btn--secondary sn-btn--sm">Modifier</a>
+                            <form th:action="@{/network/sites/{id}/delete(id=${site.id})}"
+                                  method="post"
+                                  class="sn-inline-form"
+                                  th:attr="data-confirm=|Supprimer le site « ${site.name} » ?|"
+                                  sec:authorize="hasRole('ADMIN')">
+                                <button type="submit" class="sn-btn sn-btn--danger sn-btn--sm">Supprimer</button>
+                            </form>
+                        </td>
+                    </tr>
+                    <tr th:if="${sites.empty}" class="sn-table--empty">
+                        <td th:colspan="${canManage ? 5 : 4}">Aucun site enregistré.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="sn-pagination" th:if="${!sites.empty}">
+            <span class="sn-pagination__info"
+                  th:text="${sites.totalElements} + ' site(s)'">N sites</span>
+            <nav class="sn-pagination__nav" th:if="${sites.totalPages > 1}">
+                <a th:href="@{/network/sites(page=${sites.number - 1}, contextId=${selectedContextId})}"
+                   th:classappend="${sites.first ? 'sn-pagination__btn--disabled' : ''}"
+                   class="sn-pagination__btn">‹</a>
+                <th:block th:each="i : ${#numbers.sequence(0, sites.totalPages - 1)}">
+                    <a th:href="@{/network/sites(page=${i}, contextId=${selectedContextId})}"
+                       th:text="${i + 1}"
+                       th:classappend="${i == sites.number ? 'active' : ''}"
+                       class="sn-pagination__btn">1</a>
+                </th:block>
+                <a th:href="@{/network/sites(page=${sites.number + 1}, contextId=${selectedContextId})}"
+                   th:classappend="${sites.last ? 'sn-pagination__btn--disabled' : ''}"
+                   class="sn-pagination__btn">›</a>
+            </nav>
+        </div>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

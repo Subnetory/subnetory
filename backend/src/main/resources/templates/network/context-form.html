@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<head><title th:text="${pageTitle} + ' — Subnetory'">Contexte — Subnetory</title></head>
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <div class="sn-page__header">
+        <div>
+            <h1 class="sn-page__title" th:text="${pageTitle}">Contexte</h1>
+            <p class="sn-page__subtitle">Un contexte isole les sites et sous-réseaux d'un client ou d'un environnement.</p>
+        </div>
+    </div>
+
+    <div th:if="${formError}" class="sn-alert sn-alert--error" th:text="${formError}"></div>
+
+    <div class="sn-card sn-card--padded sn-form-card">
+        <div class="sn-card__header">
+            <h2 class="sn-card__title" th:text="${pageTitle}">Contexte</h2>
+        </div>
+
+        <form th:action="${formAction}" th:object="${form}" method="post" novalidate class="sn-form">
+
+            <input type="hidden" th:field="*{id}" />
+
+            <div class="sn-form__group" th:classappend="${#fields.hasErrors('name')} ? ' sn-form__group--error'">
+                <label for="name" class="sn-form__label">
+                    Nom <span class="sn-form-required">*</span>
+                </label>
+                <input type="text"
+                       id="name"
+                       th:field="*{name}"
+                       class="sn-input"
+                       placeholder="ex : Production"
+                       autocomplete="off"
+                       maxlength="100"
+                       required
+                       aria-required="true" />
+                <span class="sn-form__error"
+                      th:if="${#fields.hasErrors('name')}"
+                      th:errors="*{name}"></span>
+            </div>
+
+            <div class="sn-form__group" th:classappend="${#fields.hasErrors('description')} ? ' sn-form__group--error'">
+                <label for="description" class="sn-form__label">Description</label>
+                <textarea id="description"
+                          th:field="*{description}"
+                          class="sn-input"
+                          rows="3"
+                          placeholder="Description optionnelle"
+                          maxlength="500"></textarea>
+                <span class="sn-form__error"
+                      th:if="${#fields.hasErrors('description')}"
+                      th:errors="*{description}"></span>
+            </div>
+
+            <div class="sn-form__actions">
+                <button type="submit" class="sn-btn sn-btn--primary">Enregistrer</button>
+                <a th:href="${cancelUrl}" class="sn-btn sn-btn--secondary">Annuler</a>
+            </div>
+
+        </form>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

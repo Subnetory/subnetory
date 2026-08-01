@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<head><title>Prise en main - Aide - Subnetory</title></head>
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <p class="sn-help-crumb"><a th:href="@{/help}">Aide</a> / Prise en main</p>
+
+    <div class="sn-help-layout">
+        <div th:replace="~{help/fragments :: sidebar-user('prise-en-main')}"></div>
+
+        <div class="sn-help-article">
+            <div class="sn-help-article__header">
+                <h1 class="sn-page__title">Prise en main</h1>
+                <p>Ce que fait Subnetory, comment est organisé votre réseau, et les toutes premières étapes.</p>
+            </div>
+
+            <section class="sn-help-section">
+                <h2>Qu'est-ce que Subnetory ?</h2>
+                <p>
+                    Subnetory est un outil de gestion d'adresses IP (IPAM) léger et auto-hébergé. Il permet de
+                    tenir l'inventaire de vos sous-réseaux IPv4, d'enregistrer et rechercher des adresses IP
+                    avec leurs métadonnées (nom d'hôte, MAC, description), de trouver rapidement les adresses
+                    disponibles dans un sous-réseau, d'importer et exporter des adresses en CSV ou Excel, et de
+                    gérer plusieurs contextes de routage (VRF) et plusieurs sites.
+                </p>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Comment est organisé votre réseau</h2>
+                <p>Subnetory range les données selon une hiérarchie à quatre niveaux :</p>
+                <div class="sn-command-preview">
+                    <span>Hiérarchie</span>
+                    <code>Contexte (VRF) → Site → VLAN (optionnel) et Sous-réseau → Adresse IP</code>
+                </div>
+                <p>
+                    Un <strong>contexte</strong> représente un espace de routage (VRF, table de routage) — utile
+                    si vous gérez plusieurs clients ou environnements cloisonnés. Un <strong>site</strong> est un
+                    emplacement physique ou logique rattaché à un contexte. Un <strong>VLAN</strong> est
+                    optionnel et se rattache à un site. Un <strong>sous-réseau</strong> (ex. <code>192.168.1.0/24</code>)
+                    se rattache à un site et peut être associé à un VLAN. Chaque <strong>adresse IP</strong>
+                    appartient à un sous-réseau.
+                </p>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Les toutes premières étapes</h2>
+                <div class="sn-help-step-list">
+                    <div class="sn-help-step">
+                        <span class="sn-help-step-text">
+                            <strong>Créer un contexte</strong> — menu <em>Contextes → Nouveau contexte</em>.
+                            Un seul suffit si vous ne gérez qu'un environnement.
+                        </span>
+                    </div>
+                    <div class="sn-help-step">
+                        <span class="sn-help-step-text">
+                            <strong>Créer un site</strong> — menu <em>Sites → Nouveau site</em>, rattaché au
+                            contexte créé à l'étape précédente.
+                        </span>
+                    </div>
+                    <div class="sn-help-step">
+                        <span class="sn-help-step-text">
+                            <strong>Créer un VLAN</strong> (optionnel) — menu <em>VLANs → Nouveau VLAN</em>.
+                        </span>
+                    </div>
+                    <div class="sn-help-step">
+                        <span class="sn-help-step-text">
+                            <strong>Créer un sous-réseau</strong> — menu <em>Sous-réseaux → Nouveau
+                            sous-réseau</em>, par exemple <code>192.168.1.0/24</code> avec la passerelle
+                            <code>192.168.1.1</code>.
+                        </span>
+                    </div>
+                    <div class="sn-help-step">
+                        <span class="sn-help-step-text">
+                            <strong>Créer une adresse IP</strong> — menu <em>Adresses IP → Nouvelle adresse</em>.
+                            Voir <a th:href="@{/help/adresses-ip}">le guide dédié</a> pour l'assistant de
+                            suggestion d'IP disponible.
+                        </span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Le sélecteur de contexte actif</h2>
+                <p>
+                    En haut de chaque page se trouve un sélecteur de <strong>contexte actif</strong>. Une fois un
+                    contexte sélectionné, toutes les listes (sites, VLAN, sous-réseaux, adresses) sont filtrées
+                    à ce contexte, et les nouvelles ressources créées y sont automatiquement rattachées. Un
+                    bandeau rappelle le contexte actif en haut de page. Le bouton ↺ à côté du sélecteur
+                    réinitialise le filtre pour revoir l'ensemble des contextes.
+                </p>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Pour aller plus loin</h2>
+                <p>
+                    <a th:href="@{/help/reseau}">Contextes, sites, VLAN &amp; sous-réseaux</a> — organiser la
+                    hiérarchie de votre réseau.<br>
+                    <a th:href="@{/help/adresses-ip}">Adresses IP</a> — créer, rechercher et réserver des
+                    adresses.<br>
+                    <a th:href="@{/help/import-export}">Import &amp; export</a> — reprendre un inventaire
+                    existant.
+                </p>
+            </section>
+        </div>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

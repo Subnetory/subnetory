@@ -1,0 +1,2732 @@
+/* Subnetory — Design System */
+
+/* Variables */
+:root {
+  /* Couleurs */
+  --color-bg:          #f7f7f8;
+  --color-surface:     #ffffff;
+  --color-surface-alt: #f2f3f5;
+  --color-border:      #e3e5ea;
+  --color-border-soft: #eceef2;
+
+  --color-text-primary:   #1a1d23;
+  --color-text-secondary: #5a6475;
+  --color-text-muted:     #9aa3b0;
+
+  --color-accent:         #2f8ff0;
+  --color-accent-hover:   #2378cf;
+  --color-accent-light:   #eef6ff;
+  --color-accent-border:  #d7e8fb;
+
+  --color-success:        #16a34a;
+  --color-success-light:  #f0fdf4;
+  --color-warning:        #d97706;
+  --color-warning-light:  #fffbeb;
+  --color-danger:         #b42318;
+  --color-danger-light:   #fff4f2;
+
+  /* Typographie */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text',
+               'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code',
+               'JetBrains Mono', monospace;
+
+  --text-xs:   0.72rem;
+  --text-sm:   0.825rem;
+  --text-base: 0.9375rem;
+  --text-lg:   1.0625rem;
+  --text-xl:   1.25rem;
+  --text-2xl:  1.5rem;
+
+  /* Espacements */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+
+  /* Bordures */
+  --radius-sm:  4px;
+  --radius-md:  8px;
+  --radius-lg:  16px;
+  --radius-xl:  22px;
+
+  /* Ombres */
+  --shadow-xs: 0 1px 2px 0 rgba(0,0,0,.05);
+  --shadow-sm: 0 1px 3px 0 rgba(0,0,0,.08), 0 1px 2px -1px rgba(0,0,0,.06);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,.07), 0 2px 4px -2px rgba(0,0,0,.05);
+
+  /* Navbar */
+  --navbar-height: 56px;
+  --sidebar-width: 0px; /* pas de sidebar pour l'instant */
+}
+
+/* Application shell — interface claire inspirée des interfaces mobiles */
+.sn-appbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  min-height: 82px;
+  display: grid;
+  grid-template-columns: max-content minmax(560px, 1fr) max-content;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 22px;
+  background: rgba(255,255,255,.94);
+  border-bottom: 1px solid rgba(218,224,234,.9);
+  box-shadow: 0 8px 30px rgba(32,48,79,.07);
+  backdrop-filter: blur(18px);
+}
+
+.sn-appbar__left,
+.sn-appbar__right,
+.sn-main-nav,
+.sn-context-switcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sn-appbar__center {
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+}
+
+.sn-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-right: 4px;
+  color: #121926;
+  font-weight: 750;
+  letter-spacing: -.025em;
+  text-decoration: none;
+}
+.sn-brand:hover { text-decoration: none; }
+.sn-brand__mark {
+  width: 35px;
+  height: 35px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  color: #fff;
+  background: linear-gradient(145deg, #3b82f6, #2563eb);
+  box-shadow: 0 7px 16px rgba(47,143,240,.18);
+}
+
+.sn-nav-tile {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 11px;
+  border: 1px solid transparent;
+  border-radius: 13px;
+  color: #536076;
+  font-size: .79rem;
+  font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: transform .15s ease, background .15s ease, color .15s ease, box-shadow .15s ease;
+}
+.sn-nav-tile:hover {
+  color: #2b6ea8;
+  background: #f2f4f7;
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+.sn-nav-tile.active {
+  color: #1677d2;
+  background: #eef6ff;
+  border-color: #d7e8fb;
+  box-shadow: 0 3px 12px rgba(47,143,240,.07);
+}
+.sn-nav-tile__icon {
+  width: 23px;
+  height: 23px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(47,143,240,.09);
+  color: #2f8ff0;
+  font-size: .95rem;
+}
+
+.sn-context-switcher {
+  padding: 5px;
+  border: 1px solid #e0e6ef;
+  border-radius: 15px;
+  background: #f8fafc;
+}
+.sn-context-switcher__form { display: flex; align-items: center; gap: 6px; }
+.sn-context-switcher__label {
+  padding-left: 5px;
+  color: #778297;
+  font-size: .68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .055em;
+}
+.sn-context-switcher__select {
+  max-width: 170px;
+  height: 31px;
+  padding: 0 27px 0 9px;
+  border: 0;
+  border-radius: 9px;
+  outline: 0;
+  background: #fff;
+  color: #1d2939;
+  font: inherit;
+  font-size: .79rem;
+  font-weight: 650;
+  box-shadow: 0 1px 3px rgba(16,24,40,.08);
+}
+.sn-context-switcher__reset,
+.sn-logout-form { margin: 0; }
+.sn-icon-button {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #e1e7ef;
+  border-radius: 11px;
+  color: #607087;
+  background: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.sn-icon-button:hover { color: #2b6ea8; background: #f2f4f7; }
+
+.sn-profile-chip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 3px 9px 3px 4px;
+  border: 1px solid #e1e7ef;
+  border-radius: 999px;
+  color: #273348;
+  background: #fff;
+  text-decoration: none;
+}
+.sn-profile-chip:hover {
+  color: #2b6ea8;
+  text-decoration: none;
+  border-color: #d7e8fb;
+  background: #f8fafc;
+  box-shadow: 0 8px 20px rgba(30,48,82,.08);
+}
+.sn-profile-chip__avatar {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #eef6ff;
+  color: #1677d2;
+  font-size: .66rem;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+.sn-profile-chip__text { display: grid; line-height: 1.05; }
+.sn-profile-chip__text strong { max-width: 94px; overflow: hidden; text-overflow: ellipsis; font-size: .73rem; }
+.sn-profile-chip__text small { color: #8b96a8; font-size: .6rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+
+.sn-context-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 31px;
+  padding: 5px 16px;
+  color: #556170;
+  background: #f2f4f7;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: .78rem;
+}
+.sn-context-banner__dot { width: 7px; height: 7px; border-radius: 50%; background: #2f8ff0; box-shadow: 0 0 0 4px rgba(47,143,240,.1); }
+
+.sn-card,
+.sn-stat-card { border-radius: var(--radius-xl); box-shadow: 0 12px 32px rgba(30,48,82,.07); }
+.sn-page { padding-top: 30px; padding-bottom: 42px; }
+/* Ancienne regle .sn-page__title (font-size/font-weight) supprimee d'ici
+   (01/08/2026) : elle entrait en conflit avec la definition plus bas
+   (ligne ~421) sur les memes proprietes, la seconde l'emportant a la
+   cascade (meme specificite, plus loin dans le fichier) et rendant ce
+   doublon totalement sans effet. Resultat : le titre de page rendait plus
+   petit/plus fade que prevu. Taille et graisse fixees une seule fois
+   au bon endroit desormais. */
+
+@media (max-width: 1380px) {
+  .sn-appbar { grid-template-columns: 1fr; gap: 9px; }
+  .sn-appbar__left, .sn-appbar__right { position: absolute; top: 12px; }
+  .sn-appbar__left { left: 18px; }
+  .sn-appbar__right { right: 18px; }
+  .sn-appbar__center { padding-top: 48px; flex-wrap: wrap; }
+}
+
+@media (max-width: 820px) {
+  .sn-appbar { position: relative; padding: 12px; }
+  .sn-appbar__left, .sn-appbar__right { position: static; }
+  .sn-appbar__left, .sn-appbar__right, .sn-appbar__center, .sn-main-nav { flex-wrap: wrap; justify-content: center; }
+  .sn-appbar__center { padding-top: 0; }
+  .sn-profile-chip__text, .sn-nav-tile span:last-child { display: none; }
+  .sn-context-switcher__label { display: none; }
+}
+
+/* Reset */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+a:hover { text-decoration: underline; }
+
+/* Navbar */
+.sn-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: var(--navbar-height);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: var(--shadow-xs);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-6);
+  gap: var(--space-8);
+}
+
+.sn-navbar__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 700;
+  font-size: var(--text-lg);
+  color: var(--color-text-primary);
+  letter-spacing: -0.02em;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.sn-navbar__brand:hover { text-decoration: none; }
+
+/* Harmonise avec .sn-brand__mark (appbar moderne) : avant le 31/07/2026,
+   ce mini-point etait la seule marque visuelle des pages error/*.html et
+   auth/*.html, qui gardaient un habillage nettement plus date que le reste
+   de l'application deja passee au .sn-appbar moderne. */
+.sn-navbar__brand-dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, #3b82f6, #2563eb);
+  box-shadow: 0 5px 12px rgba(47,143,240,.18);
+  flex-shrink: 0;
+}
+
+.sn-navbar__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 1;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sn-navbar__link {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  transition: background 0.12s, color 0.12s;
+  text-decoration: none;
+}
+.sn-navbar__link:hover {
+  background: var(--color-surface-alt);
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+.sn-navbar__link.active {
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+}
+
+.sn-navbar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.sn-navbar__user {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+/* Layout */
+.sn-layout {
+  min-height: calc(100vh - var(--navbar-height));
+}
+
+.sn-page {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-6);
+}
+/* Rythme vertical uniforme entre les sections d'une page (audit du
+   31/07/2026) : avant cette regle, l'espacement entre sections dependait
+   du margin-bottom propre a chaque composant (sn-ldap-overview: 20px,
+   sn-stat-grid: 24px, sn-admin-grid--ldap: 0px...), donnant un espacement
+   incoherent en descendant une meme page. Un seul intervalle, applique au
+   niveau du conteneur, remplace ces marges eparpillees. */
+.sn-page > * + * {
+  margin-top: var(--space-6);
+}
+
+.sn-page__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-5);
+  gap: var(--space-4);
+}
+
+.sn-page__title {
+  font-size: 1.75rem;
+  font-weight: 750;
+  line-height: 1.15;
+  color: var(--color-text-primary);
+  letter-spacing: -0.025em;
+  margin: 0;
+}
+
+.sn-page__subtitle {
+  font-size: var(--text-base);
+  color: var(--color-text-secondary);
+  margin: 6px 0 0 0;
+  line-height: 1.4;
+}
+
+.sn-page__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Cards */
+.sn-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.sn-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border-soft);
+  gap: var(--space-4);
+}
+
+.sn-card__title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+/* Sous-titre secondaire dans un sn-card__header (ex: "Tokens API", "MFA")
+   -- utilise sans definition jusqu'ici (audit du 31/07/2026). */
+.sn-card__subtitle {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+/* Groupe d'actions/badges aligne a droite dans un sn-card__header (deja en
+   justify-content: space-between) -- utilise sans definition jusqu'ici
+   (audit du 31/07/2026). */
+.sn-card__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* Tables */
+.sn-table-wrapper {
+  overflow-x: auto;
+}
+
+.sn-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.sn-table thead tr {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sn-table th {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  background: var(--color-surface-alt);
+}
+
+.sn-table td {
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text-primary);
+  border-bottom: 1px solid var(--color-border-soft);
+  vertical-align: middle;
+}
+
+.sn-table tbody tr:last-child td { border-bottom: none; }
+
+.sn-table tbody tr {
+  transition: background 0.1s;
+}
+.sn-table tbody tr:hover {
+  background: var(--color-surface-alt);
+}
+
+.sn-table tbody tr.clickable {
+  cursor: pointer;
+}
+
+.sn-table--empty td {
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: var(--space-10);
+  font-size: var(--text-sm);
+}
+
+.sn-cell-mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+/* Badges */
+.sn-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.sn-badge--neutral {
+  background: var(--color-surface-alt);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+.sn-badge--blue {
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent-border);
+}
+.sn-badge--green {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+.sn-badge--orange {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+}
+.sn-badge--danger {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+}
+/* Meme teinte que .sn-stat-card__icon--purple, pour la sauvegarde "Importee" (audit 01/08/2026). */
+.sn-badge--purple {
+  background: #f1ecff;
+  color: #7047c6;
+}
+
+/* Buttons */
+.sn-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: 32px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+  text-decoration: none;
+  white-space: nowrap;
+  font-family: var(--font-sans);
+}
+.sn-btn:disabled, .sn-btn--disabled {
+  /* Etat desactive uniforme, quelle que soit la variante (primary/danger/...) :
+     un simple opacity: .45 sur un bouton deja pale (ex. sn-btn--danger, fond
+     rose clair + texte rouge clair) le rendait quasi illisible et donnait
+     l'impression d'un rendu casse plutot que d'un etat desactive (audit
+     backup/restore, 31/07/2026). Le gris neutre reste lisible et signale
+     clairement "pas encore actionnable" sans dependre de la teinte de la
+     variante. */
+  opacity: 1;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: var(--color-surface-alt, #f3f4f6) !important;
+  color: var(--color-text-muted, #9aa3b2) !important;
+  border-color: var(--color-border, #e5e7eb) !important;
+}
+
+.sn-btn--primary {
+  background: #1d1f23;
+  color: #fff;
+  border-color: #1d1f23;
+}
+.sn-btn--primary:hover {
+  background: #2b2d31;
+  border-color: #2b2d31;
+  text-decoration: none;
+  color: #fff;
+}
+
+.sn-btn--ghost {
+  background: #fff;
+  color: #374151;
+  border-color: var(--color-border);
+}
+.sn-btn--ghost:hover {
+  background: var(--color-surface-alt);
+  text-decoration: none;
+}
+
+/* Alias de .sn-btn--ghost : classe utilisee massivement dans les templates
+   (boutons "Modifier"/"Annuler") mais jamais definie jusqu'ici -> ces
+   boutons n'avaient aucun style (audit du 31/07/2026). */
+.sn-btn--secondary {
+  background: #fff;
+  color: #374151;
+  border-color: var(--color-border);
+}
+.sn-btn--secondary:hover {
+  background: var(--color-surface-alt);
+  text-decoration: none;
+}
+
+.sn-btn--sm {
+  height: 26px;
+  padding: 0 var(--space-3);
+  font-size: var(--text-xs);
+  border-radius: var(--radius-sm);
+}
+
+.sn-btn--danger {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+  border-color: #fecdca;
+}
+
+/* Search */
+.sn-search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.sn-search__input {
+  height: 32px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  outline: none;
+  transition: border-color 0.12s, box-shadow 0.12s;
+  min-width: 200px;
+}
+.sn-search__input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+}
+.sn-search__input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.sn-search__select {
+  height: 32px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.12s;
+}
+.sn-search__select:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+}
+
+/* Pagination */
+.sn-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--color-border-soft);
+  gap: var(--space-4);
+}
+
+.sn-pagination__info {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.sn-pagination__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.sn-pagination__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+}
+.sn-pagination__btn:hover {
+  background: var(--color-surface-alt);
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+.sn-pagination__btn.active {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+.sn-pagination__btn:disabled,
+.sn-pagination__btn--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Detail */
+.sn-detail {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-4);
+  padding: var(--space-5);
+}
+
+.sn-detail__field {}
+
+.sn-detail__label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: var(--space-1);
+}
+
+.sn-detail__value {
+  font-size: var(--text-base);
+  color: var(--color-text-primary);
+}
+.sn-detail__value--mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+.sn-detail__value--empty {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* Error pages */
+.sn-error-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - var(--navbar-height));
+  padding: var(--space-8);
+  text-align: center;
+}
+
+.sn-error-page__code {
+  font-size: 4.5rem;
+  font-weight: 800;
+  color: var(--color-border);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  margin-bottom: var(--space-3);
+}
+
+.sn-error-page__title {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.sn-error-page__message {
+  font-size: var(--text-base);
+  color: var(--color-text-secondary);
+  max-width: 420px;
+  margin-bottom: var(--space-6);
+}
+
+/* Scan result */
+.sn-scan-result {
+  margin-top: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+}
+.sn-scan-result--success {
+  background: var(--color-success-light);
+  color: var(--color-success);
+  border: 1px solid #bbf7d0;
+}
+.sn-scan-result--error {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+  border: 1px solid #fecaca;
+}
+.sn-scan-result--warning {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+  border: 1px solid #fed7aa;
+}
+.sn-scan-result__row { margin-bottom: var(--space-1); }
+.sn-scan-result__row:last-child { margin-bottom: 0; }
+
+/* Alerts */
+.sn-alert {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  border: 1px solid transparent;
+  margin-bottom: var(--space-4);
+}
+.sn-alert--info {
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+  border-color: var(--color-accent-border);
+}
+
+/* Utils */
+.sn-text-muted     { color: var(--color-text-muted); }
+.sn-text-secondary { color: var(--color-text-secondary); }
+.sn-text-mono      { font-family: var(--font-mono); font-size: var(--text-xs); }
+.sn-truncate       { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sn-sr-only        { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+/* Valeur cliquable pour copie (empreintes SHA-256, etc.) — voir app.js, [data-copy-value] */
+.sn-copyable {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 1px 3px;
+  margin: -1px -3px;
+  transition: background-color .15s ease, color .15s ease;
+}
+.sn-copyable:hover,
+.sn-copyable:focus-visible {
+  background: var(--color-accent-bg, #eef2ff);
+  color: var(--color-accent, #4338ca);
+  outline: none;
+}
+.sn-copyable--copied {
+  background: #e9f8f1;
+  color: #16845a;
+}
+.sn-mt-1           { margin-top: 2px; }
+.sn-mt-3           { margin-top: 12px; }
+.sn-mt-4           { margin-top: 16px; }
+.sn-mt-5           { margin-top: 20px; }
+.sn-ml-2           { margin-left: var(--space-2); }
+.sn-input--narrow  { max-width: 140px; }
+.sn-input--w120    { max-width: 120px; }
+.sn-input--w200    { max-width: 200px; }
+/* CSP style-src 'self' (sans unsafe-inline, cf. SecurityConfig) interdit
+   tout style="" inline sur les pages admin/web (audit du 01/08/2026,
+   violations silencieusement bloquees par le navigateur) : ces utilitaires
+   remplacent les style="" ponctuels rencontres dans les templates backup/
+   audit-log plutot que d'ajouter 'unsafe-inline' a la politique. */
+.sn-text-danger    { color: var(--color-danger); }
+.sn-text-xs        { font-size: var(--text-xs); }
+.sn-fw-medium      { font-weight: 500; }
+.sn-input--auto-h  { height: auto; padding: 8px 12px; word-break: break-all; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sn-page { padding: var(--space-4); }
+  .sn-navbar { padding: 0 var(--space-4); }
+  .sn-detail { grid-template-columns: 1fr; }
+  .sn-pagination { flex-direction: column; gap: var(--space-2); }
+  .sn-page__header { flex-direction: column; align-items: flex-start; }
+}
+/* Utility classes */
+
+/* Barre de filtres avec marge supérieure */
+.sn-filter-bar {
+  margin-bottom: var(--space-4);
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Cellule description tronquée avec max-width */
+.sn-cell-desc {
+  max-width: 200px;
+}
+
+/* Input de recherche étroit (ex: champ MAC) */
+.sn-search__input--narrow {
+  max-width: 180px;
+}
+
+/* Formulaire inline (ex: bouton scan dans un tableau) — la definition
+   effective est plus bas (ligne ~1034, display: inline-flex), celle-ci
+   n'avait plus aucun effet (audit du 31/07/2026), conservee en commentaire
+   pour eviter une redefinition future en double. */
+
+/* Lien de ligne de tableau */
+.sn-row-link {
+  color: var(--color-text-primary);
+  text-decoration: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+.sn-row-link:hover {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+.sn-logout-form { margin: 0; }
+
+/* Marge basse utilitaire */
+.sn-mb-2 {
+  margin-bottom: var(--space-2);
+}
+
+/* Messages flash sur les pages */
+.sn-flash-success {
+  margin-bottom: var(--space-4);
+}
+.sn-flash-error {
+  margin-bottom: var(--space-4);
+}
+/* Login */
+.sn-login-body { display:flex; align-items:center; justify-content:center;
+               min-height:100vh; background:var(--color-bg); }
+.sn-login-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-8);
+}
+
+.sn-login-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  letter-spacing: -0.02em;
+  margin-bottom: var(--space-1);
+}
+
+.sn-login-subtitle {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-6) 0;
+}
+
+.sn-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.sn-login-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.sn-login-label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.sn-login-input {
+  height: 40px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  font-family: var(--font-sans);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  outline: none;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.sn-login-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+}
+
+.sn-login-submit {
+  height: 40px;
+  width: 100%;
+  margin-top: var(--space-2);
+  font-size: var(--text-base);
+}
+
+.sn-alert--danger {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+  border-color: #fecaca;
+  margin-bottom: var(--space-4);
+}
+
+/* Alias utilises par de nombreux templates (flashSuccess/flashError) mais
+   jamais definis jusqu'ici -> messages de confirmation/erreur sans code
+   couleur (audit du 31/07/2026). */
+.sn-alert--success {
+  background: var(--color-success-light);
+  color: var(--color-success);
+  border-color: #bbf7d0;
+  margin-bottom: var(--space-4);
+}
+.sn-alert--error {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+  border-color: #fecaca;
+  margin-bottom: var(--space-4);
+}
+
+/* Ajoute au trio existant (info/success/error) pour les callouts d'attention
+   non bloquants (aide/documentation, 01/08/2026) : distinct du rouge
+   "erreur/danger" pour ne pas donner une fausse impression d'echec. */
+.sn-alert--warning {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+  border-color: #fed7aa;
+  margin-bottom: var(--space-4);
+}
+
+
+.sn-form-card {
+    max-width: 640px;
+}
+
+.sn-form-group {
+    margin-bottom: 1.25rem;
+}
+
+.sn-form-label {
+    display: block;
+    font-size: .875rem;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: .375rem;
+}
+
+.sn-form-required {
+    color: var(--color-danger);
+    margin-left: .125rem;
+}
+
+.sn-form-control {
+    display: block;
+    width: 100%;
+    min-height: 40px;
+    padding: .5rem .75rem;
+    font-size: .875rem;
+    line-height: 1.5;
+    color: #111827;
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    box-sizing: border-box;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.sn-form-control:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(47, 143, 240, .14);
+}
+
+.sn-form-group--error .sn-form-control {
+    border-color: var(--color-danger);
+}
+
+.sn-form-group--error .sn-form-control:focus {
+    box-shadow: 0 0 0 3px rgba(180, 35, 24, .14);
+}
+
+textarea.sn-form-control {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.sn-form-error {
+    display: block;
+    font-size: .8125rem;
+    color: var(--color-danger);
+    margin-top: .25rem;
+}
+
+.sn-form-actions {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    margin-top: 1.75rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid #f3f4f6;
+}
+
+.sn-inline-form {
+    display: inline-flex;
+    margin: 0;
+    padding: 0;
+}
+
+.sn-table-col-actions {
+    width: 1%;
+    white-space: nowrap;
+}
+
+.sn-table-col-actions--subnets {
+    text-align: left !important;
+    padding-left: 30px !important;
+}
+
+.sn-table-col-scan {
+    width: 1%;
+    text-align: center !important;
+    white-space: nowrap;
+}
+
+.sn-table-scan {
+    width: 1%;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.sn-table-scan__control {
+    display: inline-flex;
+    justify-content: center;
+    min-width: 112px;
+}
+
+.sn-table-actions {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    white-space: nowrap;
+}
+
+.sn-table td.sn-table-actions {
+    display: table-cell;
+    vertical-align: middle;
+    text-align: right;
+}
+
+.sn-table td.sn-table-actions--subnets {
+    text-align: center;
+}
+
+.sn-table-action-group {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    min-width: 190px;
+}
+
+.sn-table td.sn-table-actions > .sn-btn,
+.sn-table td.sn-table-actions > .sn-inline-form {
+    display: inline-flex;
+    vertical-align: middle;
+}
+
+.sn-table td.sn-table-actions > .sn-table-action-group {
+    vertical-align: middle;
+}
+
+.sn-table td.sn-table-actions > .sn-inline-form {
+    margin-left: .5rem;
+}
+
+.sn-table-action-group > .sn-inline-form {
+    margin-left: 0 !important;
+}
+
+.sn-btn--danger {
+    color: var(--color-danger);
+    background: var(--color-danger-light);
+    border-color: #fecdca;
+}
+
+.sn-btn--danger:hover {
+    color: #ffffff;
+    background: var(--color-danger);
+    border-color: var(--color-danger);
+}
+
+
+/* sn-form-group--checkbox / sn-form-label--checkbox / sn-form-checkbox
+   retirees le 01/08/2026 : remplacees partout par .sn-chip-checkbox
+   (voir plus bas et backend/docs/UI_STYLE_GUIDE.md). */
+
+
+.sn-admin-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+}
+
+.sn-admin-grid > .sn-card {
+    padding: 1.5rem;
+}
+
+.sn-admin-grid > .sn-card > .sn-card__header {
+    margin: -1.5rem -1.5rem 1.25rem;
+}
+
+@media (min-width: 900px) {
+    .sn-admin-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* Anciennement une deuxieme definition de .sn-card__title qui entrait en
+   conflit avec celle plus haut (ligne ~445) : les proprietes fusionnaient
+   sans coherence, ajoutant une bordure et une marge parasites sous tous les
+   titres de carte "modernes" (formulaires reseau, dashboard, profil...).
+   Remplace par un modificateur explicite, applique uniquement la ou ce
+   style (plus grand, avec separateur) est reellement voulu (audit du
+   31/07/2026). */
+.sn-card__title--bordered {
+    font-size: .9375rem;
+    font-weight: 600;
+    color: #111827;
+    margin: 0 0 1.25rem;
+    padding-bottom: .75rem;
+    border-bottom: 1px solid #f3f4f6;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+/* Chips en ligne avec retour a la ligne (audit UI, 01/08/2026) : liste de
+   roles/contextes, auparavant empilee verticalement (checkbox carree +
+   texte, une ligne par option) — remplacee par des pastilles compactes qui
+   se surlignent a la selection, cf. .sn-chip-checkbox ci-dessous. */
+.sn-roles-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    margin-bottom: 1rem;
+}
+
+.sn-badge--green {
+    background: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+/* Ancien doublon de .sn-mb-2 (defini une premiere fois ligne ~872) qui
+   ajoutait "display: inline-block", cassant silencieusement les boutons
+   inline-flex qui portent aussi cette classe (audit du 31/07/2026) :
+   supprime, la premiere definition (margin-bottom seul) suffit. */
+
+/* ── Dashboard Sprint 2.7 ──────────────────────────────────────────────── */
+
+.sn-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--space-4);
+}
+/* Variante centree pour un nombre de cartes inferieur au nombre habituel de
+   colonnes (5, voir plus bas) : au lieu de laisser les cartes s'etirer sur
+   des colonnes vides (repeat(5,...) avec seulement 3 cartes -> cartes
+   tassees a gauche, grand vide a droite), les cartes gardent une largeur
+   naturelle et le groupe est centre (audit du 31/07/2026, admin/backup.html).
+   !important necessaire : la regle .sn-stat-grid { grid-template-columns:
+   repeat(5, minmax(150px, 1fr)) } plus bas dans ce fichier (calibree pour
+   les 5 cartes du dashboard) est declaree apres celle-ci et gagnerait sinon
+   la cascade a specificite egale, y compris sur ce modificateur. */
+.sn-stat-grid--auto {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 220px)) !important;
+  justify-content: center;
+}
+
+.sn-stat-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-5);
+  text-align: center;
+}
+
+.sn-stat-card--link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 0.12s, border-color 0.12s;
+}
+.sn-stat-card--link:hover {
+  border-color: var(--color-accent-border);
+  box-shadow: var(--shadow-md);
+  text-decoration: none;
+}
+
+.sn-stat-card__value {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin-bottom: var(--space-1);
+}
+
+.sn-stat-card__label {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+/* Colonne utilisation dans le tableau top-subnets */
+.sn-util-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 140px;
+}
+
+.sn-util-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--color-border);
+  border-radius: 3px;
+  overflow: hidden;
+  min-width: 60px;
+}
+
+.sn-util-bar__fill {
+  height: 100%;
+  border-radius: 3px;
+}
+
+.sn-util-bar__fill--low    { background: var(--color-success); }
+.sn-util-bar__fill--medium { background: var(--color-warning); }
+.sn-util-bar__fill--high   { background: var(--color-danger); }
+
+.sn-util-pct {
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  min-width: 36px;
+  text-align: right;
+}
+
+/* Finitions visuelles du tableau de bord */
+.sn-card,
+.sn-stat-card {
+  border-radius: 22px;
+  box-shadow: 0 12px 32px rgba(30,48,82,.07);
+}
+.sn-stat-grid { grid-template-columns: repeat(5, minmax(150px, 1fr)); gap: 16px; }
+.sn-stat-card {
+  min-height: 156px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 5px;
+  padding: 21px;
+  text-align: left;
+}
+.sn-stat-card--link { transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+.sn-stat-card--link:hover { transform: translateY(-3px); box-shadow: 0 17px 38px rgba(30,48,82,.12); }
+.sn-stat-card__icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 3px;
+  border-radius: 14px;
+  font-size: 1.15rem;
+  font-weight: 750;
+}
+.sn-stat-card__icon--blue { color: #1d5ed6; background: #eaf2ff; }
+.sn-stat-card__icon--green { color: #16845a; background: #e9f8f1; }
+.sn-stat-card__icon--purple { color: #7047c6; background: #f1ecff; }
+.sn-stat-card__icon--orange { color: #bb651b; background: #fff2e7; }
+.sn-stat-card__icon--cyan { color: #087d94; background: #e6f8fc; }
+
+@media (max-width: 1050px) { .sn-stat-grid { grid-template-columns: repeat(2, minmax(150px, 1fr)); } }
+@media (max-width: 560px) { .sn-stat-grid { grid-template-columns: 1fr; } }
+
+/* Page d'import */
+.sn-import-page { max-width: 1080px; }
+.sn-import-back { display: inline-block; margin-bottom: 8px; color: #64748b; font-size: .82rem; font-weight: 650; }
+.sn-import-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 25px;
+  margin-bottom: 20px;
+  padding: 22px 24px;
+  border: 1px solid #e1e6ee;
+  border-radius: 24px;
+  background: linear-gradient(135deg, #f5f9ff 0%, #fff 62%);
+  box-shadow: 0 12px 35px rgba(30,48,82,.07);
+}
+.sn-import-hero__intro { display: flex; align-items: center; gap: 14px; }
+.sn-import-hero__intro h2 { margin: 0; font-size: 1.08rem; }
+.sn-import-hero__intro p { margin: 2px 0 0; color: #758198; font-size: .84rem; }
+.sn-import-hero__icon { width: 45px; height: 45px; display: grid; place-items: center; border-radius: 15px; color: #fff; background: var(--color-accent); font-size: 1.3rem; box-shadow: 0 8px 18px rgba(47,143,240,.16); }
+.sn-import-safety { max-width: 390px; display: grid; gap: 2px; padding: 11px 14px; border-radius: 14px; color: #247252; background: #ecf9f3; font-size: .76rem; transition: background .15s, color .15s; }
+.sn-import-safety span { color: #4a7565; }
+.sn-import-safety a { color: inherit; font-weight: 700; text-decoration: underline; }
+/* Etat bloquant : aucun contexte actif, l'import n'est pas possible tant
+   qu'un contexte n'est pas selectionne (audit 01/08/2026). Rouge/vert pour
+   un statut binaire immediatement lisible (bloque vs autorise). */
+.sn-import-safety--blocked { color: var(--color-danger); background: var(--color-danger-light); }
+.sn-import-safety--blocked span { color: var(--color-danger); }
+/* display:flex + align-items:center pour centrer les enfants, plutot que
+   margin:auto sur chaque enfant : le bouton (.sn-btn est inline-flex) et le
+   label flex (.sn-import-option) ne sont pas des boites de bloc "normal
+   flow", donc margin:auto ne les centre pas (bug constate le 01/08/2026,
+   contenu colle a gauche malgre max-width). Centrer via le parent flex
+   fonctionne quel que soit le display de l'enfant. */
+.sn-import-fieldset {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.sn-import-fieldset:disabled { opacity: .5; }
+.sn-import-fieldset:disabled .sn-file-drop,
+.sn-import-fieldset:disabled .sn-import-option { cursor: not-allowed; pointer-events: none; }
+.sn-import-fieldset > .sn-file-drop,
+.sn-import-fieldset > .sn-import-option,
+.sn-import-fieldset > .sn-import-submit {
+  width: 100%;
+  max-width: 640px;
+  margin: 0;
+}
+.sn-import-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.sn-import-grid--single { grid-template-columns: 1fr; }
+.sn-import-card { padding: 25px; border: 1px solid #e1e6ee; border-radius: 24px; background: #fff; box-shadow: 0 12px 35px rgba(30,48,82,.07); }
+.sn-import-card--single { padding: 28px; }
+.sn-import-card h2 { margin: 12px 0 4px; font-size: 1.15rem; }
+.sn-import-card > p { min-height: 44px; margin: 0 0 18px; color: #758198; font-size: .82rem; }
+.sn-import-formats { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.sn-import-card__format { width: max-content; padding: 4px 9px; border-radius: 8px; font-size: .68rem; font-weight: 800; letter-spacing: .06em; }
+.sn-import-card__format--csv { color: #16754d; background: #e8f7f0; }
+.sn-import-card__format--xlsx { color: #1e5cc3; background: #eaf2ff; }
+.sn-file-drop { min-height: 155px; display: grid; place-items: center; align-content: center; gap: 4px; padding: 18px; border: 1.5px dashed #bfcce0; border-radius: 18px; color: #35435a; background: #f9fbfe; text-align: center; cursor: pointer; transition: border-color .15s, background .15s, box-shadow .15s, transform .15s; }
+.sn-file-drop:hover,
+.sn-file-drop.is-dragover { border-color: var(--color-accent); background: var(--color-accent-light); box-shadow: 0 12px 28px rgba(47,143,240,.1); transform: translateY(-1px); }
+.sn-file-drop.has-file { border-color: #64b98b; background: #f4fbf7; }
+.sn-file-drop__icon { width: 36px; height: 36px; display: grid; place-items: center; margin-bottom: 4px; border-radius: 12px; color: var(--color-accent); background: var(--color-accent-light); font-size: 1.2rem; }
+.sn-file-drop small { color: #8c97a9; }
+.sn-file-drop input { width: 100%; margin-top: 9px; color: #66738a; font-size: .76rem; }
+.sn-file-drop__name { max-width: 100%; margin-top: 7px; padding: 4px 9px; border-radius: 999px; color: #526078; background: #eef3fa; font-size: .72rem; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Selecteur de fichier compact (audit UI, 01/08/2026) : remplace le bouton
+   natif "Choisir un fichier" (rendu brut, incoherent entre navigateurs) par
+   un bouton sn-btn stylise + nom de fichier, tout en gardant le vrai
+   <input type="file"> natif superpose et transparent pour conserver le
+   focus clavier et l'accessibilite native. Reutilise les hooks JS
+   data-file-drop/data-file-input/data-file-name deja presents pour
+   .sn-file-drop (mise a jour du nom, glisser-deposer). */
+.sn-file-picker { position: relative; display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 0 12px 0 4px; border: 1px solid #d7deea; border-radius: 10px; background: #fff; overflow: hidden; transition: border-color .12s, box-shadow .12s, background .12s; }
+.sn-file-picker:focus-within { border-color: var(--color-accent); box-shadow: 0 0 0 3px rgba(47,143,240,.12); }
+.sn-file-picker.is-dragover { border-color: var(--color-accent); background: var(--color-accent-light); }
+.sn-file-picker.has-file { border-color: #64b98b; }
+.sn-file-picker__btn { flex-shrink: 0; pointer-events: none; }
+.sn-file-picker__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-sm); color: #8c97a9; }
+.sn-file-picker.has-file .sn-file-picker__name { color: var(--color-text-primary); font-weight: 500; }
+.sn-file-picker__input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.sn-import-option { display: flex; align-items: flex-start; gap: 10px; margin: 17px 1px; padding: 10px 12px; border: 1.5px solid transparent; border-radius: 12px; color: #47536a; font-size: .78rem; cursor: pointer; transition: border-color .12s, background .12s; }
+.sn-import-option input { margin-top: 4px; accent-color: var(--color-accent); }
+.sn-import-option span { display: grid; gap: 1px; }
+.sn-import-option small { color: #8a95a7; }
+/* Surbrillance a la selection (audit UI, 01/08/2026) : :has() cible le label
+   englobant directement depuis l'etat de son input, sans avoir a reordonner
+   le HTML existant (checkbox avant le texte, deja le cas ici de toute
+   facon). Coherent avec le principe de surbrillance applique aux chips
+   .sn-chip-checkbox ci-dessous. */
+.sn-import-option:has(input:checked) { border-color: var(--color-accent); background: var(--color-accent-light); }
+.sn-import-option:hover { background: var(--color-surface-alt, #f7f9fc); }
+
+/* Cases a cocher "chip" (audit UI, 01/08/2026) : remplace la case native
+   brute (carre + texte a cote) par une pastille qui se surligne quand
+   selectionnee — reutilisee pour les bascules simples (Activer..., Compte
+   actif...) ET pour les listes a selection multiple (roles, contextes),
+   qui passent d'une liste verticale a des chips en ligne. L'input reel
+   reste dans le DOM (cache visuellement, jamais display:none) : semantique
+   native conservee, un seul <input type="checkbox"> par option, focus
+   clavier et lecteurs d'ecran fonctionnent normalement. Aucune limite sur
+   le nombre selectionnable ici : chaque case reste independante (0, 1 ou
+   plusieurs cases cochables a la fois), exactement comme avant. */
+.sn-chip-checkbox { position: relative; display: inline-flex; align-items: center; cursor: pointer; user-select: none; }
+.sn-chip-checkbox__input {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+.sn-chip-checkbox__pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px 7px 10px;
+    border: 1.5px solid var(--color-border, #d7deea);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--color-text-secondary, #4b5568);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    line-height: 1.2;
+    transition: border-color .12s, background .12s, color .12s;
+}
+.sn-chip-checkbox__pill::before {
+    content: "";
+    flex-shrink: 0;
+    width: 15px; height: 15px;
+    border-radius: 50%;
+    border: 1.5px solid #c2cadb;
+    background: #fff;
+    transition: border-color .12s, background .12s, box-shadow .12s;
+}
+.sn-chip-checkbox:hover .sn-chip-checkbox__pill { border-color: var(--color-accent); }
+/* Combinateur ~ (frère général) et non + (frère immédiat) : th:field sur une
+   checkbox injecte un <input type="hidden" name="_xxx"> juste après elle
+   (compagnon Thymeleaf pour le binding Spring des cases décochées), ce qui
+   casse l'adjacence immédiate attendue par +. */
+.sn-chip-checkbox__input:checked ~ .sn-chip-checkbox__pill {
+    background: var(--color-accent-light);
+    border-color: var(--color-accent);
+    color: var(--color-accent-dark, #1c5fc9);
+}
+.sn-chip-checkbox__input:checked ~ .sn-chip-checkbox__pill::before {
+    border-color: var(--color-accent);
+    background: var(--color-accent);
+    box-shadow: inset 0 0 0 3px #fff;
+}
+.sn-chip-checkbox__input:focus-visible ~ .sn-chip-checkbox__pill {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+}
+.sn-chip-checkbox__input:disabled ~ .sn-chip-checkbox__pill {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+/* Case a cocher compacte, sans texte a cote (lignes de tableau : reservation
+   d'IP en masse...) — meme principe de surbrillance que .sn-chip-checkbox,
+   adapte a un contexte dense ou une pastille avec libelle ne conviendrait
+   pas. Remplace l'apparence native par un carre arrondi qui se remplit et
+   affiche une coche a la selection (audit UI, 01/08/2026). */
+.sn-table-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-grid;
+    place-content: center;
+    width: 18px; height: 18px;
+    border: 1.5px solid #c2cadb;
+    border-radius: 5px;
+    background: #fff;
+    cursor: pointer;
+    transition: border-color .12s, background .12s;
+}
+.sn-table-checkbox:hover { border-color: var(--color-accent); }
+.sn-table-checkbox:checked { background: var(--color-accent); border-color: var(--color-accent); }
+.sn-table-checkbox:checked::after {
+    content: "";
+    width: 5px; height: 9px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg) translate(-1px, -1px);
+}
+.sn-table-checkbox:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.sn-table-checkbox:disabled { opacity: .5; cursor: not-allowed; }
+.sn-import-submit { width: 100%; justify-content: center; min-height: 42px; border-radius: 13px; }
+.sn-import-help { display: grid; gap: 5px; margin-top: 20px; padding: 16px 20px; border: 1px solid #e3e8ef; border-radius: 17px; color: #657187; background: #fff; font-size: .8rem; }
+.sn-import-help code { color: #35435b; white-space: normal; word-break: break-word; }
+.sn-import-schema {
+  display: grid;
+  gap: 20px;
+  margin-top: 22px;
+  padding: 26px;
+  border: 1px solid #e1e6ee;
+  border-radius: 24px;
+  color: var(--color-text-secondary);
+  background: #fff;
+  box-shadow: 0 12px 35px rgba(30,48,82,.07);
+}
+.sn-import-schema__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+.sn-import-schema__header > div {
+  display: grid;
+  gap: 4px;
+}
+.sn-import-schema__header strong {
+  color: var(--color-text-primary);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.sn-import-schema__header span:not(.sn-import-schema__format) {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}
+/* Badge de format : accent plein plutot que .sn-badge--neutral (audit
+   01/08/2026), pour se distinguer visuellement des badges d'etat neutres
+   utilises ailleurs (ex. "Purge") et donner un vrai point focal a l'entete
+   de la carte. */
+.sn-import-schema__format {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent-border);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+.sn-import-schema__grid {
+  display: grid;
+  grid-template-columns: minmax(260px, .85fr) minmax(300px, 1.15fr);
+  gap: 28px;
+}
+/* Groupes "obligatoire"/"optionnel" en panneaux distincts plutot qu'un
+   simple point colore au-dessus des chips (jugé pas assez soigne, retour
+   utilisateur 01/08/2026) : chaque groupe devient un bloc a part entiere
+   avec fond teinte + liseret de couleur, l'en-tete en petite majuscule
+   espacee pour une hierarchie plus nette. */
+.sn-import-schema__group {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border-left: 3px solid var(--color-border);
+  background: var(--color-surface-alt);
+}
+.sn-import-schema__group--required {
+  border-left-color: var(--color-accent);
+  background: var(--color-accent-light);
+}
+.sn-import-schema h3 {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.sn-import-schema__group--required h3 { color: var(--color-accent-hover); }
+.sn-import-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.sn-import-field {
+  display: inline-grid;
+  gap: 3px;
+  min-width: 128px;
+  padding: 10px 13px;
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-border);
+  border-radius: 12px;
+  background: #fff;
+  transition: border-color 0.12s, background 0.12s, transform 0.12s;
+}
+.sn-import-field:hover {
+  transform: translateY(-1px);
+}
+.sn-import-field--required {
+  border-color: var(--color-accent-border);
+  border-left-color: var(--color-accent);
+}
+.sn-import-field code {
+  color: var(--color-text-primary);
+  font-size: .78rem;
+  font-weight: 750;
+}
+.sn-import-field small {
+  color: var(--color-text-muted);
+  font-size: .7rem;
+}
+.sn-import-schema .sn-form-hint {
+  margin: 0;
+  padding: 10px 13px;
+  border-radius: 10px;
+  background: rgba(255,255,255,.65);
+}
+.sn-import-schema .sn-form-hint code {
+  color: var(--color-text-secondary);
+  font-weight: 700;
+}
+@media (max-width: 760px) { .sn-import-grid { grid-template-columns: 1fr; } .sn-import-hero { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 860px) { .sn-import-schema__grid { grid-template-columns: 1fr; } .sn-import-schema__header { flex-direction: column; } }
+
+/* Administration / profil */
+.sn-admin-cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px;
+  border: 1px solid #e2e8f2;
+  border-radius: 999px;
+  background: #f8fafc;
+  box-shadow: 0 6px 18px rgba(30,48,82,.05);
+}
+.sn-admin-icon {
+  width: 36px;
+  height: 36px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  color: var(--color-accent);
+  background: var(--color-accent-light);
+  font-size: .95rem;
+  text-decoration: none;
+}
+.sn-admin-icon:hover,
+.sn-admin-icon.active {
+  color: var(--color-accent-hover);
+  background: #e9f3ff;
+  border-color: var(--color-accent-border);
+  text-decoration: none;
+}
+.sn-profile-chip.active {
+  border-color: var(--color-accent-border);
+  background: var(--color-accent-light);
+}
+
+.sn-section-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #e1e7ef;
+  border-radius: 14px;
+  background: #fff;
+}
+.sn-section-tabs__item {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 10px;
+  color: #66738a;
+  font-size: .82rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+.sn-section-tabs__item:hover {
+  color: var(--color-accent-hover);
+  background: var(--color-surface-alt);
+  text-decoration: none;
+}
+.sn-section-tabs__item.active {
+  color: var(--color-accent);
+  background: var(--color-accent-light);
+}
+
+.sn-admin-subnav {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid #dfe7f2;
+  border-radius: 999px;
+  background: rgba(255,255,255,.86);
+  box-shadow: 0 10px 26px rgba(39,54,84,.07);
+}
+
+.sn-admin-subnav__item {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 15px;
+  border-radius: 999px;
+  color: #65728a;
+  font-size: .84rem;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  text-decoration: none;
+  transition: background .16s ease, color .16s ease, box-shadow .16s ease;
+}
+
+.sn-admin-subnav__item:hover {
+  color: #1f5fc8;
+  background: #f2f7ff;
+  text-decoration: none;
+}
+
+.sn-admin-subnav__item.active {
+  color: #1570ef;
+  background: #eaf3ff;
+  box-shadow: inset 0 0 0 1px #cfe3ff;
+}
+
+.sn-profile-grid {
+  display: grid;
+  grid-template-columns: minmax(300px, .8fr) minmax(420px, 1.2fr);
+  gap: 20px;
+  align-items: start;
+}
+.sn-profile-card .sn-detail-list,
+.sn-profile-card .sn-form,
+.sn-profile-card .sn-alert {
+  margin: 0;
+  padding: 22px;
+}
+
+/* Sprint 2.37 : pages MFA (activation, codes de recuperation) */
+.sn-card--padded {
+  padding: 22px;
+  display: grid;
+  gap: 14px;
+}
+.sn-card--padded > .sn-card__header {
+  margin: -22px -22px 8px;
+}
+.sn-mfa-card__body {
+  display: grid;
+  gap: 12px;
+}
+.sn-mfa-qrcode {
+  display: block;
+  width: 200px;
+  height: 200px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: #fff;
+}
+.sn-mfa-codes-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.sn-mfa-codes-grid code {
+  display: block;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: #f8fafc;
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: .85rem;
+  text-align: center;
+}
+@media (max-width: 640px) {
+  .sn-mfa-codes-grid { grid-template-columns: 1fr; }
+}
+.sn-mfa-disclosure {
+  margin: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.sn-mfa-disclosure > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  font-size: var(--text-sm);
+  font-weight: 650;
+  color: var(--color-text-secondary);
+  background: #fafbfc;
+}
+.sn-mfa-disclosure > summary::-webkit-details-marker { display: none; }
+.sn-mfa-disclosure > summary::before {
+  content: '\25B8';
+  color: var(--color-text-muted);
+  transition: transform .15s ease;
+}
+.sn-mfa-disclosure[open] > summary::before { transform: rotate(90deg); }
+.sn-mfa-disclosure[open] > summary { border-bottom: 1px solid var(--color-border-soft); }
+.sn-mfa-disclosure > form {
+  padding: 16px;
+  margin: 0;
+}
+
+.sn-detail-list {
+  display: grid;
+  gap: 16px;
+}
+
+.sn-detail-list--compact {
+  gap: 10px;
+}
+
+/* .sn-ldap-* : pattern de carte de statut (icone + badge + resume en
+   definition list), reutilise tel quel par admin/backup.html (Phase 7 audit,
+   31/07/2026) — purement structurel, pas specifique a LDAP malgre le nom. */
+.sn-ldap-overview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.sn-ldap-status-card {
+  padding: 22px;
+  display: grid;
+  gap: 18px;
+  background:
+    radial-gradient(circle at 20px 20px, rgba(47,143,240,.09), transparent 34px),
+    linear-gradient(135deg, #ffffff 0%, #fbfcff 100%);
+}
+
+.sn-ldap-status-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+.sn-ldap-status-card__intro {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  min-width: 0;
+}
+.sn-ldap-status-card__intro .sn-card__title {
+  margin: 0 0 4px;
+  padding: 0;
+  border: 0;
+}
+.sn-ldap-status-card__intro p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+.sn-ldap-status-card__icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 14px;
+  color: #1d5ed6;
+  background: #eaf2ff;
+  font-weight: 800;
+}
+.sn-ldap-status-card__icon--service {
+  color: #16845a;
+  background: #e9f8f1;
+}
+.sn-ldap-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+.sn-ldap-summary div {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #edf0f5;
+  border-radius: 15px;
+  background: rgba(255,255,255,.74);
+}
+.sn-ldap-summary dt {
+  margin-bottom: 5px;
+  color: var(--color-text-muted);
+  font-size: .66rem;
+  font-weight: 800;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+.sn-ldap-summary dd {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sn-ldap-role-pills {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  white-space: normal !important;
+}
+
+.sn-ldap-note {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+.sn-admin-grid--ldap {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.sn-ldap-actions {
+  display: grid;
+  gap: 22px;
+  padding: 22px;
+}
+
+.sn-ldap-user-test {
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border-soft);
+}
+
+/* Separateur generique entre plusieurs actions successives dans une meme
+   carte (audit 01/08/2026, ex: sauvegarder / importer / purger). */
+.sn-action-divider {
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border-soft);
+}
+
+.sn-ldap-user-test__row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) max-content;
+  gap: 10px;
+  align-items: center;
+}
+
+.sn-form-hint {
+  margin: 8px 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
+@media (max-width: 980px) {
+  .sn-ldap-overview,
+  .sn-admin-grid--ldap,
+  .sn-ldap-user-test__row {
+    grid-template-columns: 1fr;
+  }
+  .sn-ldap-summary {
+    grid-template-columns: 1fr;
+  }
+}
+.sn-detail-list div {
+  display: grid;
+  gap: 4px;
+}
+.sn-detail-list dt {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: .045em;
+  text-transform: uppercase;
+}
+.sn-detail-list dd {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.sn-form {
+  display: grid;
+  gap: 16px;
+}
+.sn-form__group {
+  display: grid;
+  gap: 6px;
+}
+/* Ligne checkbox dans un .sn-form moderne (grid, gap uniforme 16px) : pas
+   d'equivalent moderne avant le 31/07/2026, la ligne "IP temporaire" de
+   address-form.html empruntait le legacy .sn-form-group (margin-bottom
+   1.25rem en plus du gap du parent), cassant le rythme vertical uniforme
+   du formulaire. Simple wrapper sans marge propre, contient un
+   .sn-chip-checkbox (voir plus haut et backend/docs/UI_STYLE_GUIDE.md). */
+.sn-form__group--checkbox {
+  display: flex;
+  align-items: center;
+}
+.sn-form__label {
+  color: #3b4658;
+  font-size: .84rem;
+  font-weight: 650;
+}
+.sn-input {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid #d7deea;
+  border-radius: 10px;
+  color: var(--color-text-primary);
+  background: #fff;
+  font: inherit;
+}
+.sn-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(47,143,240,.12);
+}
+.sn-form__error {
+  color: var(--color-danger);
+  font-size: var(--text-xs);
+}
+.sn-form__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+.sn-form__group--error .sn-input {
+  border-color: var(--color-danger);
+}
+.sn-form__group--error .sn-input:focus {
+  box-shadow: 0 0 0 3px rgba(180, 35, 24, .14);
+}
+textarea.sn-input {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.sn-audit-filters {
+  overflow: visible;
+}
+.sn-audit-filters__form {
+  padding: 22px;
+}
+.sn-audit-filters__grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr);
+  gap: 18px;
+  align-items: end;
+}
+.sn-audit-filters__actions {
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+@media (max-width: 760px) {
+  .sn-audit-filters__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Scan guide */
+.sn-scan-page { max-width: 1320px; }
+.sn-scan-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, .85fr) minmax(520px, 1.15fr);
+  gap: 20px;
+  align-items: stretch;
+}
+.sn-scan-form { padding: 22px; }
+.sn-scan-target {
+  display: grid;
+  gap: 2px;
+  padding: 16px;
+  border: 1px solid #dce7f8;
+  border-radius: 16px;
+  background: #f7fbff;
+}
+.sn-scan-target span,
+.sn-command-preview span {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .055em;
+}
+.sn-scan-target strong {
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+}
+.sn-scan-target small {
+  color: var(--color-text-secondary);
+}
+.sn-command-preview {
+  display: grid;
+  gap: 7px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #111827;
+}
+.sn-command-preview code {
+  color: #d7fbe8;
+  font-family: var(--font-mono);
+  font-size: .8rem;
+  white-space: normal;
+  word-break: break-word;
+}
+.sn-scan-allowed {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface-alt);
+}
+.sn-scan-allowed strong {
+  color: var(--color-text-primary);
+  font-size: .82rem;
+}
+.sn-scan-allowed__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.sn-scan-arg {
+  display: inline-grid;
+  appearance: none;
+  text-align: left;
+  gap: 2px;
+  min-width: 118px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: background .15s ease, border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.sn-scan-arg:hover {
+  border-color: var(--color-accent-border);
+  background: var(--color-accent-light);
+  transform: translateY(-1px);
+}
+.sn-scan-arg.is-active {
+  border-color: var(--color-accent-border);
+  background: var(--color-accent-light);
+  box-shadow: 0 6px 18px rgba(47,143,240,.08);
+}
+.sn-scan-arg.is-fixed,
+.sn-scan-arg:disabled {
+  opacity: 1;
+  cursor: default;
+  color: var(--color-text-secondary);
+  background: #fff;
+  transform: none;
+}
+.sn-scan-arg code {
+  color: var(--color-text-primary);
+  font-size: .72rem;
+  font-weight: 750;
+}
+.sn-scan-arg small {
+  color: var(--color-text-muted);
+  font-size: .66rem;
+}
+
+/* Configurateur cron visuel (planification sauvegarde, 01/08/2026) : barre
+   d'onglets au-dessus du champ texte existant, qui reste la seule valeur
+   soumise au serveur (readonly hors mode "Personnalisé" pour éviter toute
+   désynchronisation, toujours modifiable directement dans ce mode-là). */
+.sn-cron-builder__modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.sn-cron-builder__mode {
+  appearance: none;
+  padding: 6px 14px;
+  border: 1.5px solid var(--color-border, #d7deea);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--color-text-secondary, #4b5568);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color .12s, background .12s, color .12s;
+}
+.sn-cron-builder__mode:hover { border-color: var(--color-accent); }
+.sn-cron-builder__mode.is-active {
+  background: var(--color-accent-light);
+  border-color: var(--color-accent);
+  color: var(--color-accent-dark, #1c5fc9);
+}
+.sn-cron-builder__panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-bottom: 10px;
+}
+.sn-cron-builder__panel[hidden] { display: none; }
+.sn-cron-builder__panel label {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+.sn-cron-builder__days { display: flex; flex-wrap: wrap; gap: 6px; }
+.sn-cron-builder__preview {
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--color-accent-light);
+  color: var(--color-accent-dark, #1c5fc9);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+.sn-cron-builder__preview:empty { display: none; }
+[data-cron-raw][readonly] {
+  background: var(--color-surface-alt);
+  color: var(--color-text-secondary);
+  cursor: not-allowed;
+}
+.sn-terminal {
+  min-height: 360px;
+  padding: 18px;
+  background: #101722;
+  color: #d6fbe8;
+  font-family: var(--font-mono);
+  font-size: .8rem;
+  line-height: 1.7;
+}
+.sn-terminal p {
+  margin: 0 0 7px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.sn-terminal-results {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(209, 250, 229, .16);
+}
+.sn-terminal-copy {
+  overflow: auto;
+  margin: 8px 0 0;
+  padding: 12px;
+  border: 1px solid rgba(209, 250, 229, .14);
+  border-radius: 14px;
+  color: #d6fbe8;
+  background: rgba(255, 255, 255, .03);
+  font: inherit;
+  white-space: pre;
+}
+.sn-scan-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: #e8edf5;
+}
+.sn-scan-summary div {
+  display: grid;
+  gap: 1px;
+  padding: 13px;
+  background: #fff;
+}
+.sn-scan-summary strong {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+.sn-scan-summary span {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+@media (max-width: 980px) {
+  .sn-profile-grid,
+  .sn-scan-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 820px) {
+  .sn-admin-cluster {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
+
+/* ============================================================
+   Aide (Help center) — hub + articles avec sommaire lateral.
+   Reutilise sn-card/sn-alert/sn-badge/sn-table/sn-command-preview
+   pour rester coherent avec le reste de l'application (01/08/2026).
+   ============================================================ */
+
+.sn-help-hero {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 24px;
+}
+.sn-help-hero p {
+  color: var(--color-text-secondary);
+  font-size: var(--text-base);
+  max-width: 720px;
+}
+
+.sn-help-hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.sn-help-hub-card {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  padding: 20px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 0.15s, border-color 0.15s, transform 0.15s;
+}
+.sn-help-hub-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-accent-border);
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+.sn-help-hub-card__icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+  font-size: 1.1rem;
+}
+.sn-help-hub-card__title {
+  font-size: var(--text-base);
+  font-weight: 650;
+  color: var(--color-text-primary);
+}
+.sn-help-hub-card__desc {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+.sn-help-hub-card__count {
+  margin-top: 4px;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.sn-help-admin-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding: 18px 22px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-hover) 100%);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(47, 143, 240, .22);
+}
+.sn-help-admin-banner p {
+  margin: 0;
+  color: #eaf3ff;
+  font-size: var(--text-sm);
+}
+.sn-help-admin-banner strong {
+  display: block;
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 3px;
+}
+.sn-help-admin-banner .sn-btn--primary {
+  background: #fff;
+  color: var(--color-accent-hover);
+  border-color: #fff;
+  font-weight: 650;
+}
+.sn-help-admin-banner .sn-btn--primary:hover {
+  background: #eaf3ff;
+  border-color: #eaf3ff;
+}
+
+/* Layout article : sidebar sommaire + contenu */
+.sn-help-layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.sn-help-sidebar {
+  position: sticky;
+  top: 20px;
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.sn-help-sidebar__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.sn-help-sidebar__back:hover {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+.sn-help-sidebar__group {
+  display: grid;
+  gap: 3px;
+}
+.sn-help-sidebar__group-title {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  padding: 4px 10px;
+}
+.sn-help-sidebar__link {
+  display: block;
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  line-height: 1.35;
+}
+.sn-help-sidebar__link:hover {
+  background: var(--color-surface-alt);
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+.sn-help-sidebar__link.active {
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.sn-help-article {
+  display: grid;
+  gap: 28px;
+}
+.sn-help-article__header {
+  display: grid;
+  gap: 6px;
+}
+.sn-help-article__header p {
+  color: var(--color-text-secondary);
+  font-size: var(--text-base);
+  max-width: 760px;
+}
+.sn-help-section {
+  display: grid;
+  gap: 12px;
+  padding: 22px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.sn-help-section h2 {
+  font-size: var(--text-lg);
+  font-weight: 650;
+  color: var(--color-text-primary);
+  scroll-margin-top: 20px;
+}
+.sn-help-section h3 {
+  font-size: var(--text-base);
+  font-weight: 650;
+  color: var(--color-text-primary);
+  margin-top: 6px;
+  scroll-margin-top: 20px;
+}
+.sn-help-section p,
+.sn-help-section li {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+.sn-help-section ul,
+.sn-help-section ol {
+  padding-left: 22px;
+  display: grid;
+  gap: 4px;
+}
+.sn-help-section code {
+  font-family: var(--font-mono);
+  font-size: .82em;
+  background: var(--color-surface-alt);
+  padding: 1px 6px;
+  border-radius: 5px;
+  color: #b0388a;
+}
+.sn-help-section strong {
+  color: var(--color-text-primary);
+}
+.sn-help-section .sn-table code {
+  background: transparent;
+  padding: 0;
+}
+
+.sn-help-step-list {
+  display: grid;
+  gap: 10px;
+  counter-reset: sn-help-step;
+}
+.sn-help-step {
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  gap: 12px;
+  align-items: baseline;
+}
+.sn-help-step::before {
+  counter-increment: sn-help-step;
+  content: counter(sn-help-step);
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+.sn-help-step-text {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+  padding-top: 2px;
+}
+.sn-help-step-text strong {
+  color: var(--color-text-primary);
+}
+
+.sn-help-crumb {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+.sn-help-crumb a {
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+.sn-help-crumb a:hover {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+@media (max-width: 900px) {
+  .sn-help-layout {
+    grid-template-columns: 1fr;
+  }
+  .sn-help-sidebar {
+    position: static;
+  }
+}

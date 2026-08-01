@@ -1,0 +1,2 @@
+address,subnet_id,subnet_network,mac,hostname,description,temporary,discovery_source
+10.40.0.80,__SUBNET_ID__,10.40.0.0/24,,srv-both-01,Les deux champs cohérents,false,csv

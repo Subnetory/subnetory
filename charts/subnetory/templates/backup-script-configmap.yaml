@@ -1,0 +1,12 @@
+{{- if .Values.backup.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "subnetory.backup.scriptConfigMapName" . }}
+  labels:
+    {{- include "subnetory.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+data:
+  backup.sh: |-
+{{ .Files.Get "files/backup.sh" | indent 4 }}
+{{- end }}

@@ -1,0 +1,284 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.1.0</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>dev.subnetory</groupId>
+    <artifactId>subnetory</artifactId>
+    <version>0.7.0</version>
+    <name>Subnetory</name>
+    <description>Subnetory — IPAM moderne, fork modernisé du projet Adrezo</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <jacoco.version>0.8.14</jacoco.version>
+        <poi.version>5.5.1</poi.version>
+    </properties>
+
+    <!-- Versions Testcontainers gérées par spring-boot-dependencies :
+         plus de BOM explicite, la version suit celle validée par Spring Boot. -->
+
+    <dependencies>
+        <!-- Web MVC (Tomcat embarqué) — spring-boot-starter-web renommé spring-boot-starter-webmvc en Boot 4 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
+        </dependency>
+
+        <!-- Thymeleaf -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.thymeleaf.extras</groupId>
+            <artifactId>thymeleaf-extras-springsecurity6</artifactId>
+        </dependency>
+
+        <!-- Sécurité + JWT -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!-- LDAP — authentification optionnelle (activée via subnetory.auth.ldap.enabled) -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-ldap</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.ldap</groupId>
+            <artifactId>spring-ldap-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
+        </dependency>
+
+        <!-- Persistance -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <!-- Version epinglee explicitement (hors BOM Spring Boot) : le pilote 42.7.11
+             gere par spring-boot-dependencies 4.1.0 est vulnerable a CVE-2026-54291
+             (contournement silencieux du channel binding SCRAM-SHA-256-PLUS, CVSS 8.2 High,
+             detecte par le job CI dependency-scan / Trivy). Correctif disponible en 42.7.12 ;
+             42.7.13 est la derniere version stable (maintenance, pas de rupture connue). -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.7.13</version>
+            <scope>runtime</scope>
+        </dependency>
+        <!-- Boot 4 : flyway-core seul ne suffit plus pour l'autoconfiguration,
+             il faut le starter dédié (voir guide de migration Boot 4.0). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+
+        <!-- Validation -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- Actuator -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- IP utilities -->
+        <dependency>
+            <groupId>commons-net</groupId>
+            <artifactId>commons-net</artifactId>
+            <version>3.13.0</version>
+        </dependency>
+
+        <!-- Tests -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Boot 4 : @WithMockUser / @WithUserDetails nécessitent ce starter dédié
+             en plus de spring-security-test pour fonctionner correctement. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Boot 4 : @AutoConfigureMockMvc / @WebMvcTest ont été extraits de
+             spring-boot-starter-test dans ce starter dédié (package déplacé vers
+             org.springframework.boot.webmvc.test.autoconfigure). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Serveur LDAP embarqué pour les tests Sprint 2.3 -->
+        <dependency>
+            <groupId>com.unboundid</groupId>
+            <artifactId>unboundid-ldapsdk</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Testcontainers 2.x — modules renommés avec le préfixe testcontainers-
+             (junit-jupiter → testcontainers-junit-jupiter, postgresql → testcontainers-postgresql).
+             Versions gérées par le BOM importé via spring-boot-dependencies. -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- CSV parsing — import adresses depuis fichier CSV -->
+        <dependency>
+            <groupId>com.opencsv</groupId>
+            <artifactId>opencsv</artifactId>
+            <version>5.12.0</version>
+        </dependency>
+
+        <!-- Apache POI — génération de fichiers Excel .xlsx (export Sprint 2.9).
+             poi-ooxml inclut poi (core) transitivement — un seul artefact suffit pour .xlsx.
+             Version >= 5.4.0 requise (problème de sécurité signalé par Apache sur les versions antérieures). -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>${poi.version}</version>
+        </dependency>
+
+        <!-- MFA (Sprint 2.37) — TOTP RFC 6238, sans dépendance Spring.
+             Dernière release 1.7.1 (2020) : bibliothèque petite et stable,
+             surveillée comme les autres dépendances par le job CI dependency-scan. -->
+        <dependency>
+            <groupId>dev.samstevens.totp</groupId>
+            <artifactId>totp</artifactId>
+            <version>1.7.1</version>
+        </dependency>
+
+        <!-- Génération du QR code d'enrôlement MFA (Sprint 2.37) — javase (inclut core
+             transitivement) requis pour MatrixToImageWriter, utilisé par le générateur
+             PNG fourni par dev.samstevens.totp (ZxingPngQrGenerator). -->
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>javase</artifactId>
+            <version>3.5.4</version>
+        </dependency>
+
+        <!-- OpenAPI / Swagger UI — documentation REST auto-générée.
+             springdoc 3.x est requis pour Spring Boot 4.x / Spring Framework 7.x.
+             Accessible sur /swagger-ui.html et /v3/api-docs (voir application.yml).
+             Les URLs Swagger sont autorisées sans token dans SecurityConfig (chaîne @Order(2)). -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>3.0.3</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+
+            <!-- Surefire - run unit tests and integration tests named *IT.
+                 Required so mvn verify executes the full test suite and feeds JaCoCo. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <includes>
+                        <include>**/*Test.java</include>
+                        <include>**/*IT.java</include>
+                    </includes>
+                </configuration>
+            </plugin>
+            <!-- JaCoCo — rapport de couverture de code + seuils CI.
+                 Sprint 2.8 : prepare-agent + report.
+                 Sprint 2.9 : ajout du goal check avec seuils mesurés sur la baseline 334 tests.
+                   - LINE   >= 0.75  (baseline mesurée : 84,48 %)
+                   - BRANCH >= 0.55  (baseline mesurée : 62,96 %)
+                 Pas d'exclusions dans cette première version — seuil sur le bundle global,
+                 transparent et aligné sur les mesures réelles.
+                 Le rapport est généré dans target/site/jacoco/index.html via mvn verify. -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <!-- Prépare l'agent JaCoCo avant l'exécution des tests -->
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <!-- Génère le rapport HTML après la phase test, dans la phase verify -->
+                    <execution>
+                        <id>report</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                    <!-- Vérifie les seuils de couverture — fait échouer le build si non atteints.
+                         Placé après report pour que le rapport soit toujours généré, même en échec. -->
+                    <execution>
+                        <id>check</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.75</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.55</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

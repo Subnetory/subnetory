@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<head><title>Audit &amp; journalisation - Guide admin - Subnetory</title></head>
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <p class="sn-help-crumb"><a th:href="@{/admin/help}">Guide administrateur</a> / Audit &amp; journalisation</p>
+
+    <div class="sn-help-layout">
+        <div th:replace="~{help/fragments :: sidebar-admin('audit')}"></div>
+
+        <div class="sn-help-article">
+            <div class="sn-help-article__header">
+                <h1 class="sn-page__title">Audit &amp; journalisation</h1>
+                <p>Qui a fait quoi et quand : connexions, sauvegardes, création/suppression de ressources réseau.</p>
+            </div>
+
+            <section class="sn-help-section">
+                <h2>Accès</h2>
+                <p>
+                    Menu <em>Administration → Audit</em> (<code>/admin/audit-log</code>), réservé
+                    <code>ROLE_ADMIN</code>.
+                </p>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Événements tracés</h2>
+                <p><strong>Authentification et comptes</strong></p>
+                <p>
+                    <code>LOGIN_SUCCESS</code>, <code>LOGIN_FAILURE</code>, <code>LOGIN_LOCKED</code>,
+                    <code>PASSWORD_CHANGE</code>, <code>ADMIN_PASSWORD_RESET</code>, <code>TOKEN_REVOKED</code>,
+                    <code>TOKENS_INVALIDATED</code>, <code>CONTEXT_ACCESS_DENIED</code>,
+                    <code>USER_CREATED</code>, <code>USER_CONTEXTS_UPDATED</code>, <code>MFA_ENABLED</code>,
+                    <code>MFA_DISABLED</code>, <code>MFA_RECOVERY_CODES_REGENERATED</code>,
+                    <code>MFA_CHALLENGE_FAILED</code>, <code>MFA_DISABLED_BY_ADMIN</code>.
+                </p>
+                <p><strong>Sauvegardes</strong></p>
+                <p>
+                    <code>BACKUP_TRIGGERED</code>, <code>BACKUP_IMPORTED</code>, <code>BACKUP_RESTORED</code>,
+                    <code>BACKUP_DELETED</code>, <code>BACKUP_PURGED</code>,
+                    <code>BACKUP_SETTINGS_UPDATED</code> — toutes les actions de <code>/admin/backup</code>
+                    qui modifient un état.
+                </p>
+                <p><strong>Ressources réseau</strong></p>
+                <p>
+                    <code>ADDRESS_CREATED</code>/<code>_DELETED</code>, <code>VLAN_CREATED</code>/<code>_DELETED</code>,
+                    <code>CONTEXT_CREATED</code>/<code>_DELETED</code>, <code>SITE_CREATED</code>/<code>_DELETED</code>,
+                    <code>SUBNET_CREATED</code>/<code>_DELETED</code>.
+                </p>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Filtres et pagination</h2>
+                <p>
+                    Deux critères : recherche utilisateur (sur le nom d'utilisateur et l'utilisateur ciblé) et
+                    type d'événement — si un type est sélectionné, il est prioritaire sur la recherche texte.
+                    Les événements les plus récents sont affichés en premier, 50 entrées par page.
+                </p>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Export CSV</h2>
+                <p>
+                    <code>/admin/audit-log/export.csv</code>, respecte les filtres actifs. Colonnes exportées :
+                    date, type d'événement, utilisateur, utilisateur ciblé, IP, succès, message, user-agent.
+                    L'export est protégé contre l'injection CSV (les valeurs commençant par
+                    <code>=</code>, <code>+</code>, <code>-</code>, <code>@</code> sont préfixées d'une
+                    apostrophe).
+                </p>
+                <div class="sn-alert sn-alert--warning">
+                    Ne pas exposer les exports CSV à des utilisateurs non administrateurs.
+                </div>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Rétention et purge</h2>
+                <p>
+                    Une purge automatique planifiée chaque nuit supprime les entrées plus anciennes que la
+                    durée de rétention configurée (90 jours par défaut).
+                </p>
+                <table class="sn-table">
+                    <thead><tr><th>Propriété</th><th>Variable d'environnement</th><th>Défaut</th></tr></thead>
+                    <tbody>
+                    <tr><td><code>subnetory.audit.retention.enabled</code></td><td><code>SUBNETORY_AUDIT_RETENTION_ENABLED</code></td><td><code>true</code></td></tr>
+                    <tr><td><code>subnetory.audit.retention.days</code></td><td><code>SUBNETORY_AUDIT_RETENTION_DAYS</code></td><td><code>90</code></td></tr>
+                    <tr><td><code>subnetory.audit.retention.cron</code></td><td><code>SUBNETORY_AUDIT_RETENTION_CRON</code></td><td><code>0 30 2 * * *</code></td></tr>
+                    </tbody>
+                </table>
+                <p class="sn-mt-3">
+                    Une purge manuelle immédiate avant une date donnée reste possible depuis
+                    <code>/admin/audit-log</code> (bouton « Purger définitivement ») ou via l'API :
+                </p>
+                <div class="sn-command-preview">
+                    <span>Purge manuelle</span>
+                    <code>curl -s -X POST /api/v1/admin/audit-log/purge -H "Authorization: Bearer &lt;token&gt;" -H "Content-Type: application/json" -d '{"beforeDate":"2026-01-01"}'</code>
+                </div>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Bonnes pratiques</h2>
+                <ul>
+                    <li>Conserver la rétention active en production, l'augmenter si le besoin d'audit l'exige.</li>
+                    <li>Exporter les journaux avant une purge manuelle ou une opération sensible.</li>
+                    <li>Surveiller la taille de la table <code>auth_audit_log</code> si l'application est fortement utilisée.</li>
+                </ul>
+            </section>
+        </div>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,55 @@
+# Overlay HTTPS optionnel — Sprint 2.36.
+#
+# Usage :
+#   docker compose -f docker-compose.yml -f docker-compose.https.yml up -d --build
+#
+# Ajoute un reverse proxy Caddy devant le service "app" existant. Le service
+# app n'est plus publie directement sur l'hote : tout le trafic transite par
+# Caddy (443, et 80 pour la redirection HTTP / les defis ACME en mode public).
+#
+# Deux Caddyfile d'exemple sont fournis sous backend/deploy/ :
+#   - Caddyfile.internal : reseau interne, certificat auto-signe (tls internal)
+#   - Caddyfile.public   : domaine public, Let's Encrypt (ACME)
+# Copier celui qui convient vers backend/deploy/Caddyfile avant de demarrer.
+# Voir backend/docs/HTTPS_REVERSE_PROXY.md pour la procedure complete.
+
+services:
+  app:
+    # Plus d'exposition directe sur l'hote : seul Caddy publie un port.
+    #
+    # "!reset []" (et non une simple liste vide) : par defaut, Docker Compose
+    # CONCATENE les listes "ports" entre fichiers merges plutot que de les
+    # remplacer. Une simple "ports: []" ne fait donc rien — le port publie
+    # par docker-compose.yml resterait actif. "!reset" est le mecanisme
+    # officiel de la Compose Specification pour forcer le remplacement
+    # (supporte explicitement pour ports/volumes/secrets/configs).
+    ports: !reset []
+    environment:
+      # Le trafic arrive desormais via Caddy (reseau Compose interne). Sans
+      # cette configuration, ClientIpResolver verrait l'IP interne de Caddy
+      # pour toutes les requetes, ce qui casserait le rate limiting par IP
+      # (correctif securite H1 / F7). Le sous-reseau ci-dessous couvre la
+      # plage privee standard allouee par l'IPAM Docker (172.16.0.0/12) ;
+      # ajuster si le reseau Compose reel utilise une autre plage
+      # (`docker network inspect <projet>_default`).
+      - SUBNETORY_SECURITY_TRUSTED_PROXY=true
+      - SUBNETORY_SECURITY_TRUSTED_PROXY_CIDRS=${SUBNETORY_TRUSTED_PROXY_CIDRS:-172.16.0.0/12}
+
+  caddy:
+    image: caddy:2.11-alpine
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTP_PORT:-80}:80"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+    stop_grace_period: 10s
+
+volumes:
+  caddy_data:
+  caddy_config:

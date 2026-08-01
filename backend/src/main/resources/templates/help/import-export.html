@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<head><title>Import &amp; export - Aide - Subnetory</title></head>
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <p class="sn-help-crumb"><a th:href="@{/help}">Aide</a> / Import &amp; export</p>
+
+    <div class="sn-help-layout">
+        <div th:replace="~{help/fragments :: sidebar-user('import-export')}"></div>
+
+        <div class="sn-help-article">
+            <div class="sn-help-article__header">
+                <h1 class="sn-page__title">Import &amp; export</h1>
+                <p>Reprendre un inventaire existant en CSV ou Excel, et comprendre le format attendu.</p>
+            </div>
+
+            <section class="sn-help-section">
+                <h2>Importer des adresses</h2>
+                <p>
+                    Menu <em>Adresses IP → Importer des adresses</em>. Formats acceptés : <strong>CSV</strong>
+                    et <strong>Excel (.xlsx)</strong>, avec les mêmes colonnes et les mêmes règles pour les deux
+                    formats.
+                </p>
+                <p>
+                    Après import, un rapport s'affiche avec le nombre de lignes traitées, créées, mises à jour
+                    et en erreur — avec le détail ligne par ligne pour les erreurs.
+                </p>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Colonnes attendues</h2>
+                <table class="sn-table">
+                    <thead>
+                    <tr><th>Colonne</th><th>Obligatoire</th><th>Description</th></tr>
+                    </thead>
+                    <tbody>
+                    <tr><td><code>address</code></td><td>Oui</td><td>Adresse IPv4, ex. <code>192.168.1.10</code></td></tr>
+                    <tr><td><code>subnet_id</code></td><td><code>subnet_id</code> ou <code>subnet_network</code></td><td>ID numérique du sous-réseau</td></tr>
+                    <tr><td><code>subnet_network</code></td><td><code>subnet_id</code> ou <code>subnet_network</code></td><td>Réseau CIDR, ex. <code>192.168.1.0/24</code></td></tr>
+                    <tr><td><code>mac</code></td><td>Non</td><td>Adresse MAC</td></tr>
+                    <tr><td><code>hostname</code></td><td>Non</td><td>Nom d'hôte</td></tr>
+                    <tr><td><code>description</code></td><td>Non</td><td>Description libre</td></tr>
+                    <tr><td><code>temporary</code></td><td>Non</td><td><code>true</code> ou <code>false</code>, défaut <code>false</code></td></tr>
+                    <tr><td><code>discovery_source</code></td><td>Non</td><td>manual / api / csv / xlsx / nmap / arp-scan / dns</td></tr>
+                    </tbody>
+                </table>
+                <p class="sn-mt-3">
+                    Si <code>subnet_id</code> est fourni, il est utilisé directement et le sous-réseau doit déjà
+                    exister. Si seul <code>subnet_network</code> est fourni, Subnetory recherche le sous-réseau
+                    correspondant — si plusieurs sous-réseaux partagent le même CIDR, la ligne est rejetée pour
+                    ambiguïté. Si les deux sont fournis, <code>subnet_id</code> est prioritaire.
+                </p>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Exemple CSV</h2>
+                <div class="sn-command-preview">
+                    <span>fichier .csv</span>
+                    <code>address,subnet_id,subnet_network,mac,hostname,description,temporary,discovery_source<br>
+                    192.168.1.10,3,,aa:bb:cc:dd:ee:ff,srv-web-01,Serveur web principal,false,csv<br>
+                    192.168.1.20,3,,,,Imprimante RDC,,<br>
+                    192.168.1.30,,192.168.1.0/24,,pc-compta-01,Poste utilisateur,false,manual</code>
+                </div>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Comportement selon l'existence de l'adresse</h2>
+                <table class="sn-table">
+                    <thead>
+                    <tr><th>État</th><th>Comportement par défaut</th><th>Avec « remplacer les existantes »</th></tr>
+                    </thead>
+                    <tbody>
+                    <tr><td>IP absente</td><td>Création complète</td><td>Création complète</td></tr>
+                    <tr><td>IP existante</td><td>Mise à jour de la dernière observation uniquement</td><td>Mise à jour des champs fournis</td></tr>
+                    </tbody>
+                </table>
+                <p class="sn-mt-3">
+                    L'option <strong>Remplacer les adresses existantes</strong> du formulaire d'import détermine
+                    ce comportement : décochée, une IP déjà connue n'est jamais écrasée — seul un conflit est
+                    signalé sans modification.
+                </p>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Export</h2>
+                <p>
+                    Boutons <strong>↓ CSV</strong> et <strong>↓ Excel</strong> sur les pages <em>Adresses
+                    IP</em> et <em>Sous-réseaux</em>, avec les filtres actifs appliqués au fichier généré.
+                </p>
+            </section>
+        </div>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<head><title>Déploiement Docker Compose &amp; HTTPS - Guide admin - Subnetory</title></head>
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <p class="sn-help-crumb"><a th:href="@{/admin/help}">Guide administrateur</a> / Déploiement Docker Compose &amp; HTTPS</p>
+
+    <div class="sn-help-layout">
+        <div th:replace="~{help/fragments :: sidebar-admin('deploiement-docker')}"></div>
+
+        <div class="sn-help-article">
+            <div class="sn-help-article__header">
+                <h1 class="sn-page__title">Déploiement Docker Compose &amp; HTTPS</h1>
+                <p>Installation autonome avec PostgreSQL inclus, secrets fichiers, et exposition HTTPS optionnelle.</p>
+            </div>
+
+            <section class="sn-help-section">
+                <h2>Générer les secrets</h2>
+                <p>
+                    Trois secrets sont requis avant le premier démarrage : le secret JWT, le mot de passe
+                    administrateur temporaire et le mot de passe PostgreSQL. Un script dédié les génère
+                    aléatoirement sans jamais afficher leur valeur, et applique des permissions restrictives
+                    (<code>icacls</code> sous Windows, <code>chmod 600</code> sous Linux/macOS).
+                </p>
+                <div class="sn-command-preview">
+                    <span>PowerShell</span>
+                    <code>pwsh -File .\scripts\init-compose.ps1</code>
+                </div>
+                <div class="sn-command-preview">
+                    <span>Bash</span>
+                    <code>./scripts/init-compose.sh</code>
+                </div>
+                <p class="sn-mt-3">
+                    Un quatrième secret optionnel, <code>subnetory_backup_encryption_key</code>, active le
+                    chiffrement des sauvegardes (désactivé par défaut) :
+                </p>
+                <div class="sn-command-preview">
+                    <span>Avec chiffrement des sauvegardes</span>
+                    <code>pwsh -File .\scripts\init-compose.ps1 -WithBackupEncryption</code>
+                </div>
+                <div class="sn-alert sn-alert--info">
+                    Le script refuse d'écraser un secret existant. L'option <code>-Force</code>/<code>--force</code>
+                    est réservée à une rotation volontaire et coordonnée — jamais une commande de réparation
+                    générique.
+                </div>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Démarrer la stack</h2>
+                <div class="sn-command-preview">
+                    <span>Depuis backend/</span>
+                    <code>docker compose up -d --build</code>
+                </div>
+                <p>
+                    Les migrations Flyway s'appliquent automatiquement au démarrage. PostgreSQL reste
+                    strictement interne au réseau Compose, jamais publié sur un port de l'hôte.
+                </p>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Protection des secrets sur le poste</h2>
+                <p>
+                    Les permissions restrictives du script bloquent l'accès à un autre compte non privilégié
+                    sur la même machine — elles ne protègent pas contre un attaquant qui obtiendrait les droits
+                    de votre propre compte ou les droits administrateur, ni contre le vol d'un disque éteint
+                    sans chiffrement de volume (BitLocker/LUKS).
+                </p>
+                <div class="sn-alert sn-alert--warning">
+                    Point d'attention particulier si le dossier du dépôt est synchronisé par un client cloud
+                    (OneDrive Known Folder Move notamment) : le dossier <code>secrets/</code>, bien que
+                    git-ignoré, partirait alors en clair vers le cloud. Vérifiez qu'aucune synchronisation
+                    cloud ne couvre ce dossier.
+                </div>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>HTTPS clé en main (overlay Caddy, optionnel)</h2>
+                <p>
+                    <code>docker-compose.https.yml</code> ajoute un reverse proxy Caddy devant l'application,
+                    sans infrastructure externe à gérer (pas de certificat à générer ou installer
+                    manuellement).
+                </p>
+                <table class="sn-table">
+                    <thead><tr><th>Mode</th><th>Usage</th><th>Certificat</th></tr></thead>
+                    <tbody>
+                    <tr><td>Interne</td><td>Réseau d'entreprise, pas de domaine public</td><td>Auto-signé (avertissement navigateur normal)</td></tr>
+                    <tr><td>Public</td><td>Domaine résolu vers cet hôte, ports 80/443 accessibles depuis Internet</td><td>Let's Encrypt automatique, renouvelé sans intervention</td></tr>
+                    </tbody>
+                </table>
+                <div class="sn-command-preview">
+                    <span>Mode interne — copier le Caddyfile</span>
+                    <code>Copy-Item deploy\Caddyfile.internal deploy\Caddyfile</code>
+                </div>
+                <div class="sn-command-preview">
+                    <span>Démarrer avec l'overlay</span>
+                    <code>docker compose -f docker-compose.yml -f docker-compose.https.yml up -d --build</code>
+                </div>
+                <p class="sn-mt-3">
+                    L'overlay active automatiquement la confiance envers le proxy interne
+                    (<code>SUBNETORY_SECURITY_TRUSTED_PROXY</code>) pour que le rate limiting par IP et l'audit
+                    d'authentification restent exacts — sans cela, toutes les requêtes seraient comptées comme
+                    venant d'une seule IP (le conteneur Caddy).
+                </p>
+                <div class="sn-alert sn-alert--info">
+                    Le volume <code>caddy_data</code> conserve les certificats entre redémarrages — ne pas le
+                    supprimer sans raison en mode public (nouvelles demandes Let's Encrypt, risque de
+                    limitation de débit en cas de suppressions répétées).
+                </div>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Documents liés</h2>
+                <p>
+                    <code>backend/docs/INSTALL_DOCKER_COMPOSE.md</code>,
+                    <code>backend/docs/HTTPS_REVERSE_PROXY.md</code>,
+                    <code>backend/docs/DOCKER_COMPOSE_OPERATIONS.md</code>.
+                </p>
+            </section>
+        </div>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

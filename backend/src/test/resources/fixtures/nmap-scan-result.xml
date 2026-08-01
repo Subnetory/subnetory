@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<nmaprun scanner="nmap" args="nmap -sn -R --disable-arp-ping -oX - 192.168.1.0/24"
+         start="1716372000" version="7.94">
+
+  <!-- Hôte UP avec IP + MAC (même L2) + hostname PTR -->
+  <host>
+    <status state="up" reason="echo-reply"/>
+    <address addr="192.168.1.10" addrtype="ipv4"/>
+    <address addr="aa:bb:cc:dd:ee:01" addrtype="mac" vendor="Dell Inc."/>
+    <hostnames>
+      <hostname name="srv-web-001.local." type="PTR"/>
+    </hostnames>
+  </host>
+
+  <!-- Hôte UP avec IP uniquement (subnet distant — pas de MAC visible) -->
+  <host>
+    <status state="up" reason="echo-reply"/>
+    <address addr="192.168.1.20" addrtype="ipv4"/>
+    <hostnames/>
+  </host>
+
+  <!-- Hôte UP avec IP + hostname PTR (pas de MAC) -->
+  <host>
+    <status state="up" reason="echo-reply"/>
+    <address addr="192.168.1.30" addrtype="ipv4"/>
+    <hostnames>
+      <hostname name="pc-compta-01.domain.local" type="PTR"/>
+    </hostnames>
+  </host>
+
+  <!-- Hôte DOWN — ne doit PAS être retourné -->
+  <host>
+    <status state="down" reason="no-response"/>
+    <address addr="192.168.1.50" addrtype="ipv4"/>
+    <hostnames/>
+  </host>
+
+  <!-- Hôte UP avec MAC en majuscules — doit être normalisé en minuscules -->
+  <host>
+    <status state="up" reason="echo-reply"/>
+    <address addr="192.168.1.40" addrtype="ipv4"/>
+    <address addr="FF:EE:DD:CC:BB:AA" addrtype="mac" vendor="Apple Inc."/>
+    <hostnames>
+      <hostname name="mac-pro-01" type="user"/>
+    </hostnames>
+  </host>
+
+</nmaprun>

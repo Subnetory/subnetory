@@ -1,0 +1,90 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      # HOST_PORT : port exposé sur la machine hôte.
+      # SERVER_PORT : port sur lequel Spring Boot écoute dans le conteneur.
+      - "${HOST_PORT:-8080}:${SERVER_PORT:-8080}"
+    environment:
+      # La stack autonome ne transmet aucun secret par variable
+      # d'environnement : les secrets sont lus via configtree.
+      - SERVER_PORT=${SERVER_PORT:-8080}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/subnetory?stringtype=unspecified
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER:-subnetory}
+      # Fuseau horaire de l'application (affichage des dates : dernieres
+      # detections, horodatages de scan, etc.). A adapter au pays de
+      # deploiement via la variable TZ dans .env (liste : `timedatectl
+      # list-timezones` ou https://fr.wikipedia.org/wiki/Liste_des_fuseaux_horaires).
+      - TZ=${TZ:-Europe/Paris}
+    volumes:
+      # Sauvegardes (Phase 7 audit, 31/07/2026) : l'application ecrit ici
+      # les dumps pg_dump ; volume nomme persistant, en dehors du depot.
+      - subnetory_backups:/var/subnetory/backups
+    secrets:
+      - source: subnetory_jwt_secret
+        target: subnetory.jwt.secret
+      - source: subnetory_admin_default_password
+        target: subnetory.admin.default-password
+      - source: postgres_password
+        target: spring.datasource.password
+      # Chiffrement des sauvegardes (audit 01/08/2026, backlog #13) : optionnel,
+      # desactive par defaut (aucun fichier ./secrets/subnetory_backup_encryption_key
+      # n'existe tant qu'il n'est pas genere explicitement). Pour l'activer, voir
+      # backend/docs/BACKUP_ENCRYPTION.md puis decommenter ici et dans "secrets:" plus bas.
+      - source: subnetory_backup_encryption_key
+        target: subnetory.backup.encryption.key
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", 'wget -qO- "http://localhost:$${SERVER_PORT:-8080}/actuator/health/readiness" || exit 1']
+      interval: 30s
+      timeout: 5s
+      start_period: 45s
+      retries: 3
+    restart: unless-stopped
+    stop_grace_period: 35s
+
+  db:
+    image: postgres:17-alpine
+    # -c timezone=... : fixe le fuseau de SESSION Postgres, celui que le
+    # serveur annonce a la connexion (parametre "TimeZone"). C'est CE fuseau
+    # que pgjdbc utilise pour convertir les colonnes timestamptz en
+    # OffsetDateTime, pas celui de la JVM app. Sans ce reglage le serveur
+    # reste en UTC par defaut (postgres:alpine n'a pas de tzdata OS et
+    # n'a jamais ete initialise avec un autre fuseau), quelle que soit la
+    # variable TZ cote service "app" : le decalage persistait malgre le
+    # fuseau JVM/Hibernate corrige. "-c" prend le pas sur postgresql.conf
+    # meme si le volume pgdata existant a ete initialise en UTC.
+    command: ["postgres", "-c", "timezone=${TZ:-Europe/Paris}"]
+    environment:
+      POSTGRES_DB: subnetory
+      POSTGRES_USER: ${POSTGRES_USER:-subnetory}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # PostgreSQL reste strictement interne au réseau Compose.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-subnetory}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  subnetory_backups:
+
+secrets:
+  subnetory_jwt_secret:
+    file: ./secrets/subnetory_jwt_secret
+  subnetory_admin_default_password:
+    file: ./secrets/subnetory_admin_default_password
+  postgres_password:
+    file: ./secrets/postgres_password
+  subnetory_backup_encryption_key:
+    file: ./secrets/subnetory_backup_encryption_key

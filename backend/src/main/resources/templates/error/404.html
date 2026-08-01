@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page introuvable — Subnetory</title>
+    <link rel="stylesheet" th:href="@{/assets/css/app.css}">
+</head>
+<body>
+<nav class="sn-navbar">
+    <a th:href="@{/}" class="sn-navbar__brand">
+        <span class="sn-navbar__brand-dot"></span>
+        Subnetory
+    </a>
+</nav>
+<div class="sn-error-page">
+    <div class="sn-error-page__code">404</div>
+    <h1 class="sn-error-page__title">Page introuvable</h1>
+    <p class="sn-error-page__message">La page que vous cherchez n'existe pas ou a été déplacée.</p>
+    <a th:href="@{/}" class="sn-btn sn-btn--ghost">Retour au tableau de bord</a>
+</div>
+</body>
+</html>

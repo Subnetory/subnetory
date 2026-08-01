@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "subnetory.fullname" . }}
+  labels:
+    {{- include "subnetory.labels" . | nindent 4 }}
+    app.kubernetes.io/component: application
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "subnetory.application.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "subnetory.application.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "subnetory.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ .Values.application.terminationGracePeriodSeconds }}
+      {{- with .Values.image.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: subnetory
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.application.serverPort }}
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "subnetory.fullname" . }}
+          startupProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: {{ .Values.application.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.application.startupProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.application.startupProbe.failureThreshold }}
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: {{ .Values.application.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.application.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.application.livenessProbe.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: {{ .Values.application.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.application.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.application.readinessProbe.failureThreshold }}
+          resources:
+            {{- toYaml .Values.application.resources | nindent 12 }}
+          volumeMounts:
+            - name: runtime-secrets
+              mountPath: /run/secrets/runtime
+              readOnly: true
+            - name: bootstrap-secrets
+              mountPath: /run/secrets/bootstrap
+              readOnly: true
+            - name: temporary-directory
+              mountPath: /tmp
+            {{- if .Values.backupApp.enabled }}
+            - name: backup-app-storage
+              mountPath: {{ .Values.backupApp.storagePath }}
+            {{- end }}
+      volumes:
+        - name: runtime-secrets
+          secret:
+            secretName: {{ .Values.secrets.existingSecretRuntime }}
+            defaultMode: 0440
+            items:
+              - key: jwt-secret
+                path: subnetory.jwt.secret
+              - key: postgres-password
+                path: spring.datasource.password
+        - name: bootstrap-secrets
+          secret:
+            secretName: {{ .Values.secrets.existingSecretBootstrap }}
+            optional: true
+            defaultMode: 0440
+            items:
+              - key: admin-default-password
+                path: subnetory.admin.default-password
+        - name: temporary-directory
+          emptyDir:
+            sizeLimit: {{ .Values.temporaryDirectory.sizeLimit }}
+        {{- if .Values.backupApp.enabled }}
+        - name: backup-app-storage
+          persistentVolumeClaim:
+            claimName: {{ include "subnetory.backupApp.claimName" . }}
+        {{- end }}

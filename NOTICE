@@ -1,0 +1,21 @@
+Subnetory
+Copyright 2026 Subnetory contributors
+
+Ce produit est un projet dérivé d'Adrezo, un logiciel open source de gestion
+d'adresses IP (IPAM) :
+
+    Adrezo
+    Copyright 2018 POSTEC Yann
+    https://github.com/YannPostec/adrezo
+    Sous licence Apache License, Version 2.0
+
+Subnetory reprend le périmètre fonctionnel et certains choix de modélisation
+d'Adrezo (contexte / site / VLAN / sous-réseau / adresse), tout en étant une
+réécriture complète en Java 21 / Spring Boot 3 (l'original étant en PHP).
+
+Conformément à l'article 4(c) de l'Apache License 2.0, cette attribution est
+conservée dans toute redistribution de ce projet, sous forme source ou
+binaire.
+
+Voir le fichier LICENSE à la racine de ce dépôt pour le texte complet de la
+licence applicable à Subnetory.

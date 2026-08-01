@@ -1,0 +1,29 @@
+# Exemple Caddyfile — mode reseau interne (Sprint 2.36).
+#
+# Usage : copier ce fichier vers backend/deploy/Caddyfile avant de demarrer
+# l'overlay HTTPS (voir backend/docs/HTTPS_REVERSE_PROXY.md).
+#
+#   Copy-Item backend/deploy/Caddyfile.internal backend/deploy/Caddyfile
+#
+# "tls internal" genere un certificat auto-signe par l'autorite locale de
+# Caddy. Adapte a un reseau interne sans domaine public resolu (ex. usage
+# professionnel sur reseau d'entreprise). Les navigateurs afficheront un
+# avertissement de certificat non reconnu tant que l'autorite locale n'est
+# pas distribuee/approuvee sur les postes clients — c'est attendu.
+#
+# Remplacer "subnetory.local" par le nom d'hote reellement utilise (ou
+# laisser tel quel et l'ajouter au fichier hosts des postes clients).
+
+subnetory.local {
+    tls internal
+
+    reverse_proxy app:8080
+}
+
+# Optionnel : accepter aussi les connexions par IP/nom d'hote non declare
+# (utile si aucun nom DNS interne n'est configure). Decommenter si besoin :
+#
+# :443 {
+#     tls internal
+#     reverse_proxy app:8080
+# }

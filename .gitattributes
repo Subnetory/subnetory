@@ -1,0 +1,28 @@
+# Normalisation des fins de ligne — Subnetory
+#
+# Contexte : tous les blobs Git de ce dépôt sont déjà stockés en LF (vérifié via
+# `git ls-files --eol`). Ce fichier formalise ce comportement pour qu'il ne dépende
+# plus du réglage `core.autocrlf` de chaque poste ou de chaque runner CI.
+#
+# Par défaut : détection automatique texte/binaire, normalisation LF en dépôt.
+* text=auto eol=lf
+
+# Scripts exécutés dans un conteneur Linux : LF obligatoire (le shebang échoue
+# si le fichier est en CRLF).
+*.sh text eol=lf
+mvnw text eol=lf
+
+# Scripts Windows historiques : CRLF conservé par convention.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Fichiers binaires : ne jamais tenter de normaliser les fins de ligne.
+*.jar binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary

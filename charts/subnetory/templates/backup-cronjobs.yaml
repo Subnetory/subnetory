@@ -1,0 +1,105 @@
+{{- if .Values.backup.enabled }}
+{{- range $level, $schedule := .Values.backup.schedules }}
+{{- if $schedule.enabled }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "subnetory.backup.cronJobName" (dict "root" $ "level" $level) }}
+  labels:
+    {{- include "subnetory.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: backup
+    subnetory.io/backup-level: {{ $level | quote }}
+spec:
+  schedule: {{ $schedule.schedule | quote }}
+  timeZone: {{ $.Values.backup.timeZone | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: {{ $.Values.backup.job.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ $.Values.backup.job.failedJobsHistoryLimit }}
+  startingDeadlineSeconds: {{ $.Values.backup.job.startingDeadlineSeconds }}
+  jobTemplate:
+    metadata:
+      labels:
+        {{- include "subnetory.labels" $ | nindent 8 }}
+        app.kubernetes.io/component: backup
+        subnetory.io/backup-level: {{ $level | quote }}
+    spec:
+      backoffLimit: {{ $.Values.backup.job.backoffLimit }}
+      activeDeadlineSeconds: {{ $.Values.backup.job.activeDeadlineSeconds }}
+      template:
+        metadata:
+          labels:
+            {{- include "subnetory.labels" $ | nindent 12 }}
+            app.kubernetes.io/component: backup
+            subnetory.io/backup-level: {{ $level | quote }}
+        spec:
+          automountServiceAccountToken: false
+          enableServiceLinks: false
+          hostNetwork: false
+          hostPID: false
+          hostIPC: false
+          shareProcessNamespace: false
+          restartPolicy: Never
+          terminationGracePeriodSeconds: 30
+          securityContext:
+            {{- toYaml $.Values.postgresql.podSecurityContext | nindent 12 }}
+          containers:
+            - name: backup
+              image: "{{ $.Values.postgresql.image.repository }}:{{ $.Values.postgresql.image.tag }}"
+              imagePullPolicy: {{ $.Values.postgresql.image.pullPolicy }}
+              command:
+                - /bin/sh
+                - /opt/subnetory-backup/backup.sh
+              securityContext:
+                {{- toYaml $.Values.postgresql.containerSecurityContext | nindent 16 }}
+              env:
+                - name: BACKUP_LEVEL
+                  value: {{ $level | quote }}
+                - name: RETENTION_DAYS
+                  value: {{ $schedule.retentionDays | quote }}
+                - name: BACKUP_ROOT
+                  value: /backups
+                - name: PGHOST
+                  value: {{ include "subnetory.postgresql.fullname" $ | quote }}
+                - name: PGPORT
+                  value: {{ $.Values.postgresql.service.port | quote }}
+                - name: PGDATABASE
+                  value: {{ $.Values.postgresql.auth.database | quote }}
+                - name: PGUSER
+                  value: {{ $.Values.postgresql.auth.username | quote }}
+                - name: POSTGRES_PASSWORD_FILE
+                  value: /run/secrets/postgres-password
+              resources:
+                {{- toYaml $.Values.backup.job.resources | nindent 16 }}
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backups
+                - name: backup-script
+                  mountPath: /opt/subnetory-backup
+                  readOnly: true
+                - name: runtime-secrets
+                  mountPath: /run/secrets
+                  readOnly: true
+                - name: temporary-directory
+                  mountPath: /tmp
+          volumes:
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: {{ include "subnetory.backup.claimName" $ }}
+            - name: backup-script
+              configMap:
+                name: {{ include "subnetory.backup.scriptConfigMapName" $ }}
+                defaultMode: 0555
+            - name: runtime-secrets
+              secret:
+                secretName: {{ $.Values.secrets.existingSecretRuntime }}
+                defaultMode: 0440
+                items:
+                  - key: postgres-password
+                    path: postgres-password
+            - name: temporary-directory
+              emptyDir:
+                sizeLimit: {{ $.Values.backup.job.temporaryDirectory.sizeLimit }}
+{{- end }}
+{{- end }}
+{{- end }}

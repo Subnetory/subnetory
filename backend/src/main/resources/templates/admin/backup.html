@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<head><title>Sauvegardes — Subnetory</title></head>
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <div class="sn-page__header">
+        <div>
+            <h1 class="sn-page__title">Sauvegardes</h1>
+        </div>
+        <nav class="sn-admin-subnav" aria-label="Navigation administration">
+            <a th:href="@{/admin/users}" class="sn-admin-subnav__item">Comptes</a>
+            <a th:href="@{/admin/ldap}" class="sn-admin-subnav__item">LDAP</a>
+            <a th:href="@{/admin/audit-log}" class="sn-admin-subnav__item">Audit</a>
+            <a th:href="@{/admin/backup}" class="sn-admin-subnav__item active">Sauvegardes</a>
+            <a th:href="@{/admin/help}" class="sn-admin-subnav__item">Aide</a>
+        </nav>
+    </div>
+
+    <div th:if="${flashSuccess}" class="sn-alert sn-alert--success" th:text="${flashSuccess}"></div>
+    <div th:if="${flashError}"   class="sn-alert sn-alert--error"   th:text="${flashError}"></div>
+    <div th:if="${operationInProgress}" class="sn-alert sn-alert--info">
+        Une sauvegarde ou une restauration est actuellement en cours. Les actions sont temporairement indisponibles.
+    </div>
+
+    <!-- ── Cartes de statut ─────────────────────────────────────────── -->
+    <section class="sn-ldap-overview">
+        <article class="sn-card sn-ldap-status-card">
+            <div class="sn-ldap-status-card__header">
+                <div class="sn-ldap-status-card__intro">
+                    <span class="sn-ldap-status-card__icon" aria-hidden="true">◷</span>
+                    <div>
+                        <h2 class="sn-card__title">Planification</h2>
+                        <p>Sauvegarde automatique de la base de données.</p>
+                    </div>
+                </div>
+                <span th:if="${enabled}" class="sn-badge sn-badge--green">Activée</span>
+                <span th:unless="${enabled}" class="sn-badge sn-badge--neutral">Désactivée</span>
+            </div>
+            <dl class="sn-ldap-summary">
+                <div>
+                    <dt>Expression cron</dt>
+                    <dd class="sn-text-mono" th:text="${cronExpression}">0 0 2 * * *</dd>
+                </div>
+                <div>
+                    <dt>Prochaine exécution</dt>
+                    <dd th:if="${nextRunAt != null}"
+                        th:text="${#temporals.format(nextRunAt, 'dd/MM/yyyy HH:mm')}">01/01/2026 02:00</dd>
+                    <dd th:unless="${nextRunAt != null}" class="sn-text-muted">—</dd>
+                </div>
+                <div>
+                    <dt>Rétention</dt>
+                    <dd th:text="${retentionCount} + ' sauvegarde(s)'">14 sauvegarde(s)</dd>
+                </div>
+                <div>
+                    <dt>Chiffrement</dt>
+                    <dd th:if="${encryptionEnabled}">
+                        <span class="sn-badge sn-badge--green">Activé</span>
+                    </dd>
+                    <dd th:unless="${encryptionEnabled}">
+                        <span class="sn-badge sn-badge--neutral" title="Aucune clé subnetory.backup.encryption.key configurée">Non configuré</span>
+                    </dd>
+                </div>
+            </dl>
+        </article>
+
+        <article class="sn-card sn-ldap-status-card">
+            <div class="sn-ldap-status-card__header">
+                <div class="sn-ldap-status-card__intro">
+                    <span class="sn-ldap-status-card__icon sn-ldap-status-card__icon--service" aria-hidden="true">⬇</span>
+                    <div>
+                        <h2 class="sn-card__title">Dernière sauvegarde réussie</h2>
+                        <p>Fichier, taille et durée de la dernière exécution.</p>
+                    </div>
+                </div>
+                <span th:if="${lastRun != null}" class="sn-badge sn-badge--green">Réussie</span>
+                <span th:unless="${lastRun != null}" class="sn-badge sn-badge--neutral">Aucune</span>
+            </div>
+            <dl class="sn-ldap-summary" th:if="${lastRun != null}">
+                <div>
+                    <dt>Date</dt>
+                    <dd th:text="${#temporals.format(lastRun.startedAt(), 'dd/MM/yyyy HH:mm')}">—</dd>
+                </div>
+                <div>
+                    <dt>Durée</dt>
+                    <dd th:text="${lastRun.durationFormatted()}">—</dd>
+                </div>
+                <div>
+                    <dt>Taille</dt>
+                    <dd th:text="${lastRun.fileSizeFormatted()}">—</dd>
+                </div>
+            </dl>
+            <p th:unless="${lastRun != null}" class="sn-ldap-note">
+                Aucune sauvegarde réussie pour l'instant.
+            </p>
+            <p th:if="${lastFailedRun != null}" class="sn-ldap-note sn-text-danger">
+                ⚠ Dernier échec le <span th:text="${#temporals.format(lastFailedRun.startedAt(), 'dd/MM/yyyy HH:mm')}"></span> —
+                <span th:text="${lastFailedRun.errorMessage()}"></span>
+            </p>
+        </article>
+    </section>
+
+    <!-- ── Compteurs ────────────────────────────────────────────────── -->
+    <div class="sn-stat-grid sn-stat-grid--auto">
+        <div class="sn-stat-card">
+            <span class="sn-stat-card__icon sn-stat-card__icon--blue">⬇</span>
+            <div class="sn-stat-card__value" th:text="${totalBackupCount}">0</div>
+            <div class="sn-stat-card__label">Sauvegardes conservées</div>
+        </div>
+        <div class="sn-stat-card">
+            <span class="sn-stat-card__icon sn-stat-card__icon--purple">▤</span>
+            <div class="sn-stat-card__value" th:text="${totalStorageFormatted}">0 o</div>
+            <div class="sn-stat-card__label">Espace utilisé</div>
+        </div>
+        <div class="sn-stat-card">
+            <span class="sn-stat-card__icon sn-stat-card__icon--green">✓</span>
+            <div class="sn-stat-card__value" th:text="${retentionCount}">14</div>
+            <div class="sn-stat-card__label">Rétention configurée</div>
+        </div>
+    </div>
+
+    <!-- ── Configuration + actions ──────────────────────────────────── -->
+    <section class="sn-admin-grid sn-admin-grid--ldap">
+        <article class="sn-card sn-card--padded">
+            <div class="sn-card__header">
+                <div><h2 class="sn-card__title">Configuration</h2></div>
+            </div>
+
+            <form th:action="@{/admin/backup/settings}" th:object="${backupForm}" method="post" class="sn-form">
+                <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+                <div class="sn-form__group sn-form__group--checkbox">
+                    <label class="sn-chip-checkbox">
+                        <input type="checkbox" class="sn-chip-checkbox__input" th:field="*{enabled}">
+                        <span class="sn-chip-checkbox__pill">Activer la sauvegarde automatique</span>
+                    </label>
+                </div>
+
+                <div class="sn-form__group" data-cron-builder>
+                    <label for="backupCron" class="sn-form__label">Expression cron (6 champs)</label>
+
+                    <div class="sn-cron-builder__modes" role="group" aria-label="Fréquence de la sauvegarde">
+                        <button type="button" class="sn-cron-builder__mode" data-cron-mode="daily">Quotidien</button>
+                        <button type="button" class="sn-cron-builder__mode" data-cron-mode="weekly">Hebdomadaire</button>
+                        <button type="button" class="sn-cron-builder__mode" data-cron-mode="monthly">Mensuel</button>
+                        <button type="button" class="sn-cron-builder__mode" data-cron-mode="interval">Intervalle</button>
+                        <button type="button" class="sn-cron-builder__mode" data-cron-mode="custom">Personnalisé</button>
+                    </div>
+
+                    <div class="sn-cron-builder__panel" data-cron-panel="daily" hidden>
+                        <label for="cronDailyTime">Heure</label>
+                        <input type="time" id="cronDailyTime" class="sn-input sn-input--narrow" data-cron-time>
+                    </div>
+
+                    <div class="sn-cron-builder__panel" data-cron-panel="weekly" hidden>
+                        <label for="cronWeeklyTime">Heure</label>
+                        <input type="time" id="cronWeeklyTime" class="sn-input sn-input--narrow" data-cron-time>
+                        <div class="sn-cron-builder__days" data-cron-days>
+                            <label class="sn-chip-checkbox"><input type="checkbox" class="sn-chip-checkbox__input" value="MON"><span class="sn-chip-checkbox__pill">Lun</span></label>
+                            <label class="sn-chip-checkbox"><input type="checkbox" class="sn-chip-checkbox__input" value="TUE"><span class="sn-chip-checkbox__pill">Mar</span></label>
+                            <label class="sn-chip-checkbox"><input type="checkbox" class="sn-chip-checkbox__input" value="WED"><span class="sn-chip-checkbox__pill">Mer</span></label>
+                            <label class="sn-chip-checkbox"><input type="checkbox" class="sn-chip-checkbox__input" value="THU"><span class="sn-chip-checkbox__pill">Jeu</span></label>
+                            <label class="sn-chip-checkbox"><input type="checkbox" class="sn-chip-checkbox__input" value="FRI"><span class="sn-chip-checkbox__pill">Ven</span></label>
+                            <label class="sn-chip-checkbox"><input type="checkbox" class="sn-chip-checkbox__input" value="SAT"><span class="sn-chip-checkbox__pill">Sam</span></label>
+                            <label class="sn-chip-checkbox"><input type="checkbox" class="sn-chip-checkbox__input" value="SUN"><span class="sn-chip-checkbox__pill">Dim</span></label>
+                        </div>
+                    </div>
+
+                    <div class="sn-cron-builder__panel" data-cron-panel="monthly" hidden>
+                        <label for="cronMonthlyTime">Heure</label>
+                        <input type="time" id="cronMonthlyTime" class="sn-input sn-input--narrow" data-cron-time>
+                        <label for="cronMonthlyDay">Jour du mois</label>
+                        <select id="cronMonthlyDay" class="sn-input sn-input--narrow" data-cron-day-of-month>
+                            <option th:each="d : ${#numbers.sequence(1, 31)}" th:value="${d}" th:text="${d}">1</option>
+                        </select>
+                    </div>
+
+                    <div class="sn-cron-builder__panel" data-cron-panel="interval" hidden>
+                        <label for="cronIntervalValue">Tous les</label>
+                        <input type="number" id="cronIntervalValue" class="sn-input sn-input--narrow"
+                               data-cron-interval-value min="1" max="23" value="6">
+                        <select id="cronIntervalUnit" class="sn-input sn-input--narrow" data-cron-interval-unit>
+                            <option value="hours">heure(s)</option>
+                            <option value="days">jour(s)</option>
+                        </select>
+                        <label for="cronIntervalTime" data-cron-interval-time-label hidden>à</label>
+                        <input type="time" id="cronIntervalTime" class="sn-input sn-input--narrow"
+                               data-cron-time data-cron-interval-time-input hidden>
+                    </div>
+
+                    <p class="sn-cron-builder__preview" data-cron-preview></p>
+
+                    <input id="backupCron" th:field="*{cronExpression}" type="text" maxlength="100"
+                           class="sn-input sn-text-mono" placeholder="0 0 2 * * *" data-cron-raw>
+                    <p class="sn-form-hint">
+                        Format : secondes minutes heures jour-du-mois mois jour-de-semaine.
+                        Le configurateur ci-dessus couvre les cas courants (dont
+                        <strong>Intervalle</strong> pour "toutes les N heures" ou "tous les
+                        N jours", ex. un jour sur deux) et repasse automatiquement en
+                        <strong>Personnalisé</strong> pour toute expression qu'il ne reconnaît
+                        pas exactement — le champ texte reste alors modifiable directement.
+                        Exemples : <code>0 0 2 * * *</code> tous les jours à 2h —
+                        <code>0 0 */6 * * *</code> toutes les 6 heures —
+                        <code>0 0 2 * * SUN</code> chaque dimanche à 2h.
+                    </p>
+                </div>
+
+                <div class="sn-form__group">
+                    <label for="backupRetention" class="sn-form__label">Sauvegardes à conserver</label>
+                    <input id="backupRetention" th:field="*{retentionCount}" type="number" min="1" max="365"
+                           class="sn-input sn-input--w120">
+                    <p class="sn-form-hint">
+                        Au-delà de ce nombre, les fichiers les plus anciens sont supprimés automatiquement
+                        après chaque sauvegarde réussie. L'historique, lui, est conservé indéfiniment.
+                    </p>
+                </div>
+
+                <div class="sn-form__actions">
+                    <button type="submit" class="sn-btn sn-btn--primary">Enregistrer la configuration</button>
+                </div>
+            </form>
+        </article>
+
+        <article class="sn-card">
+            <div class="sn-card__header">
+                <div><h2 class="sn-card__title">Actions</h2></div>
+            </div>
+            <div class="sn-ldap-actions">
+                <form th:action="@{/admin/backup/trigger}" method="post" class="sn-form">
+                    <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                    <p class="sn-ldap-note">
+                        Lance immédiatement une sauvegarde complète de la base, hors planification.
+                    </p>
+                    <div class="sn-form__group">
+                        <label for="backupLabel" class="sn-form__label">Titre / commentaire (optionnel)</label>
+                        <input id="backupLabel" name="label" type="text" maxlength="200" class="sn-input"
+                               placeholder="ex : avant migration V19">
+                    </div>
+                    <button type="submit" class="sn-btn sn-btn--primary" th:disabled="${operationInProgress}">
+                        Sauvegarder maintenant
+                    </button>
+                </form>
+
+                <form th:action="@{/admin/backup/import}" method="post" enctype="multipart/form-data"
+                      class="sn-form sn-action-divider">
+                    <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                    <div class="sn-form__group">
+                        <label for="backupImportFile" class="sn-form__label">Importer une sauvegarde (.dump)</label>
+                        <div class="sn-file-picker" data-file-drop>
+                            <span class="sn-file-picker__btn sn-btn sn-btn--secondary sn-btn--sm" aria-hidden="true">Choisir un fichier</span>
+                            <span class="sn-file-picker__name" data-file-name>Aucun fichier sélectionné</span>
+                            <input id="backupImportFile" name="file" type="file" accept=".dump" required
+                                   class="sn-file-picker__input" data-file-input
+                                   aria-label="Choisir un fichier de sauvegarde (.dump)">
+                        </div>
+                        <p class="sn-form-hint">
+                            Ajoute un fichier pg_dump téléchargé précédemment (ex : depuis un autre serveur) à
+                            l'historique ci-dessous, pour pouvoir le restaurer comme n'importe quelle autre
+                            sauvegarde. Le format est vérifié avant acceptation.
+                        </p>
+                    </div>
+                    <button type="submit" class="sn-btn sn-btn--secondary" th:disabled="${operationInProgress}">
+                        Importer
+                    </button>
+                </form>
+
+                <form th:action="@{/admin/backup/purge}" method="post" class="sn-form sn-action-divider"
+                      onsubmit="return confirm('Supprimer définitivement l\'historique (sauvegardes et restaurations, et leurs fichiers) antérieur à cette date ? Cette action est irréversible.');">
+                    <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                    <div class="sn-form__group">
+                        <label for="backupPurgeDate" class="sn-form__label">Purger l'historique avant le</label>
+                        <input id="backupPurgeDate" name="beforeDate" type="date" class="sn-input sn-input--w200" required>
+                        <p class="sn-form-hint">
+                            Supprime définitivement les lignes d'historique (et fichiers associés) antérieures à
+                            cette date. Une sauvegarde encore nécessaire à une restauration conservée n'est
+                            jamais supprimée.
+                        </p>
+                    </div>
+                    <div class="sn-form__actions">
+                        <button type="submit" class="sn-btn sn-btn--danger">Purger définitivement</button>
+                    </div>
+                </form>
+
+                <p class="sn-ldap-note sn-ldap-user-test">
+                    Répertoire de stockage : <code th:text="${storagePath}">/var/subnetory/backups</code><br>
+                    La restauration se fait depuis une sauvegarde de l'historique ci-dessous
+                    (bouton « Restaurer ») et exige une confirmation explicite.
+                </p>
+            </div>
+        </article>
+    </section>
+
+    <!-- ── Historique des sauvegardes ───────────────────────────────── -->
+    <div class="sn-card">
+        <div class="sn-card__header">
+            <div><h2 class="sn-card__title">Historique des sauvegardes</h2></div>
+        </div>
+        <div class="sn-table-wrapper">
+            <table class="sn-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Déclencheur</th>
+                        <th>Statut</th>
+                        <th>Durée</th>
+                        <th>Taille</th>
+                        <th>Fichier</th>
+                        <th>Empreinte SHA-256</th>
+                        <th class="sn-table-col-actions">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="run : ${history}">
+                        <td th:text="${#temporals.format(run.startedAt(), 'dd/MM/yyyy HH:mm:ss')}">—</td>
+                        <td>
+                            <span th:if="${run.triggerSource() == 'SCHEDULED'}" class="sn-badge sn-badge--neutral">Planifiée</span>
+                            <span th:if="${run.triggerSource() == 'MANUAL'}" class="sn-badge sn-badge--neutral">Manuelle</span>
+                            <span th:if="${run.triggerSource() == 'PRE_RESTORE_SAFETY'}" class="sn-badge sn-badge--orange">Sécurité (pré-restauration)</span>
+                            <span th:if="${run.triggerSource() == 'IMPORTED'}" class="sn-badge sn-badge--purple">Importée</span>
+                        </td>
+                        <td>
+                            <span th:if="${run.status() == 'SUCCESS'}" class="sn-badge sn-badge--green">Réussie</span>
+                            <span th:if="${run.status() == 'FAILED' and run.errorMessage() != null}"
+                                  class="sn-badge sn-badge--danger sn-copyable"
+                                  th:attr="data-copy-value=${run.errorMessage()}"
+                                  title="Cliquer pour copier le message d'erreur complet">Échouée</span>
+                            <span th:if="${run.status() == 'FAILED' and run.errorMessage() == null}" class="sn-badge sn-badge--danger">Échouée</span>
+                            <span th:if="${run.status() == 'RUNNING'}" class="sn-badge sn-badge--blue">En cours</span>
+                        </td>
+                        <td class="sn-text-mono" th:text="${run.durationFormatted()}">—</td>
+                        <td class="sn-text-mono" th:text="${run.fileSizeFormatted()}">—</td>
+                        <td>
+                            <span th:if="${run.fileName() != null and run.fileAvailable()}"
+                                  class="sn-text-mono sn-text-secondary" th:text="${run.fileName()}">—</span>
+                            <span th:if="${run.fileName() != null and !run.fileAvailable()}"
+                                  class="sn-badge sn-badge--neutral" title="Fichier supprimé par la politique de rétention">Purgé</span>
+                            <span th:if="${run.fileName() == null}" class="sn-text-muted">—</span>
+                            <span th:if="${run.encrypted()}" class="sn-badge sn-badge--blue sn-ml-2" title="Chiffré (AES-256-GCM + HMAC-SHA256)">🔒 Chiffré</span>
+                            <div th:if="${run.label() != null}" class="sn-text-muted sn-text-xs sn-mt-1"
+                                 th:text="${run.label()}">—</div>
+                        </td>
+                        <td class="sn-text-mono sn-text-muted sn-copyable"
+                            th:if="${run.checksumSha256() != null}"
+                            th:text="${run.checksumShort()}"
+                            th:attr="data-copy-value=${run.checksumSha256()}"
+                            title="Cliquer pour copier l'empreinte SHA-256 complète">—</td>
+                        <td class="sn-text-mono sn-text-muted" th:if="${run.checksumSha256() == null}">—</td>
+                        <td class="sn-table-actions">
+                            <a th:if="${run.status() == 'SUCCESS' and run.fileAvailable()}"
+                               th:href="@{/admin/backup/runs/{id}/download(id=${run.id()})}"
+                               class="sn-btn sn-btn--ghost sn-btn--sm">Télécharger</a>
+                            <a th:if="${run.status() == 'SUCCESS' and run.fileAvailable()}"
+                               th:href="@{/admin/backup/runs/{id}/restore-confirm(id=${run.id()})}"
+                               class="sn-btn sn-btn--secondary sn-btn--sm">Restaurer</a>
+                            <a th:if="${run.status() != 'RUNNING'}"
+                               th:href="@{/admin/backup/runs/{id}/delete-confirm(id=${run.id()})}"
+                               class="sn-btn sn-btn--danger sn-btn--sm">Supprimer</a>
+                        </td>
+                    </tr>
+                    <tr th:if="${history.empty}" class="sn-table--empty">
+                        <td colspan="8">Aucune sauvegarde enregistrée pour l'instant.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="sn-pagination" th:if="${!history.empty}">
+            <span class="sn-pagination__info"
+                  th:text="${history.totalElements} + ' sauvegarde(s)'">N sauvegardes</span>
+            <nav class="sn-pagination__nav" th:if="${history.totalPages > 1}">
+                <a th:href="@{/admin/backup(page=${history.number - 1})}"
+                   th:classappend="${history.first ? 'sn-pagination__btn--disabled' : ''}"
+                   class="sn-pagination__btn">‹</a>
+                <th:block th:each="i : ${#numbers.sequence(0, history.totalPages - 1)}">
+                    <a th:href="@{/admin/backup(page=${i})}"
+                       th:text="${i + 1}"
+                       th:classappend="${i == history.number ? 'active' : ''}"
+                       class="sn-pagination__btn">1</a>
+                </th:block>
+                <a th:href="@{/admin/backup(page=${history.number + 1})}"
+                   th:classappend="${history.last ? 'sn-pagination__btn--disabled' : ''}"
+                   class="sn-pagination__btn">›</a>
+            </nav>
+        </div>
+    </div>
+
+    <!-- ── Historique des restaurations ─────────────────────────────── -->
+    <div class="sn-card" th:if="${!restoreHistory.empty}">
+        <div class="sn-card__header">
+            <div><h2 class="sn-card__title">Historique des restaurations</h2></div>
+        </div>
+        <div class="sn-table-wrapper">
+            <table class="sn-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Sauvegarde restaurée</th>
+                        <th>Statut</th>
+                        <th>Effectuée par</th>
+                        <th>Détail</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="r : ${restoreHistory}">
+                        <td th:text="${#temporals.format(r.startedAt(), 'dd/MM/yyyy HH:mm:ss')}">—</td>
+                        <td class="sn-text-mono sn-text-secondary" th:text="${r.backupFileName() ?: '—'}">—</td>
+                        <td>
+                            <span th:if="${r.status() == 'SUCCESS'}" class="sn-badge sn-badge--green">Réussie</span>
+                            <span th:if="${r.status() == 'FAILED'}" class="sn-badge sn-badge--danger">Échouée</span>
+                            <span th:if="${r.status() == 'RUNNING'}" class="sn-badge sn-badge--blue">En cours</span>
+                        </td>
+                        <td th:text="${r.performedBy()}">—</td>
+                        <td class="sn-text-muted sn-cell-desc sn-truncate sn-copyable"
+                            th:if="${r.errorMessage() != null}"
+                            th:text="${r.errorMessage()}"
+                            th:attr="data-copy-value=${r.errorMessage()}"
+                            title="Cliquer pour copier le message complet">—</td>
+                        <td class="sn-text-muted" th:if="${r.errorMessage() == null}">—</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

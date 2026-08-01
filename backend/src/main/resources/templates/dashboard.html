@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<head><title>Tableau de bord — Subnetory</title></head>
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <div class="sn-page__header">
+        <div>
+            <h1 class="sn-page__title">Tableau de bord</h1>
+            <p class="sn-page__subtitle" th:text="${activeContextId != null ? 'Vue du contexte ' + activeContextName : 'Vue de tous les contextes autorisés'}">Vue d'ensemble du réseau</p>
+        </div>
+    </div>
+
+    <!-- ── Compteurs globaux ─────────────────────────────────────────── -->
+    <div class="sn-stat-grid">
+
+        <a th:href="@{/network/contexts}" class="sn-stat-card sn-stat-card--link">
+            <span class="sn-stat-card__icon sn-stat-card__icon--blue">◎</span>
+            <div class="sn-stat-card__value" th:text="${stats.totalContexts}">0</div>
+            <div class="sn-stat-card__label">Contextes</div>
+        </a>
+
+        <a th:href="@{/network/sites}" class="sn-stat-card sn-stat-card--link">
+            <span class="sn-stat-card__icon sn-stat-card__icon--green">⌖</span>
+            <div class="sn-stat-card__value" th:text="${stats.totalSites}">0</div>
+            <div class="sn-stat-card__label">Sites</div>
+        </a>
+
+        <a th:href="@{/network/vlans}" class="sn-stat-card sn-stat-card--link">
+            <span class="sn-stat-card__icon sn-stat-card__icon--purple">◇</span>
+            <div class="sn-stat-card__value" th:text="${stats.totalVlans}">0</div>
+            <div class="sn-stat-card__label">VLANs</div>
+        </a>
+
+        <a th:href="@{/network/subnets}" class="sn-stat-card sn-stat-card--link">
+            <span class="sn-stat-card__icon sn-stat-card__icon--orange">▦</span>
+            <div class="sn-stat-card__value" th:text="${stats.totalSubnets}">0</div>
+            <div class="sn-stat-card__label">Sous-réseaux</div>
+        </a>
+
+        <a th:href="@{/network/addresses}" class="sn-stat-card sn-stat-card--link">
+            <span class="sn-stat-card__icon sn-stat-card__icon--cyan">⌁</span>
+            <div class="sn-stat-card__value" th:text="${stats.totalAddresses}">0</div>
+            <div class="sn-stat-card__label">Adresses IP</div>
+        </a>
+
+    </div>
+
+    <!-- ── Top subnets — état vide ──────────────────────────────────── -->
+    <div th:if="${#lists.isEmpty(stats.topSubnets)}" class="sn-card">
+        <div class="sn-table-wrapper">
+            <table class="sn-table">
+                <thead>
+                    <tr>
+                        <th>Sous-réseaux les plus utilisés</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="sn-table--empty">
+                        <td>
+                            Aucun sous-réseau configuré.
+                            <a th:href="@{/network/subnets/new}">Créer un sous-réseau</a>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ── Top subnets — tableau ─────────────────────────────────────── -->
+    <div th:if="${not #lists.isEmpty(stats.topSubnets)}" class="sn-card">
+
+        <div class="sn-card__header">
+            <h2 class="sn-card__title">Sous-réseaux les plus utilisés</h2>
+        </div>
+
+        <div class="sn-table-wrapper">
+            <table class="sn-table">
+                <thead>
+                    <tr>
+                        <th>Réseau</th>
+                        <th>Description</th>
+                        <th>Site</th>
+                        <th>Contexte</th>
+                        <th>Utilisé</th>
+                        <th>Capacité</th>
+                        <th>Utilisation</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="entry : ${stats.topSubnets}">
+
+                        <td>
+                            <a th:href="@{/network/addresses(subnetId=${entry.subnetId})}"
+                               class="sn-row-link"
+                               th:text="${entry.network}">10.0.0.0/24</a>
+                        </td>
+
+                        <td class="sn-cell-desc sn-truncate"
+                            th:text="${entry.description}">Description</td>
+
+                        <td th:text="${entry.siteName}">Site</td>
+
+                        <td>
+                            <span class="sn-badge sn-badge--neutral"
+                                  th:text="${entry.contextName}">Default</span>
+                        </td>
+
+                        <td class="sn-cell-mono"
+                            th:text="${entry.used}">0</td>
+
+                        <td class="sn-cell-mono"
+                            th:text="${entry.capacity}">0</td>
+
+                        <td class="sn-util-cell">
+                            <div class="sn-util-bar">
+                                <div class="sn-util-bar__fill"
+                                     th:classappend="${'sn-util-bar' + '__fill--' + (entry.utilizationPct >= 85 ? 'high' : (entry.utilizationPct >= 60 ? 'medium' : 'low'))}"
+                                     th:style="'width:' + ${entry.utilizationPct} + '%'"></div>
+                            </div>
+                            <span class="sn-util-pct"
+                                  th:text="${entry.utilizationPct + ' %'}">0 %</span>
+                        </td>
+
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+</div>
+</div>
+</body>
+</html>

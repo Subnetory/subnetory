@@ -1,0 +1,89 @@
+package dev.subnetory.repository;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
+@Testcontainers
+@ActiveProfiles("test")
+class UserTokenInvalidationRepositoryIT {
+
+    @Container
+    static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:17-alpine");
+
+    @DynamicPropertySource
+    static void registerProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        registry.add("spring.datasource.username", postgres::getUsername);
+        registry.add("spring.datasource.password", postgres::getPassword);
+    }
+
+    @Autowired
+    private UserTokenInvalidationRepository repository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @BeforeEach
+    void cleanTable() {
+        jdbcTemplate.update("DELETE FROM user_token_invalidations");
+    }
+
+    @Test
+    void insertsInvalidationThreshold() {
+        OffsetDateTime notBefore = OffsetDateTime.of(2026, 7, 7, 15, 0, 0, 0, ZoneOffset.UTC);
+
+        int rows = repository.upsertNotBefore("alice", notBefore, "alice", "LOGOUT_ALL");
+
+        assertThat(rows).isEqualTo(1);
+        assertThat(repository.findNotBeforeByUsername("alice"))
+                .isPresent()
+                .get()
+                .isEqualTo(notBefore.toInstant());
+    }
+
+    @Test
+    void updatesExistingInvalidationThreshold() {
+        OffsetDateTime first = OffsetDateTime.of(2026, 7, 7, 15, 0, 0, 0, ZoneOffset.UTC);
+        OffsetDateTime second = OffsetDateTime.of(2026, 7, 7, 16, 0, 0, 0, ZoneOffset.UTC);
+
+        repository.upsertNotBefore("alice", first, "alice", "LOGOUT_ALL");
+        int rows = repository.upsertNotBefore("alice", second, "admin", "ADMIN_REVOKE");
+
+        assertThat(rows).isEqualTo(1);
+        assertThat(repository.findNotBeforeByUsername("alice"))
+                .isPresent()
+                .get()
+                .isEqualTo(second.toInstant());
+
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM user_token_invalidations WHERE username = ?",
+                Integer.class,
+                "alice");
+        String invalidatedBy = jdbcTemplate.queryForObject(
+                "SELECT invalidated_by FROM user_token_invalidations WHERE username = ?",
+                String.class,
+                "alice");
+        String reason = jdbcTemplate.queryForObject(
+                "SELECT reason FROM user_token_invalidations WHERE username = ?",
+                String.class,
+                "alice");
+
+        assertThat(count).isEqualTo(1);
+        assertThat(invalidatedBy).isEqualTo("admin");
+        assertThat(reason).isEqualTo("ADMIN_REVOKE");
+    }
+}

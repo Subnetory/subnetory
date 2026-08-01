@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<head><title>Rapport d'import — Subnetory</title></head>
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <div class="sn-page__header">
+        <div>
+            <h1 class="sn-page__title">Rapport d'import</h1>
+            <p class="sn-page__subtitle">
+                Resultat de l'import <span th:text="${importFormat}">fichier</span>
+            </p>
+        </div>
+        <div class="sn-page__actions">
+            <a th:href="@{/network/addresses}" class="sn-btn sn-btn--ghost">Retour aux adresses</a>
+        </div>
+    </div>
+
+    <div th:if="${flashSuccess}" class="sn-alert sn-alert--success" th:text="${flashSuccess}"></div>
+    <div th:if="${flashError}" class="sn-alert sn-alert--error" th:text="${flashError}"></div>
+
+    <div class="sn-card sn-card--padded">
+        <div class="sn-card__header">
+            <h2 class="sn-card__title">Synthese</h2>
+        </div>
+
+        <table class="sn-table">
+            <tbody>
+            <tr>
+                <th>Total lignes</th>
+                <td th:text="${importResult.totalRows}">0</td>
+            </tr>
+            <tr>
+                <th>Creees</th>
+                <td th:text="${importResult.created}">0</td>
+            </tr>
+            <tr>
+                <th>Mises a jour</th>
+                <td th:text="${importResult.updatedLastSeen}">0</td>
+            </tr>
+            <tr>
+                <th>Ignorees</th>
+                <td th:text="${importResult.skipped}">0</td>
+            </tr>
+            <tr>
+                <th>Erreurs</th>
+                <td th:text="${importResult.errors}">0</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="sn-card sn-card--padded sn-mt-5">
+        <div class="sn-card__header">
+            <h2 class="sn-card__title">Erreurs ligne par ligne</h2>
+        </div>
+
+        <div class="sn-table-wrapper">
+            <table class="sn-table">
+                <thead>
+                <tr>
+                    <th>Ligne</th>
+                    <th>Champ</th>
+                    <th>Raison</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="err : ${importResult.errorDetails}">
+                    <td th:text="${err.row}">1</td>
+                    <td th:text="${err.field}">address</td>
+                    <td th:text="${err.reason}">Erreur</td>
+                </tr>
+                <tr th:if="${importResult.errors == 0}" class="sn-table--empty">
+                    <td colspan="3">Aucune erreur détaillée.</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

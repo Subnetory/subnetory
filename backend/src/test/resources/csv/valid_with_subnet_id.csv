@@ -1,0 +1,4 @@
+address,subnet_id,subnet_network,mac,hostname,description,temporary,discovery_source
+10.40.0.10,__SUBNET_ID__,,aa:bb:cc:dd:ee:01,srv-import-01,Serveur import test,false,csv
+10.40.0.20,__SUBNET_ID__,,,printer-import-01,Imprimante test,,
+10.40.0.30,__SUBNET_ID__,,ff:ee:dd:cc:bb:aa,pc-import-01,,true,

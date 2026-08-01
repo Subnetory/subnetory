@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<head><title th:text="${pageTitle} + ' — Subnetory'">Site — Subnetory</title></head>
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <div class="sn-page__header">
+        <div>
+            <h1 class="sn-page__title" th:text="${pageTitle}">Site</h1>
+            <p class="sn-page__subtitle">Rattachez ce site à un contexte pour organiser vos VLAN et sous-réseaux.</p>
+        </div>
+    </div>
+
+    <div th:if="${formError}" class="sn-alert sn-alert--error" th:text="${formError}"></div>
+
+    <div class="sn-card sn-card--padded sn-form-card">
+        <div class="sn-card__header">
+            <h2 class="sn-card__title" th:text="${pageTitle}">Site</h2>
+        </div>
+
+        <form th:action="${formAction}" th:object="${form}" method="post" novalidate class="sn-form">
+
+            <input type="hidden" th:field="*{id}" />
+
+            <div class="sn-form__group" th:classappend="${#fields.hasErrors('name')} ? ' sn-form__group--error'">
+                <label for="name" class="sn-form__label">
+                    Nom <span class="sn-form-required">*</span>
+                </label>
+                <input type="text"
+                       id="name"
+                       th:field="*{name}"
+                       class="sn-input"
+                       placeholder="ex : Paris Nord"
+                       autocomplete="off"
+                       maxlength="100"
+                       required
+                       aria-required="true" />
+                <span class="sn-form__error"
+                      th:if="${#fields.hasErrors('name')}"
+                      th:errors="*{name}"></span>
+            </div>
+
+            <div class="sn-form__group" th:classappend="${#fields.hasErrors('code')} ? ' sn-form__group--error'">
+                <label for="code" class="sn-form__label">
+                    Code <span class="sn-form-required">*</span>
+                </label>
+                <input type="text"
+                       id="code"
+                       th:field="*{code}"
+                       class="sn-input"
+                       placeholder="ex : PAR01 (converti en majuscules)"
+                       autocomplete="off"
+                       maxlength="20"
+                       required
+                       aria-required="true" />
+                <span class="sn-form__error"
+                      th:if="${#fields.hasErrors('code')}"
+                      th:errors="*{code}"></span>
+            </div>
+
+            <div class="sn-form__group" th:classappend="${#fields.hasErrors('contextId')} ? ' sn-form__group--error'">
+                <label for="contextId" class="sn-form__label">
+                    Contexte <span class="sn-form-required">*</span>
+                </label>
+                <select id="contextId"
+                        th:field="*{contextId}"
+                        class="sn-input"
+                        required
+                        aria-required="true">
+                    <option value="">— Sélectionner un contexte —</option>
+                    <option th:each="ctx : ${allContexts}"
+                            th:value="${ctx.id}"
+                            th:text="${ctx.name}">Contexte</option>
+                </select>
+                <span class="sn-form__error"
+                      th:if="${#fields.hasErrors('contextId')}"
+                      th:errors="*{contextId}"></span>
+            </div>
+
+            <div class="sn-form__actions">
+                <button type="submit" class="sn-btn sn-btn--primary">Enregistrer</button>
+                <a th:href="${cancelUrl}" class="sn-btn sn-btn--secondary">Annuler</a>
+            </div>
+
+        </form>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

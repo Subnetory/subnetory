@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verification MFA — Subnetory</title>
+    <link rel="stylesheet" th:href="@{/assets/css/app.css}">
+</head>
+<body class="sn-login-body">
+<div class="sn-login-card">
+    <div class="sn-login-brand">
+        <span class="sn-navbar__brand-dot"></span>
+        Subnetory
+    </div>
+
+    <h1 class="sn-card__title">Verification en deux etapes</h1>
+    <p class="sn-login-subtitle">
+        Saisissez le code de votre application d'authentification, ou l'un de
+        vos codes de recuperation.
+    </p>
+
+    <div th:if="${flashError}"
+         class="sn-alert sn-alert--danger"
+         th:text="${flashError}"></div>
+
+    <form th:action="@{/login/mfa}"
+          th:object="${form}"
+          method="post"
+          class="sn-login-form">
+
+        <input type="hidden"
+               th:if="${_csrf != null}"
+               th:name="${_csrf.parameterName}"
+               th:value="${_csrf.token}">
+
+        <div class="sn-login-field">
+            <label class="sn-login-label" for="code">Code TOTP ou de recuperation</label>
+            <input id="code"
+                   type="text"
+                   th:field="*{code}"
+                   class="sn-login-input"
+                   inputmode="numeric"
+                   autocomplete="one-time-code"
+                   autofocus>
+            <div th:if="${#fields.hasErrors('code')}"
+                 th:errors="*{code}"
+                 class="sn-form__error"></div>
+        </div>
+
+        <button type="submit" class="sn-btn sn-btn--primary sn-login-submit">
+            Valider
+        </button>
+    </form>
+
+    <form th:action="@{/logout}" method="post" class="sn-logout-form">
+        <input type="hidden"
+               th:if="${_csrf != null}"
+               th:name="${_csrf.parameterName}"
+               th:value="${_csrf.token}">
+        <button type="submit"
+                class="sn-btn sn-btn--ghost sn-login-submit">
+            Se deconnecter
+        </button>
+    </form>
+</div>
+</body>
+</html>

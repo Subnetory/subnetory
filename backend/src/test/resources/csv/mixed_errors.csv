@@ -1,0 +1,4 @@
+address,subnet_id,subnet_network,mac,hostname,description,temporary,discovery_source
+10.40.0.60,__SUBNET_ID__,,,valid-host-01,Ligne valide,false,csv
+999.999.999.999,__SUBNET_ID__,,,bad-ip,IP invalide,false,csv
+10.40.0.70,,,,no-subnet,Pas de subnet,,

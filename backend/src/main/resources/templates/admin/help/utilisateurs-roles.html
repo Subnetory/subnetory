@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<head><title>Utilisateurs, rôles &amp; MFA - Guide admin - Subnetory</title></head>
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <p class="sn-help-crumb"><a th:href="@{/admin/help}">Guide administrateur</a> / Utilisateurs, rôles &amp; MFA</p>
+
+    <div class="sn-help-layout">
+        <div th:replace="~{help/fragments :: sidebar-admin('utilisateurs-roles')}"></div>
+
+        <div class="sn-help-article">
+            <div class="sn-help-article__header">
+                <h1 class="sn-page__title">Utilisateurs, rôles &amp; MFA</h1>
+                <p>Gestion des comptes, rôles disponibles, révocation de jetons et récupération d'urgence.</p>
+            </div>
+
+            <section class="sn-help-section">
+                <h2>Rôles disponibles</h2>
+                <table class="sn-table">
+                    <thead><tr><th>Rôle</th><th>Droits</th></tr></thead>
+                    <tbody>
+                    <tr><td><code>ROLE_ADMIN</code></td><td>Accès complet, gestion des utilisateurs et de l'administration</td></tr>
+                    <tr><td><code>ROLE_READ_ONLY</code></td><td>Consultation des données des contextes autorisés</td></tr>
+                    <tr><td><code>ROLE_NETWORK</code></td><td>Création et modification des contextes, sites, VLAN, sous-réseaux et scans</td></tr>
+                    <tr><td><code>ROLE_IP</code></td><td>Création, modification, suppression, import et export d'adresses IP</td></tr>
+                    <tr><td><code>ROLE_BACKUP</code></td><td>Accès limité à <code>/admin/backup</code> (configuration, déclenchement, import, restauration, historique) — sans le reste de l'administration</td></tr>
+                    </tbody>
+                </table>
+                <p class="sn-mt-3">
+                    Les rôles peuvent être cumulés : un utilisateur <code>ROLE_NETWORK</code> +
+                    <code>ROLE_IP</code> administre l'exploitation réseau et les adresses IP sans accès à
+                    l'administration de l'application. Pour un compte d'automatisation en lecture seule,
+                    attribuer <code>ROLE_READ_ONLY</code> et limiter son périmètre aux contextes nécessaires.
+                    <code>ROLE_BACKUP</code> convient à un compte de service ou un opérateur dédié aux
+                    sauvegardes.
+                </p>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Gestion des comptes</h2>
+                <p>
+                    Menu <em>Administration → Comptes</em> (<code>/admin/users</code>). Chaque compte local est
+                    créé avec un mot de passe temporaire ; l'utilisateur est contraint de le changer à la
+                    première connexion (<code>mustChangePassword</code>) avant de pouvoir utiliser
+                    l'application ou obtenir un jeton API. Un administrateur peut réinitialiser le mot de passe
+                    d'un compte local depuis l'écran de détail utilisateur — cela réactive aussi la contrainte
+                    de changement obligatoire.
+                </p>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Révocation des jetons API</h2>
+                <p>
+                    Depuis l'écran de détail d'un utilisateur, l'action <strong>Invalider les jetons</strong>
+                    invalide globalement tous les jetons JWT API déjà émis pour ce compte — les nouveaux jetons
+                    émis après l'action restent valides. Ce mécanisme se déclenche aussi automatiquement lors
+                    d'un changement de mot de passe ou d'une réinitialisation administrative, pour éviter
+                    qu'un ancien jeton reste utilisable après une modification sensible.
+                </p>
+                <div class="sn-alert sn-alert--info">
+                    Cette invalidation ne concerne que les jetons API JWT. Elle ne déconnecte pas les sessions
+                    Web déjà ouvertes.
+                </div>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Authentification à deux facteurs (MFA) — vue administrateur</h2>
+                <p>
+                    Chaque compte local peut activer le MFA depuis son propre profil (voir
+                    <a th:href="@{/help/compte-securite}">le guide utilisateur</a>). Les comptes LDAP ne sont
+                    pas concernés.
+                </p>
+                <h3>Récupération en cas de perte du mot de passe ET du MFA</h3>
+                <p>
+                    Si un compte perd l'accès à son mot de passe et à son application d'authentification (et
+                    que les codes de récupération n'ont pas été conservés), aucune récupération en
+                    libre-service n'est possible : Subnetory n'envoie pas d'email et ne propose pas de lien de
+                    réinitialisation par courrier électronique.
+                </p>
+                <p>
+                    Si un autre compte <code>ROLE_ADMIN</code> existe, il peut réinitialiser le mot de passe du
+                    compte bloqué depuis <code>/admin/users</code>. Cela ne désactive pas le MFA.
+                </p>
+                <div class="sn-alert sn-alert--warning">
+                    <strong>Si aucun autre compte admin n'existe</strong>, le seul recours est un accès direct
+                    à la base PostgreSQL — procédure de secours à n'utiliser qu'en dernier ressort, par une
+                    personne de confiance ayant accès au serveur. Détail complet (requêtes SQL, génération du
+                    hash bcrypt) dans <code>backend/docs/ADMIN_GUIDE.md</code>, section « Authentification à
+                    deux facteurs (MFA) ».
+                </div>
+                <p class="sn-mt-3">
+                    Bonne pratique : maintenir au moins deux comptes <code>ROLE_ADMIN</code> actifs, pour ne
+                    jamais dépendre d'un compte unique.
+                </p>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>LDAP</h2>
+                <p>
+                    Menu <em>Administration → LDAP</em> (<code>/admin/ldap</code>) : configuration de
+                    l'annuaire, filtre de recherche utilisateur, rôles par défaut attribués à
+                    l'auto-provisionnement, et diagnostic de connexion.
+                </p>
+            </section>
+        </div>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

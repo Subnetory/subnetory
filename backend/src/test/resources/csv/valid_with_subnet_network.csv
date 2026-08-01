@@ -1,0 +1,2 @@
+address,subnet_id,subnet_network,mac,hostname,description,temporary,discovery_source
+10.40.0.50,,10.40.0.0/24,aa:bb:cc:dd:ee:05,srv-net-01,Résolution via network,false,csv

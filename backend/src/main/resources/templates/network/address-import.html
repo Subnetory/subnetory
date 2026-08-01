@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<head><title>Importer des adresses — Subnetory</title></head>
+<body>
+<div id="main-content">
+<div class="sn-page sn-import-page">
+    <div class="sn-page__header">
+        <div>
+            <a th:href="@{/network/addresses}" class="sn-import-back">← Retour aux adresses IP</a>
+            <h1 class="sn-page__title">Importer des adresses</h1>
+            <p class="sn-page__subtitle">Format détecté automatiquement, chaque ligne contrôlée avant écriture.</p>
+        </div>
+    </div>
+
+    <div th:if="${flashError}" class="sn-alert sn-alert--error" th:text="${flashError}"></div>
+
+    <section class="sn-import-hero">
+        <div class="sn-import-hero__intro">
+            <span class="sn-import-hero__icon">⇧</span>
+            <div><h2>Import automatique</h2><p>CSV UTF-8 ou classeur Excel XLSX, jusqu’à 5 Mo.</p></div>
+        </div>
+        <div class="sn-import-safety" th:classappend="${activeContextId == null} ? ' sn-import-safety--blocked'">
+            <strong th:text="${activeContextId != null} ? 'Import sécurisé' : 'Import bloqué'">Import sécurisé</strong>
+            <span th:if="${activeContextId != null}">
+                Le fichier sera importé uniquement dans le contexte actif.
+            </span>
+            <span th:if="${activeContextId == null}">
+                Aucun contexte actif : <a href="#globalContext">choisissez-en un</a> pour activer l'import.
+            </span>
+        </div>
+    </section>
+
+    <div class="sn-import-grid sn-import-grid--single">
+        <form th:action="@{/network/addresses/import}" method="post" enctype="multipart/form-data" class="sn-import-card sn-import-card--single">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+            <div class="sn-import-formats">
+                <span class="sn-import-card__format sn-import-card__format--csv">CSV</span>
+                <span class="sn-import-card__format sn-import-card__format--xlsx">XLSX</span>
+            </div>
+            <h2>Fichier d'import</h2>
+            <p>Le format est détecté automatiquement depuis l'extension du fichier, puis contrôlé avant import.</p>
+
+            <p class="sn-alert sn-alert--warning" th:if="${activeContextId == null}">
+                Aucun contexte actif. <a href="#globalContext">Sélectionnez un contexte</a> en haut de page pour
+                pouvoir déposer un fichier — chaque import est rattaché à un contexte précis.
+            </p>
+
+            <fieldset class="sn-import-fieldset" th:disabled="${activeContextId == null}">
+                <label class="sn-file-drop" data-file-drop>
+                    <span class="sn-file-drop__icon">＋</span>
+                    <strong>Sélectionner ou déposer un fichier</strong>
+                    <small>Extensions .csv ou .xlsx · 5 Mo maximum</small>
+                    <input type="file" name="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required data-file-input>
+                    <span class="sn-file-drop__name" data-file-name>Aucun fichier sélectionné</span>
+                </label>
+                <label class="sn-import-option">
+                    <input type="checkbox" name="override" value="true">
+                    <span><strong>Mettre à jour les entrées existantes</strong><small>Les valeurs du fichier remplaceront les données déjà enregistrées.</small></span>
+                </label>
+                <button type="submit" class="sn-btn sn-btn--primary sn-import-submit">Vérifier et importer</button>
+            </fieldset>
+        </form>
+    </div>
+
+    <aside class="sn-import-schema" aria-label="Structure du fichier d'import">
+        <div class="sn-import-schema__header">
+            <div>
+                <strong>Structure du fichier</strong>
+                <span>Les en-têtes doivent figurer sur la première ligne.</span>
+            </div>
+            <span class="sn-import-schema__format">CSV / XLSX</span>
+        </div>
+
+        <div class="sn-import-schema__grid">
+            <section class="sn-import-schema__group sn-import-schema__group--required">
+                <h3>Colonnes obligatoires</h3>
+                <div class="sn-import-fields">
+                    <span class="sn-import-field sn-import-field--required"><code>address</code><small>Adresse IP</small></span>
+                    <span class="sn-import-field sn-import-field--required"><code>subnet_id</code><small>ID du sous-réseau</small></span>
+                    <span class="sn-import-field sn-import-field--required"><code>subnet_network</code><small>Alternative à subnet_id</small></span>
+                </div>
+                <p class="sn-form-hint">Renseignez <code>subnet_id</code> ou <code>subnet_network</code> pour rattacher l’adresse au bon sous-réseau.</p>
+            </section>
+
+            <section class="sn-import-schema__group sn-import-schema__group--optional">
+                <h3>Colonnes optionnelles</h3>
+                <div class="sn-import-fields">
+                    <span class="sn-import-field"><code>mac</code><small>Adresse MAC</small></span>
+                    <span class="sn-import-field"><code>hostname</code><small>Nom d’hôte</small></span>
+                    <span class="sn-import-field"><code>description</code><small>Description</small></span>
+                    <span class="sn-import-field"><code>temporary</code><small>Temporaire</small></span>
+                    <span class="sn-import-field"><code>discovery_source</code><small>Source</small></span>
+                </div>
+            </section>
+        </div>
+    </aside>
+</div>
+</div>
+</body>
+</html>

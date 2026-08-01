@@ -1,0 +1,2 @@
+address,subnet_id,subnet_network,mac,hostname,description,temporary,discovery_source
+10.40.0.90,__SUBNET_ID__,192.168.99.0/24,,srv-incoherent,subnet_id et subnet_network incohérents,false,csv

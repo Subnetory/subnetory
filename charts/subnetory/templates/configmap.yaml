@@ -1,0 +1,30 @@
+{{- if and .Values.backup.enabled .Values.backupApp.enabled }}
+{{- fail "backup.enabled et backupApp.enabled ne peuvent pas être true en même temps : les deux mécanismes prendraient des dumps indépendants et non coordonnés de la même base. Choisissez l'un des deux (voir les commentaires au-dessus de \"backup:\" et \"backupApp:\" dans values.yaml)." }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "subnetory.fullname" . }}
+  labels:
+    {{- include "subnetory.labels" . | nindent 4 }}
+    app.kubernetes.io/component: application
+data:
+  SERVER_PORT: {{ .Values.application.serverPort | quote }}
+  SPRING_CONFIG_IMPORT: "optional:configtree:/run/secrets/runtime/,optional:configtree:/run/secrets/bootstrap/"
+  {{- if .Values.postgresql.enabled }}
+  SPRING_DATASOURCE_URL: {{ printf "jdbc:postgresql://%s:%v/%s?stringtype=unspecified" (include "subnetory.postgresql.fullname" .) .Values.postgresql.service.port .Values.postgresql.auth.database | quote }}
+  SPRING_DATASOURCE_USERNAME: {{ .Values.postgresql.auth.username | quote }}
+  {{- else }}
+  SPRING_DATASOURCE_URL: {{ printf "jdbc:postgresql://%s:%v/%s?stringtype=unspecified&sslmode=%s" .Values.externalDatabase.host .Values.externalDatabase.port .Values.externalDatabase.database .Values.externalDatabase.sslMode | quote }}
+  SPRING_DATASOURCE_USERNAME: {{ .Values.externalDatabase.username | quote }}
+  {{- end }}
+  {{- if .Values.backupApp.enabled }}
+  # Moteur de sauvegarde integre a l'application (Phase 7 audit, 31/07/2026) —
+  # mêmes clés que backend/src/main/resources/application.yml
+  # (subnetory.backup.*), pour un fonctionnement identique à Docker Compose.
+  SUBNETORY_BACKUP_ENABLED: "true"
+  SUBNETORY_BACKUP_CRON: {{ .Values.backupApp.cron | quote }}
+  SUBNETORY_BACKUP_RETENTION_COUNT: {{ .Values.backupApp.retentionCount | quote }}
+  SUBNETORY_BACKUP_STORAGE_PATH: {{ .Values.backupApp.storagePath | quote }}
+  SUBNETORY_BACKUP_TIMEOUT: {{ .Values.backupApp.timeoutSeconds | quote }}
+  {{- end }}

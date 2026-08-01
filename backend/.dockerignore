@@ -1,0 +1,13 @@
+.git
+.github
+target/
+.env
+.env.*
+secrets/
+backups/
+dist/
+docs/
+src/test/
+*.md
+*.sql.gz
+*.dump

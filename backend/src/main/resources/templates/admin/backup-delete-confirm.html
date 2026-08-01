@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<head><title>Confirmer la suppression — Subnetory</title></head>
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <div class="sn-page__header">
+        <div>
+            <h1 class="sn-page__title">Confirmer la suppression</h1>
+            <p class="sn-page__subtitle">Suppression définitive d'une ligne de l'historique des sauvegardes.</p>
+        </div>
+    </div>
+
+    <div class="sn-card sn-card--padded sn-form-card">
+        <div class="sn-card__header">
+            <h2 class="sn-card__title">Sauvegarde à supprimer</h2>
+        </div>
+        <div class="sn-form">
+            <div class="sn-form__group">
+                <label class="sn-form__label">Fichier</label>
+                <div class="sn-input sn-text-mono" th:text="${run.fileName() ?: '—'}">—</div>
+            </div>
+            <div class="sn-form__group" th:if="${run.label() != null}">
+                <label class="sn-form__label">Titre / commentaire</label>
+                <div class="sn-input" th:text="${run.label()}">—</div>
+            </div>
+            <div class="sn-form__group">
+                <label class="sn-form__label">Date de la sauvegarde</label>
+                <div class="sn-input" th:text="${#temporals.format(run.startedAt(), 'dd/MM/yyyy HH:mm:ss')}">—</div>
+            </div>
+            <div class="sn-form__group">
+                <label class="sn-form__label">Statut</label>
+                <div class="sn-input" th:text="${run.status()}">—</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cas simple : aucune restauration liee -->
+    <div class="sn-card sn-card--padded sn-form-card" th:if="${linkedRestores.empty}">
+        <div class="sn-card__header">
+            <h2 class="sn-card__title">Confirmation</h2>
+        </div>
+        <p class="sn-ldap-note">
+            Cette sauvegarde n'est référencée par aucune restauration conservée dans l'historique.
+        </p>
+        <form th:action="@{/admin/backup/runs/{id}/delete(id=${run.id()})}" method="post" class="sn-form">
+            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+            <div class="sn-form__actions">
+                <button type="submit" class="sn-btn sn-btn--danger"
+                        th:attr="data-confirm=|Supprimer définitivement ${run.fileName() != null ? run.fileName() : 'cet enregistrement'} de l'historique des sauvegardes ? Cette action est irréversible.|">
+                    Supprimer définitivement
+                </button>
+                <a th:href="@{/admin/backup}" class="sn-btn sn-btn--ghost">Annuler</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Cas bloque : restaurations liees, suppression en cascade proposee explicitement -->
+    <div class="sn-card sn-card--padded sn-form-card" th:unless="${linkedRestores.empty}">
+        <div class="sn-card__header">
+            <h2 class="sn-card__title">Restauration(s) liée(s)</h2>
+        </div>
+        <div class="sn-alert sn-scan-result--error">
+            <strong>⚠ Cette sauvegarde est encore référencée</strong> par
+            <span th:text="${linkedRestores.size()}">1</span> restauration(s) conservée(s) dans l'historique
+            (comme source restaurée ou comme sauvegarde de sécurité pré-restauration). La suppression simple
+            est refusée pour ne jamais casser la traçabilité. Vous pouvez soit laisser cette sauvegarde en
+            l'état, soit la supprimer avec la ou les restauration(s) listée(s) ci-dessous.
+        </div>
+
+        <div class="sn-table-wrapper">
+            <table class="sn-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Sauvegarde restaurée</th>
+                        <th>Statut</th>
+                        <th>Effectuée par</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="r : ${linkedRestores}">
+                        <td th:text="${#temporals.format(r.startedAt(), 'dd/MM/yyyy HH:mm:ss')}">—</td>
+                        <td class="sn-text-mono sn-text-secondary" th:text="${r.backupFileName() ?: '—'}">—</td>
+                        <td>
+                            <span th:if="${r.status() == 'SUCCESS'}" class="sn-badge sn-badge--green">Réussie</span>
+                            <span th:if="${r.status() == 'FAILED'}" class="sn-badge sn-badge--danger">Échouée</span>
+                            <span th:if="${r.status() == 'RUNNING'}" class="sn-badge sn-badge--blue">En cours</span>
+                        </td>
+                        <td th:text="${r.performedBy()}">—</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <form th:action="@{/admin/backup/runs/{id}/delete(id=${run.id()})}" method="post" class="sn-form sn-mt-4">
+            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+            <input type="hidden" name="cascade" value="true">
+            <div class="sn-form__actions">
+                <button type="submit" class="sn-btn sn-btn--danger"
+                        th:attr="data-confirm=|Supprimer définitivement ${run.fileName() != null ? run.fileName() : 'cet enregistrement'} ET ses ${linkedRestores.size()} restauration(s) liée(s) de l'historique ? Cette action est irréversible.|">
+                    Supprimer avec les restaurations liées
+                </button>
+                <a th:href="@{/admin/backup}" class="sn-btn sn-btn--ghost">Annuler</a>
+            </div>
+        </form>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

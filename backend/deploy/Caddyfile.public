@@ -1,0 +1,22 @@
+# Exemple Caddyfile — mode domaine public avec Let's Encrypt (Sprint 2.36).
+#
+# Usage : copier ce fichier vers backend/deploy/Caddyfile avant de demarrer
+# l'overlay HTTPS (voir backend/docs/HTTPS_REVERSE_PROXY.md), puis remplacer
+# les deux valeurs ci-dessous :
+#   - admin@example.com   -> une adresse email reelle (notifications ACME) ;
+#   - subnetory.example.com -> le nom de domaine reellement resolu vers cet hote.
+#
+#   Copy-Item backend/deploy/Caddyfile.public backend/deploy/Caddyfile
+#
+# Prerequis : le port 80 ET le port 443 doivent etre joignables depuis
+# Internet pour la validation ACME HTTP-01 et le renouvellement automatique.
+# Caddy gere le renouvellement sans intervention manuelle tant que ces deux
+# ports restent ouverts et que le domaine continue de pointer vers cet hote.
+
+{
+    email admin@example.com
+}
+
+subnetory.example.com {
+    reverse_proxy app:8080
+}

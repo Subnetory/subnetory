@@ -1,0 +1,204 @@
+replicaCount: 1
+
+image:
+  repository: subnetory
+  tag: "0.6.0"
+  pullPolicy: IfNotPresent
+  imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+secrets:
+  existingSecretRuntime: subnetory-runtime-secrets
+  existingSecretBootstrap: subnetory-bootstrap-secrets
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  fsGroupChangePolicy: OnRootMismatch
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+
+temporaryDirectory:
+  sizeLimit: 256Mi
+
+service:
+  type: ClusterIP
+  port: 8080
+
+application:
+  serverPort: 8080
+  terminationGracePeriodSeconds: 40
+  resources: {}
+  startupProbe:
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 36
+  livenessProbe:
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+postgresql:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "17.10-alpine3.23"
+    pullPolicy: IfNotPresent
+  auth:
+    database: subnetory
+    username: subnetory
+  service:
+    port: 5432
+  persistence:
+    enabled: true
+    size: 8Gi
+    storageClass: ""
+    accessModes:
+      - ReadWriteOnce
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 70
+    runAsGroup: 70
+    fsGroup: 70
+    fsGroupChangePolicy: OnRootMismatch
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+  temporaryDirectory:
+    sizeLimit: 64Mi
+  runtimeDirectory:
+    sizeLimit: 16Mi
+  terminationGracePeriodSeconds: 60
+  startupProbe:
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 30
+  livenessProbe:
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  resources: {}
+
+externalDatabase:
+  enabled: false
+  host: ""
+  port: 5432
+  database: subnetory
+  username: subnetory
+  sslMode: prefer
+
+# --- Legacy standalone mechanism (separate CronJob pods running a shell
+# script against the postgres image) -----------------------------------
+# Superseded by "backupApp" below (Phase 7 audit, 31/07/2026): the new
+# in-app engine (dev.subnetory.backup.BackupExecutionService) offers a full
+# admin UI, REST API, per-run history, checksum-verified restore and works
+# identically in Docker Compose. Kept here for existing deployments that
+# already rely on it, and because it does not require postgresql.enabled to
+# be paired with the app's own database credentials. Enabling both "backup"
+# and "backupApp" at once is rejected by the chart (see templates/configmap.yaml):
+# they would each take independent, uncoordinated dumps on their own schedules.
+#
+# A PVC in the same cluster is not an off-site backup. Copy retained dumps to
+# storage managed outside the cluster as part of the operational procedure.
+backup:
+  enabled: false
+  timeZone: Etc/UTC
+  persistence:
+    existingClaim: ""
+    size: 20Gi
+    storageClass: ""
+    accessModes:
+      - ReadWriteOnce
+    resourcePolicy: keep
+  job:
+    successfulJobsHistoryLimit: 3
+    failedJobsHistoryLimit: 3
+    startingDeadlineSeconds: 600
+    backoffLimit: 1
+    activeDeadlineSeconds: 1800
+    temporaryDirectory:
+      sizeLimit: 16Mi
+    resources: {}
+  schedules:
+    hourly:
+      enabled: false
+      schedule: "0 * * * *"
+      retentionDays: 2
+    daily:
+      enabled: true
+      schedule: "0 2 * * *"
+      retentionDays: 14
+    monthly:
+      enabled: false
+      schedule: "0 3 1 * *"
+      retentionDays: 365
+    quarterly:
+      enabled: false
+      schedule: "0 4 1 1,4,7,10 *"
+      retentionDays: 730
+
+# --- In-app backup engine (Phase 7 audit, 31/07/2026) -------------------
+# pg_dump/pg_restore run inside the application container itself
+# (dev.subnetory.backup.BackupExecutionService), identically to Docker
+# Compose. Requires postgresql.enabled=true or externalDatabase reachable
+# from the app pod (already the case in both configurations). A PVC in the
+# same cluster is not an off-site backup — see the note on "backup" above.
+backupApp:
+  enabled: false
+  # Format cron Spring (6 champs : secondes minutes heures jour mois
+  # jour-de-semaine), pas le format 5 champs de "backup.schedules.*" ci-dessus.
+  cron: "0 0 2 * * *"
+  retentionCount: 14
+  storagePath: /var/subnetory/backups
+  timeoutSeconds: 1800
+  persistence:
+    existingClaim: ""
+    size: 20Gi
+    storageClass: ""
+    accessModes:
+      - ReadWriteOnce
+    resourcePolicy: keep
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts: []
+  tls: []
+
+networkPolicy:
+  enabled: false
+  allowedScanCidrs: []
+  externalDatabaseCidrs: []

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<head><title>Mon compte &amp; sécurité - Aide - Subnetory</title></head>
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <p class="sn-help-crumb"><a th:href="@{/help}">Aide</a> / Mon compte &amp; sécurité</p>
+
+    <div class="sn-help-layout">
+        <div th:replace="~{help/fragments :: sidebar-user('compte-securite')}"></div>
+
+        <div class="sn-help-article">
+            <div class="sn-help-article__header">
+                <h1 class="sn-page__title">Mon compte &amp; sécurité</h1>
+                <p>Changer votre mot de passe et activer l'authentification à deux facteurs (MFA).</p>
+            </div>
+
+            <section class="sn-help-section">
+                <h2>Changer son mot de passe</h2>
+                <p>
+                    Menu <em>Profil → Changer le mot de passe</em>. Réservé aux comptes locaux — les comptes
+                    LDAP ont leur mot de passe géré par l'annuaire de l'entreprise, pas depuis Subnetory.
+                </p>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Authentification à deux facteurs (MFA)</h2>
+                <p>
+                    Chaque compte local peut activer un second facteur TOTP (compatible Google Authenticator,
+                    Authy, etc.) depuis son profil. Le MFA est optionnel : il n'est jamais imposé
+                    automatiquement. Les comptes LDAP ne sont pas concernés.
+                </p>
+                <h3>Activer le MFA</h3>
+                <div class="sn-help-step-list">
+                    <div class="sn-help-step">
+                        <span class="sn-help-step-text">
+                            Menu <em>Profil → Authentification à deux facteurs (MFA) → Activer le MFA</em>.
+                        </span>
+                    </div>
+                    <div class="sn-help-step">
+                        <span class="sn-help-step-text">
+                            Scanner le QR code affiché avec une application d'authentification, ou saisir la
+                            clé manuellement si le scan n'est pas possible.
+                        </span>
+                    </div>
+                    <div class="sn-help-step">
+                        <span class="sn-help-step-text">
+                            Saisir le code à 6 chiffres généré par l'application pour confirmer.
+                        </span>
+                    </div>
+                    <div class="sn-help-step">
+                        <span class="sn-help-step-text">
+                            <strong>Noter immédiatement les 10 codes de récupération</strong> affichés : ils ne
+                            seront plus jamais montrés ensuite. Les conserver dans un gestionnaire de mots de
+                            passe ou un coffre-fort, jamais en clair sur le poste de travail.
+                        </span>
+                    </div>
+                </div>
+
+                <h3>Se connecter avec le MFA actif</h3>
+                <p>
+                    Après identifiant et mot de passe, une page dédiée demande le code TOTP (ou un code de
+                    récupération). Un code de récupération peut remplacer le code TOTP pour la connexion, la
+                    désactivation du MFA ou la régénération des codes — chaque code de récupération n'est
+                    utilisable qu'une seule fois.
+                </p>
+
+                <h3>Désactiver le MFA ou régénérer les codes</h3>
+                <p>
+                    Depuis <em>Profil</em>, une fois le MFA actif : régénérer les 10 codes de récupération
+                    (invalide les anciens), ou désactiver le MFA. Les deux actions exigent un code MFA valide ;
+                    la désactivation exige en plus le mot de passe actuel.
+                </p>
+
+                <div class="sn-alert sn-alert--warning">
+                    <strong>Perte d'accès</strong> (appareil et codes de récupération perdus) : si un autre
+                    compte administrateur existe, il peut désactiver le MFA de votre compte depuis l'écran de
+                    détail utilisateur. Si aucun autre compte administrateur n'existe, contactez la personne en
+                    charge de l'exploitation du serveur — une procédure de secours existe mais nécessite un
+                    accès direct à la base de données.
+                </div>
+            </section>
+        </div>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

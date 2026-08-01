@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<head><title>Adresses IP - Aide - Subnetory</title></head>
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <p class="sn-help-crumb"><a th:href="@{/help}">Aide</a> / Adresses IP</p>
+
+    <div class="sn-help-layout">
+        <div th:replace="~{help/fragments :: sidebar-user('adresses-ip')}"></div>
+
+        <div class="sn-help-article">
+            <div class="sn-help-article__header">
+                <h1 class="sn-page__title">Adresses IP</h1>
+                <p>Créer, rechercher, réserver en masse et modifier des adresses IP.</p>
+            </div>
+
+            <section class="sn-help-section">
+                <h2>Créer une adresse</h2>
+                <p>
+                    Menu <em>Adresses IP → Nouvelle adresse</em>. Une adresse appartient toujours à un
+                    sous-réseau ; les champs nom d'hôte, adresse MAC et description sont optionnels.
+                </p>
+                <h3>Assistant IP disponible</h3>
+                <p>
+                    Une fois un sous-réseau sélectionné dans le formulaire, le bouton
+                    <strong>Suggérer une IP disponible</strong> s'active. Cliquer sur une IP proposée remplit
+                    automatiquement le champ adresse — évite de calculer manuellement quelles adresses du bloc
+                    sont déjà prises.
+                </p>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Réservation multiple</h2>
+                <p>
+                    Menu <em>Adresses IP → Réservation multiple</em>. Cet outil génère jusqu'à 50 adresses
+                    disponibles d'un sous-réseau choisi, sous forme de tableau éditable : complétez les
+                    descriptions ou noms d'hôte ligne par ligne, puis réservez toutes les lignes en un seul
+                    clic. Pratique pour préparer un lot d'adresses avant un déploiement.
+                </p>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Rechercher une adresse</h2>
+                <p>
+                    Menu <em>Adresses IP</em>. Filtres disponibles : recherche libre, nom d'hôte, adresse MAC.
+                    La liste est paginée (25 adresses par page).
+                </p>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Export</h2>
+                <p>
+                    Boutons <strong>↓ CSV</strong> et <strong>↓ Excel</strong> disponibles sur les pages
+                    <em>Adresses IP</em> et <em>Sous-réseaux</em>. Les filtres actifs au moment de l'export
+                    sont appliqués au fichier généré.
+                </p>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Pour aller plus loin</h2>
+                <p>
+                    <a th:href="@{/help/import-export}">Import &amp; export</a> — reprendre un inventaire
+                    existant en CSV ou Excel.
+                </p>
+            </section>
+        </div>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

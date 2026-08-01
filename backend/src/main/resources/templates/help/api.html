@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<head><title>API &amp; automatisation - Aide - Subnetory</title></head>
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <p class="sn-help-crumb"><a th:href="@{/help}">Aide</a> / API &amp; automatisation</p>
+
+    <div class="sn-help-layout">
+        <div th:replace="~{help/fragments :: sidebar-user('api')}"></div>
+
+        <div class="sn-help-article">
+            <div class="sn-help-article__header">
+                <h1 class="sn-page__title">API &amp; automatisation</h1>
+                <p>Subnetory est API-first : toute action possible dans l'interface est aussi disponible par API.</p>
+            </div>
+
+            <section class="sn-help-section">
+                <h2>Documentation interactive</h2>
+                <p>
+                    Chaque action possible dans l'interface est aussi disponible par API — endpoints, schémas
+                    de requête et de réponse, générés directement depuis le code et donc toujours exacts.
+                </p>
+                <div class="sn-form__actions">
+                    <a th:href="@{/swagger-ui.html}" target="_blank" rel="noopener"
+                       class="sn-btn sn-btn--primary">Ouvrir Swagger UI</a>
+                    <a th:href="@{/v3/api-docs}" target="_blank" rel="noopener"
+                       class="sn-btn sn-btn--secondary">Spécification OpenAPI (JSON)</a>
+                </div>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Authentification</h2>
+                <p>Obtenir un jeton JWT avec vos identifiants :</p>
+                <div class="sn-command-preview">
+                    <span>Obtenir un jeton</span>
+                    <code>curl -s -X POST /api/v1/auth/token -H "Content-Type: application/json" -d '{"username":"...","password":"..."}'</code>
+                </div>
+                <p class="sn-mt-3">
+                    Si le MFA est actif sur le compte, ajouter le champ <code>totpCode</code> (ou un code de
+                    récupération) dans le corps de la requête :
+                </p>
+                <div class="sn-command-preview">
+                    <span>Avec MFA</span>
+                    <code>curl -s -X POST /api/v1/auth/token -H "Content-Type: application/json" -d '{"username":"...","password":"...","totpCode":"123456"}'</code>
+                </div>
+                <p class="sn-mt-3">Utiliser le jeton obtenu :</p>
+                <div class="sn-command-preview">
+                    <span>Appeler l'API</span>
+                    <code>curl -s /api/v1/addresses -H "Authorization: Bearer &lt;token&gt;"</code>
+                </div>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Révoquer un jeton</h2>
+                <p>
+                    Les jetons JWT de l'API sont révocables avant leur expiration naturelle, individuellement
+                    ou globalement pour votre compte :
+                </p>
+                <div class="sn-command-preview">
+                    <span>Déconnexion (ce jeton uniquement)</span>
+                    <code>curl -s -X POST /api/v1/auth/logout -H "Authorization: Bearer &lt;token&gt;"</code>
+                </div>
+                <div class="sn-command-preview">
+                    <span>Invalider tous mes jetons existants</span>
+                    <code>curl -s -X POST /api/v1/auth/logout-all -H "Authorization: Bearer &lt;token&gt;"</code>
+                </div>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Comptes d'automatisation</h2>
+                <p>
+                    Tout compte local est créé avec un mot de passe temporaire qui doit être remplacé avant
+                    tout usage normal — l'émission d'un jeton est refusée (<code>403
+                    PASSWORD_CHANGE_REQUIRED</code>) tant que ce changement n'a pas eu lieu.
+                </p>
+                <div class="sn-command-preview">
+                    <span>Remplacer le mot de passe temporaire (aucun jeton requis)</span>
+                    <code>curl -s -X POST /api/v1/auth/change-password-required -H "Content-Type: application/json" -d '{"username":"...","currentPassword":"...","newPassword":"..."}'</code>
+                </div>
+                <p class="sn-mt-3">
+                    Pour un compte de service en lecture seule limité à un périmètre, attribuer le rôle
+                    <code>ROLE_READ_ONLY</code> et restreindre ses contextes autorisés.
+                </p>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Supervision</h2>
+                <p>État de santé de l'application, accessible sans authentification :</p>
+                <div class="sn-form__actions">
+                    <a th:href="@{/actuator/health}" target="_blank" rel="noopener"
+                       class="sn-btn sn-btn--secondary">Vérifier /actuator/health</a>
+                </div>
+            </section>
+        </div>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

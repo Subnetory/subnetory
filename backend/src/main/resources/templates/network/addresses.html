@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity6"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<head><title>Adresses IP — Subnetory</title></head>
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <div class="sn-page__header">
+        <div>
+            <h1 class="sn-page__title">Adresses IP</h1>
+            <p class="sn-page__subtitle">Recherchez, filtrez et gérez toutes les adresses IP enregistrées.</p>
+        </div>
+        <div class="sn-page__actions">
+            <!-- Exports — liens vers les endpoints Web session, filtres actifs transmis.
+                 Accessibles à tous les utilisateurs authentifiés (pas de canManage requis).
+                 Sprint 2.9 -->
+            <a th:href="@{/network/addresses/export/csv(q=${query},hostname=${hostnameFilter},mac=${macFilter},subnetId=${selectedSubnetId})}"
+               class="sn-btn sn-btn--ghost sn-btn--sm">↓ CSV</a>
+            <a th:href="@{/network/addresses/export/xlsx(q=${query},hostname=${hostnameFilter},mac=${macFilter},subnetId=${selectedSubnetId})}"
+               class="sn-btn sn-btn--ghost sn-btn--sm">↓ Excel</a>
+            <a th:if="${canManage}" th:href="@{/network/addresses/import}"
+               class="sn-btn sn-btn--secondary">⇧ Importer</a>
+            <a th:if="${canManage}" th:href="@{/network/addresses/reserve}"
+               class="sn-btn sn-btn--secondary">⊞ Réserver plusieurs IP</a>
+            <!-- Nouvelle adresse — conditionnel canManage -->
+            <a th:if="${canManage}" href="/network/addresses/new"
+               class="sn-btn sn-btn--primary">+ Nouvelle adresse</a>
+        </div>
+    </div>
+
+    <div th:if="${flashSuccess}" class="sn-alert sn-alert--success" th:text="${flashSuccess}"></div>
+    <div th:if="${flashError}"   class="sn-alert sn-alert--error"   th:text="${flashError}"></div>
+
+<form th:action="@{/network/addresses}" method="get" class="sn-search sn-filter-bar">
+        <input type="text" name="q" class="sn-search__input"
+               th:value="${query}"
+               placeholder="IP, hostname, MAC, site, contexte…">
+        <input type="text" name="hostname" class="sn-search__input"
+               th:value="${hostnameFilter}"
+               placeholder="Hostname contient…">
+        <input type="text" name="mac"
+               class="sn-search__input sn-search__input--narrow"
+               th:value="${macFilter}"
+               placeholder="MAC (aa:bb:cc:dd:ee:ff)">
+        <input type="hidden" name="subnetId" th:value="${selectedSubnetId}" th:if="${selectedSubnetId != null}">
+        <button type="submit" class="sn-btn sn-btn--primary sn-btn--sm">Rechercher</button>
+        <a th:href="@{/network/addresses}" class="sn-btn sn-btn--ghost sn-btn--sm">Réinitialiser</a>
+    </form>
+
+    <div th:if="${selectedSubnetId != null}" class="sn-alert sn-alert--info">
+        Filtré sur le sous-réseau sélectionné.
+        <a th:href="@{/network/addresses}" class="sn-btn sn-btn--ghost sn-btn--sm">Retirer le filtre</a>
+    </div>
+
+    <div class="sn-card">
+        <div class="sn-table-wrapper">
+            <table class="sn-table">
+                <thead>
+                    <tr>
+                        <th>Adresse IP</th>
+                        <th>Hostname</th>
+                        <th>MAC</th>
+                        <th>Subnet</th>
+                        <th>Site</th>
+                        <th>Source</th>
+                        <th>Dernière détection</th>
+                        <th th:if="${canManage}" class="sn-table-col-actions">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="addr : ${addresses}" class="clickable"
+                        th:attr="data-href=@{/network/addresses/{id}(id=${addr.id})}">
+                        <td class="sn-text-mono"><a th:href="@{/network/addresses/__${addr.id}__}" th:text="${addr.address}" class="sn-row-link">192.168.1.10</a></td>
+                        <td th:text="${addr.hostname ?: '—'}">srv-web-01</td>
+                        <td class="sn-text-mono" th:text="${addr.mac ?: '—'}">aa:bb:cc:dd:ee:ff</td>
+                        <td class="sn-text-mono sn-text-muted" th:text="${addr.subnetNetwork}">10.0.0.0/24</td>
+                        <td class="sn-text-secondary" th:text="${addr.siteName}">Site</td>
+                        <td>
+                            <span class="sn-badge"
+                                  th:classappend="${addr.discoverySource == 'manual' ? 'sn-badge--neutral' :
+                                                   addr.discoverySource != null && (addr.discoverySource == 'nmap' or addr.discoverySource == 'arp-scan') ? 'sn-badge--blue' :
+                                                   'sn-badge--green'}"
+                                  th:text="${addr.discoverySource == 'nmap' or addr.discoverySource == 'arp-scan' ? 'Scan' :
+                                            addr.discoverySource == 'manual' ? 'Manuel' :
+                                            (addr.discoverySource == 'csv' or addr.discoverySource == 'xlsx') ? 'Import' :
+                                            addr.discoverySource == 'api' ? 'API' :
+                                            addr.discoverySource == 'dns' ? 'DNS' :
+                                            '—'}">Import</span>
+                        </td>
+                        <td class="sn-text-muted"
+                            th:text="${addr.lastSeenAt != null ? #temporals.format(addr.lastSeenAt, 'dd/MM/yyyy HH:mm') : '—'}">—</td>
+                        <td th:if="${canManage}" class="sn-table-actions">
+                            <a th:href="@{/network/addresses/{id}/edit(id=${addr.id})}"
+                               class="sn-btn sn-btn--secondary sn-btn--sm">Modifier</a>
+                            <form th:action="@{/network/addresses/{id}/delete(id=${addr.id})}"
+                                  method="post"
+                                  class="sn-inline-form"
+                                  th:attr="data-confirm=|Supprimer l'adresse ${addr.address} ?|"
+                                  sec:authorize="hasAnyRole('ADMIN', 'IP')">
+                                <button type="submit" class="sn-btn sn-btn--danger sn-btn--sm">Supprimer</button>
+                            </form>
+                        </td>
+                    </tr>
+                    <tr th:if="${addresses.empty}" class="sn-table--empty">
+                        <td th:colspan="${canManage ? 8 : 7}">Aucune adresse trouvée.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="sn-pagination" th:if="${!addresses.empty}">
+            <span class="sn-pagination__info"
+                  th:text="${addresses.totalElements} + ' adresse(s)'">N adresses</span>
+            <nav class="sn-pagination__nav" th:if="${addresses.totalPages > 1}">
+                <a th:href="@{/network/addresses(page=${addresses.number - 1}, q=${query}, hostname=${hostnameFilter}, mac=${macFilter}, subnetId=${selectedSubnetId})}"
+                   th:classappend="${addresses.first ? 'sn-pagination__btn--disabled' : ''}"
+                   class="sn-pagination__btn">‹</a>
+                <th:block th:each="i : ${addressPageNumbers}">
+                    <a th:href="@{/network/addresses(page=${i}, q=${query}, hostname=${hostnameFilter}, mac=${macFilter}, subnetId=${selectedSubnetId})}"
+                       th:text="${i + 1}"
+                       th:classappend="${i == addresses.number ? 'active' : ''}"
+                       class="sn-pagination__btn">1</a>
+                </th:block>
+                <a th:href="@{/network/addresses(page=${addresses.number + 1}, q=${query}, hostname=${hostnameFilter}, mac=${macFilter}, subnetId=${selectedSubnetId})}"
+                   th:classappend="${addresses.last ? 'sn-pagination__btn--disabled' : ''}"
+                   class="sn-pagination__btn">›</a>
+            </nav>
+        </div>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

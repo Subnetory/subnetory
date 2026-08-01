@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity6"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<head><title>Aide - Subnetory</title></head>
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <div class="sn-help-hero">
+        <h1 class="sn-page__title">Aide</h1>
+        <p>
+            Tout ce qu'il faut savoir pour utiliser Subnetory au quotidien : organiser votre réseau,
+            gérer vos adresses IP, importer des données existantes et sécuriser votre compte.
+        </p>
+    </div>
+
+    <div class="sn-help-hub-grid">
+
+        <a th:href="@{/help/prise-en-main}" class="sn-help-hub-card">
+            <span class="sn-help-hub-card__icon" aria-hidden="true">⌂</span>
+            <span class="sn-help-hub-card__title">Prise en main</span>
+            <span class="sn-help-hub-card__desc">
+                Qu'est-ce que Subnetory, comment est organisé votre réseau (contexte → site → VLAN →
+                sous-réseau → adresse), et les toutes premières étapes.
+            </span>
+        </a>
+
+        <a th:href="@{/help/reseau}" class="sn-help-hub-card">
+            <span class="sn-help-hub-card__icon" aria-hidden="true">◎</span>
+            <span class="sn-help-hub-card__title">Contextes, sites, VLAN &amp; sous-réseaux</span>
+            <span class="sn-help-hub-card__desc">
+                Créer et organiser la hiérarchie de votre réseau, lancer un scan de sous-réseau,
+                trouver les adresses disponibles.
+            </span>
+        </a>
+
+        <a th:href="@{/help/adresses-ip}" class="sn-help-hub-card">
+            <span class="sn-help-hub-card__icon" aria-hidden="true">⌁</span>
+            <span class="sn-help-hub-card__title">Adresses IP</span>
+            <span class="sn-help-hub-card__desc">
+                Créer, rechercher, réserver et modifier des adresses IP ; l'assistant de suggestion
+                d'IP disponible.
+            </span>
+        </a>
+
+        <a th:href="@{/help/import-export}" class="sn-help-hub-card">
+            <span class="sn-help-hub-card__icon" aria-hidden="true">⇅</span>
+            <span class="sn-help-hub-card__title">Import &amp; export</span>
+            <span class="sn-help-hub-card__desc">
+                Importer un inventaire existant en CSV ou Excel, exporter vos données, comprendre le
+                format attendu et lire un rapport d'import.
+            </span>
+        </a>
+
+        <a th:href="@{/help/compte-securite}" class="sn-help-hub-card">
+            <span class="sn-help-hub-card__icon" aria-hidden="true">⛨</span>
+            <span class="sn-help-hub-card__title">Mon compte &amp; sécurité</span>
+            <span class="sn-help-hub-card__desc">
+                Changer votre mot de passe, activer l'authentification à deux facteurs (MFA) et
+                conserver vos codes de récupération.
+            </span>
+        </a>
+
+        <a th:href="@{/help/api}" class="sn-help-hub-card">
+            <span class="sn-help-hub-card__icon" aria-hidden="true">⌨</span>
+            <span class="sn-help-hub-card__title">API &amp; automatisation</span>
+            <span class="sn-help-hub-card__desc">
+                Documentation interactive Swagger, obtenir un jeton d'API, exemples <code>curl</code>,
+                supervision.
+            </span>
+        </a>
+
+    </div>
+
+    <div class="sn-help-admin-banner" sec:authorize="hasRole('ADMIN')">
+        <div>
+            <strong>Vous administrez cette instance ?</strong>
+            <p>Sauvegardes, audit, utilisateurs, déploiement Docker/Kubernetes et HTTPS.</p>
+        </div>
+        <a th:href="@{/admin/help}" class="sn-btn sn-btn--primary">Ouvrir le guide administrateur</a>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

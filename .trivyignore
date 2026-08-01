@@ -1,0 +1,13 @@
+# Exceptions documentees au job CI dependency-scan (Trivy).
+#
+# Format : un CVE par ligne, avec justification et date de revue en commentaire
+# juste au-dessus. Ne jamais ajouter une exception sans analyse d'exploitabilite
+# reelle (voir la methodologie appliquee a opencsv/commons-beanutils en juillet
+# 2026 : un CVE remonte par le scanner sur une dependance transitive n'est
+# pertinent que si le code du projet utilise reellement la surface d'API
+# concernee).
+#
+# Exemple :
+# # CVE-2025-XXXXX : commons-beanutils, non exploitable ici car le projet
+# # n'utilise pas BeanUtils/PropertyUtils. Revue le 30/07/2026.
+# CVE-2025-XXXXX

@@ -1,0 +1,90 @@
+# =========================
+# OS
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# IDE
+# =========================
+.idea/
+*.iml
+.vscode/
+.project
+.classpath
+.settings/
+
+# =========================
+# Java / Maven / Gradle
+# =========================
+target/
+build/
+out/
+.gradle/
+.mvn/wrapper/maven-wrapper.jar
+
+# =========================
+# Logs
+# =========================
+logs/
+*.log
+
+# =========================
+# Environment / Secrets
+# =========================
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.jks
+*.kdbx
+secrets/
+credentials/
+config/local/
+
+# =========================
+# Database
+# =========================
+*.db
+*.sqlite
+*.sqlite3
+*.mv.db
+*.h2.db
+
+# =========================
+# Temporary files
+# =========================
+tmp/
+temp/
+.cache/
+
+# =========================
+# Docker
+# =========================
+docker-data/
+volumes/
+
+# =========================
+# Node / Frontend
+# =========================
+node_modules/
+dist/
+coverage/
+
+# =========================
+# Backup files
+# =========================
+*.bak
+*.old
+*.backup
+
+# =========================
+# Terraform / IaC
+# =========================
+.terraform/
+terraform.tfstate
+terraform.tfstate.*
+
+# Subnetory database backups
+/backups/

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<head><title>Sauvegarde &amp; restauration - Guide admin - Subnetory</title></head>
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <p class="sn-help-crumb"><a th:href="@{/admin/help}">Guide administrateur</a> / Sauvegarde &amp; restauration</p>
+
+    <div class="sn-help-layout">
+        <div th:replace="~{help/fragments :: sidebar-admin('sauvegardes')}"></div>
+
+        <div class="sn-help-article">
+            <div class="sn-help-article__header">
+                <h1 class="sn-page__title">Sauvegarde &amp; restauration</h1>
+                <p>Deux mécanismes indépendants existent — ne pas les activer ensemble sur la même base.</p>
+            </div>
+
+            <section class="sn-help-section">
+                <h2>Moteur intégré (recommandé)</h2>
+                <p>
+                    <code>pg_dump</code>/<code>pg_restore</code> lancés par l'application elle-même, identique
+                    en Docker Compose et Kubernetes. Interface : <code>/admin/backup</code>. API REST complète,
+                    parité totale avec l'interface, préfixe <code>/api/v1/admin/backup</code>, réservée à
+                    <code>ROLE_ADMIN</code> ou <code>ROLE_BACKUP</code> (jeton Bearer requis).
+                </p>
+                <p>
+                    Toute sauvegarde ou restauration restée « En cours » suite à un arrêt brutal (rebuild,
+                    crash) est automatiquement marquée en échec au démarrage suivant — aucune ligne ne reste
+                    bloquée indéfiniment.
+                </p>
+                <h3>Actions disponibles depuis /admin/backup</h3>
+                <ul>
+                    <li>Planification automatique via un configurateur cron visuel (quotidien, hebdomadaire, mensuel, intervalle ou expression personnalisée).</li>
+                    <li>Déclenchement manuel immédiat, avec titre/commentaire optionnel.</li>
+                    <li>Téléchargement d'un fichier de sauvegarde, avec empreinte SHA-256 vérifiable.</li>
+                    <li>Import d'un fichier <code>.dump</code> externe (vérifié via <code>pg_restore --list</code> avant acceptation), restaurable ensuite comme n'importe quelle autre sauvegarde.</li>
+                    <li>Restauration avec confirmation par saisie exacte du nom de fichier — jamais en un clic — et sauvegarde de sécurité automatique juste avant.</li>
+                    <li>Suppression fine d'une sauvegarde, ou en cascade avec ses restaurations liées.</li>
+                    <li>Purge manuelle de l'historique avant une date donnée.</li>
+                </ul>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Chiffrement au repos (optionnel)</h2>
+                <p>
+                    Désactivé par défaut. Une fois activé : AES-256-GCM + HMAC-SHA256, clé dérivée par PBKDF2
+                    à partir d'une passphrase fournie exclusivement via la variable
+                    <code>SUBNETORY_BACKUP_ENCRYPTION_KEY</code> — jamais stockée en base, jamais modifiable
+                    depuis l'interface.
+                </p>
+                <p>
+                    Une fois configurée, toute nouvelle sauvegarde (planifiée, manuelle, ou de sécurité
+                    pré-restauration) est chiffrée automatiquement (badge « Chiffré » dans l'historique, champ
+                    <code>encrypted</code> dans l'API). Les sauvegardes existantes non chiffrées restent
+                    utilisables normalement — le chiffrement ne s'applique jamais rétroactivement.
+                </p>
+                <div class="sn-alert sn-alert--warning">
+                    <strong>Ce n'est pas une rotation de clé.</strong> Changer ou perdre la valeur de la clé
+                    rend définitivement illisibles toutes les sauvegardes déjà chiffrées avec l'ancienne
+                    valeur. Conservez la passphrase en dehors de l'application (gestionnaire de secrets de
+                    l'équipe), au même titre que le mot de passe PostgreSQL, et ne la changez jamais une fois
+                    des sauvegardes chiffrées produites.
+                </div>
+                <p class="sn-mt-3">
+                    Génération et protection du secret (permissions restrictives Windows/Linux), et procédure
+                    pour une nouvelle instance qui doit rester capable de lire des sauvegardes chiffrées par
+                    une autre instance : voir <code>backend/docs/BACKUP_ENCRYPTION.md</code> et
+                    <code>backend/docs/INSTALL_DOCKER_COMPOSE.md</code>.
+                </p>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Commandes API</h2>
+                <div class="sn-command-preview">
+                    <span>Configuration et état courant</span>
+                    <code>GET /api/v1/admin/backup</code>
+                </div>
+                <div class="sn-command-preview">
+                    <span>Déclencher une sauvegarde immédiate</span>
+                    <code>curl -s -X POST /api/v1/admin/backup/trigger -H "Authorization: Bearer &lt;token&gt;" -H "Content-Type: application/json" -d '{"label":"avant migration"}'</code>
+                </div>
+                <div class="sn-command-preview">
+                    <span>Restaurer (confirmation par nom exact de fichier)</span>
+                    <code>curl -s -X POST /api/v1/admin/backup/restore -H "Authorization: Bearer &lt;token&gt;" -H "Content-Type: application/json" -d '{"backupRunId":42,"confirmationText":"subnetory-20260731-020000.dump"}'</code>
+                </div>
+                <div class="sn-command-preview">
+                    <span>Purger l'historique avant une date</span>
+                    <code>curl -s -X POST /api/v1/admin/backup/purge -H "Authorization: Bearer &lt;token&gt;" -H "Content-Type: application/json" -d '{"beforeDate":"2026-01-01"}'</code>
+                </div>
+                <p class="sn-mt-3">
+                    Référence complète des endpoints (schémas de requête/réponse) : Swagger UI
+                    <code>/swagger-ui.html</code>. Voir aussi <a th:href="@{/help/api}">le guide API</a>.
+                </p>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Scripts PowerShell historiques (mécanisme alternatif)</h2>
+                <p>
+                    Indépendants de l'application, utiles en secours si celle-ci est indisponible. Windows +
+                    Docker Desktop uniquement.
+                </p>
+                <table class="sn-table">
+                    <thead><tr><th>Script</th><th>Rôle</th></tr></thead>
+                    <tbody>
+                    <tr><td><code>backend/scripts/backup-postgres.ps1</code></td><td>Sauvegarde + rotation (hourly/daily/monthly/quarterly)</td></tr>
+                    <tr><td><code>backend/scripts/restore-postgres.ps1</code></td><td>Restauration d'un fichier <code>.sql.gz</code></td></tr>
+                    <tr><td><code>backend/scripts/check-postgres-backup.ps1</code></td><td>Contrôle d'état (âge, taille, intégrité GZip, hash SHA-256)</td></tr>
+                    </tbody>
+                </table>
+                <div class="sn-command-preview">
+                    <span>Sauvegarde daily</span>
+                    <code>.\backup-postgres.ps1</code>
+                </div>
+                <div class="sn-command-preview">
+                    <span>Restauration avec sauvegarde de sécurité automatique</span>
+                    <code>.\restore-postgres.ps1 -BackupFile .\backups\daily\subnetory_2026-06-03.sql.gz -BackupBeforeRestore</code>
+                </div>
+                <p class="sn-mt-3">
+                    Détail complet (paramètres, automatisation via le Planificateur de tâches Windows,
+                    procédure de restauration d'urgence pas à pas) : <code>backend/docs/BACKUP_STRATEGY.md</code>,
+                    <code>backend/docs/RESTORE_OPERATIONS.md</code>, <code>backend/docs/BACKUP_SCHEDULING_WINDOWS.md</code>.
+                </p>
+            </section>
+
+            <section class="sn-help-section">
+                <h2>Règles de sécurité pour toute restauration</h2>
+                <ul>
+                    <li>Ne jamais restaurer sans avoir vérifié le chemin complet et la date du fichier.</li>
+                    <li>Ne jamais lancer une restauration production sans sauvegarde de sécurité préalable et fenêtre d'intervention identifiée.</li>
+                    <li>Après restauration : vérifier le démarrage de l'application, l'authentification, la cohérence des données et l'absence d'erreur dans les journaux.</li>
+                    <li>Documenter toute restauration (date, environnement, fichier utilisé, résultat) dans un compte rendu d'intervention.</li>
+                </ul>
+            </section>
+        </div>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

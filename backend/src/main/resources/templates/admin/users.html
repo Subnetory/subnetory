@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<head><title>Utilisateurs — Subnetory</title></head>
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <div class="sn-page__header">
+        <div>
+            <h1 class="sn-page__title">Utilisateurs</h1>
+            <p class="sn-page__subtitle">Créez des comptes, attribuez des rôles et gérez les accès à Subnetory.</p>
+        </div>
+        <div class="sn-page__actions">
+            <nav class="sn-admin-subnav" aria-label="Navigation administration">
+                <a th:href="@{/admin/users}" class="sn-admin-subnav__item active">Comptes</a>
+                <a th:href="@{/admin/ldap}" class="sn-admin-subnav__item">LDAP</a>
+                <a th:href="@{/admin/audit-log}" class="sn-admin-subnav__item">Audit</a>
+                <a th:href="@{/admin/backup}" class="sn-admin-subnav__item">Sauvegardes</a>
+                <a th:href="@{/admin/help}" class="sn-admin-subnav__item">Aide</a>
+            </nav>
+            <a th:href="@{/admin/users/new}" class="sn-btn sn-btn--primary">+ Nouvel utilisateur</a>
+        </div>
+    </div>
+
+    <div th:if="${flashSuccess}" class="sn-alert sn-alert--success" th:text="${flashSuccess}"></div>
+    <div th:if="${flashError}"   class="sn-alert sn-alert--error"   th:text="${flashError}"></div>
+
+    <div class="sn-card">
+        <div class="sn-table-wrapper">
+            <table class="sn-table">
+                <thead>
+                    <tr>
+                        <th>Identifiant</th>
+                        <th>Type</th>
+                        <th>Rôles</th>
+                        <th>Statut</th>
+                        <th>Créé le</th>
+                        <th class="sn-table-col-actions">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="user : ${users}">
+                        <td><strong th:text="${user.username}">admin</strong></td>
+                        <td>
+                            <span th:text="${user.authType == 'LDAP' ? 'LDAP' : 'Local'}"
+                                  th:classappend="${user.authType == 'LDAP' ? 'sn-badge sn-badge--blue' : 'sn-badge sn-badge--neutral'}">Local</span>
+                        </td>
+                        <td>
+                            <th:block th:each="role : ${user.roles}">
+                                <span class="sn-badge sn-badge--neutral"
+                                      th:text="${#strings.replace(role.name, 'ROLE_', '')}">IP</span>
+                            </th:block>
+                        </td>
+                        <td>
+                            <span th:if="${user.enabled}"     class="sn-badge sn-badge--green">Actif</span>
+                            <span th:unless="${user.enabled}" class="sn-badge sn-badge--neutral">Inactif</span>
+                        </td>
+                        <td class="sn-text-muted"
+                            th:text="${#temporals.format(user.createdAt, 'dd/MM/yyyy')}">01/01/2026</td>
+                        <td class="sn-table-actions">
+                            <a th:href="@{/admin/users/{id}(id=${user.id})}"
+                               class="sn-btn sn-btn--secondary sn-btn--sm">Détail</a>
+                        </td>
+                    </tr>
+                    <tr th:if="${users.empty}" class="sn-table--empty">
+                        <td colspan="6">Aucun utilisateur enregistré.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="sn-pagination" th:if="${!users.empty}">
+            <span class="sn-pagination__info"
+                  th:text="${users.totalElements} + ' utilisateur(s)'">N utilisateurs</span>
+            <nav class="sn-pagination__nav" th:if="${users.totalPages > 1}">
+                <a th:href="@{/admin/users(page=${users.number - 1})}"
+                   th:classappend="${users.first ? 'sn-pagination__btn--disabled' : ''}"
+                   class="sn-pagination__btn">‹</a>
+                <th:block th:each="i : ${#numbers.sequence(0, users.totalPages - 1)}">
+                    <a th:href="@{/admin/users(page=${i})}"
+                       th:text="${i + 1}"
+                       th:classappend="${i == users.number ? 'active' : ''}"
+                       class="sn-pagination__btn">1</a>
+                </th:block>
+                <a th:href="@{/admin/users(page=${users.number + 1})}"
+                   th:classappend="${users.last ? 'sn-pagination__btn--disabled' : ''}"
+                   class="sn-pagination__btn">›</a>
+            </nav>
+        </div>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,58 @@
+# Configuration de test - remplacee dynamiquement par Testcontainers
+# Les valeurs de datasource sont ecrasees par @DynamicPropertySource dans les IT
+
+spring:
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+
+  thymeleaf:
+    cache: false
+
+subnetory:
+  admin:
+    default-password: admin
+
+  jwt:
+    secret: test-secret-minimum-32-characters-for-hs256
+    expiration-minutes: 60
+    revocation:
+      purge:
+        enabled: false
+        cron: "0 30 3 * * *"
+
+  auth:
+    ldap:
+      # LDAP desactive dans les tests.
+      # Les tests LDAP dedies activent LDAP via @DynamicPropertySource.
+      enabled: false
+
+  audit:
+    retention:
+      enabled: false
+      days: 90
+      cron: "0 30 2 * * *"
+
+  security:
+    # Seuil tres eleve par defaut dans le profil test : de nombreuses classes
+    # IT partagent un meme contexte Spring (donc une meme instance
+    # ApiRateLimiter) et effectuent plusieurs dizaines d'appels MockMvc en
+    # quelques secondes, tous vus comme provenant de la meme IP locale. Sans
+    # ce relevement, ces classes declencheraient des 429 non lies a ce
+    # qu'elles testent. Les tests dedies au rate limiting API abaissent ce
+    # seuil explicitement via @DynamicPropertySource dans leur propre contexte.
+    api-rate-limit:
+      enabled: true
+      requests-per-window: 100000
+      window-seconds: 60
+
+logging:
+  level:
+    dev.subnetory: DEBUG
+    org.springframework.security: WARN
+    org.flywaydb: INFO

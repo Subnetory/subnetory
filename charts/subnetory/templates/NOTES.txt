@@ -1,0 +1,15 @@
+Subnetory {{ .Chart.AppVersion }} has been rendered for release {{ .Release.Name }}.
+
+Database mode:
+{{- if .Values.postgresql.enabled }}
+  Included PostgreSQL (persistent PVC)
+{{- else }}
+  External PostgreSQL at {{ .Values.externalDatabase.host }}:{{ .Values.externalDatabase.port }}
+{{- end }}
+
+The chart expects these pre-existing Secrets:
+  Runtime:   {{ .Values.secrets.existingSecretRuntime }}
+  Bootstrap: {{ .Values.secrets.existingSecretBootstrap }} (optional after initialization)
+
+Application service:
+  kubectl -n {{ .Release.Namespace }} port-forward service/{{ include "subnetory.fullname" . }} 8080:{{ .Values.service.port }}

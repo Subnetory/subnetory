@@ -1,0 +1,31 @@
+# PVC dediee au moteur de sauvegarde integre a l'application (Phase 7 audit,
+# 31/07/2026 — dev.subnetory.backup.BackupExecutionService). Volontairement
+# distincte de la PVC "backup-pvc.yaml" utilisee par les CronJobs autonomes
+# existants (backup-cronjobs.yaml) : les deux mecanismes n'ecrivent pas le
+# meme format ni le meme repertoire, et un partage de PVC en ReadWriteOnce
+# entre les pods CronJob et le pod Deployment risquerait un conflit
+# multi-attach sur un cluster multi-noeuds. Ne pas activer les deux
+# mecanismes simultanement sur les memes donnees (voir commentaire dans
+# values.yaml au-dessus de "backup:" et "backupApp:").
+{{- if and .Values.backupApp.enabled (not .Values.backupApp.persistence.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "subnetory.backupApp.claimName" . }}
+  labels:
+    {{- include "subnetory.labels" . | nindent 4 }}
+    app.kubernetes.io/component: application
+  {{- if eq .Values.backupApp.persistence.resourcePolicy "keep" }}
+  annotations:
+    helm.sh/resource-policy: keep
+  {{- end }}
+spec:
+  accessModes:
+    {{- toYaml .Values.backupApp.persistence.accessModes | nindent 4 }}
+  {{- if .Values.backupApp.persistence.storageClass }}
+  storageClassName: {{ .Values.backupApp.persistence.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.backupApp.persistence.size }}
+{{- end }}

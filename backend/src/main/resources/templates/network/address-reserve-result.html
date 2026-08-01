@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<head><title>Résultat de la réservation — Subnetory</title></head>
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <div class="sn-page__header">
+        <div>
+            <h1 class="sn-page__title">Résultat de la réservation</h1>
+            <p class="sn-page__subtitle">Les adresses sélectionnées ont été réservées avec succès.</p>
+        </div>
+        <div class="sn-page__actions">
+            <a th:href="@{/network/addresses}" class="sn-btn sn-btn--ghost">Retour aux adresses</a>
+            <a th:href="@{/network/addresses/reserve}" class="sn-btn sn-btn--primary">Nouvelle réservation</a>
+        </div>
+    </div>
+
+    <div class="sn-card sn-card--padded">
+        <div class="sn-card__header">
+            <h2 class="sn-card__title">Synthèse</h2>
+        </div>
+
+        <table class="sn-table">
+            <tbody>
+            <tr>
+                <th>Créées</th>
+                <td th:text="${result.created}">0</td>
+            </tr>
+            <tr>
+                <th>Mises à jour</th>
+                <td th:text="${result.updated}">0</td>
+            </tr>
+            <tr>
+                <th>Ignorées</th>
+                <td th:text="${result.skipped}">0</td>
+            </tr>
+            <tr>
+                <th>Erreurs</th>
+                <td th:text="${result.errors.size()}">0</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="sn-card sn-card--padded sn-mt-5" th:if="${!result.errors.empty}">
+        <div class="sn-card__header">
+            <h2 class="sn-card__title">Erreurs ligne par ligne</h2>
+        </div>
+
+        <div class="sn-table-wrapper">
+            <table class="sn-table">
+                <thead>
+                <tr>
+                    <th>Adresse</th>
+                    <th>Raison</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="err : ${result.errors}">
+                    <td class="sn-text-mono" th:text="${err.address}">10.0.0.10</td>
+                    <td th:text="${err.reason}">Erreur</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

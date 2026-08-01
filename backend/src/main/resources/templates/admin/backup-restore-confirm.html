@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<head><title>Confirmer la restauration — Subnetory</title></head>
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <div class="sn-page__header">
+        <div>
+            <h1 class="sn-page__title">Confirmer la restauration</h1>
+            <p class="sn-page__subtitle">Cette opération remplace l'intégralité des données actuelles.</p>
+        </div>
+    </div>
+
+    <div th:if="${confirmError}" class="sn-alert sn-alert--error" th:text="${confirmError}"></div>
+
+    <div class="sn-alert sn-scan-result--error">
+        <strong>⚠ Opération irréversible.</strong>
+        Les données actuelles seront remplacées par le contenu de cette sauvegarde.
+        Une sauvegarde de sécurité automatique est prise juste avant, avec une brève interruption de service.
+        Procédure complète : <code>RESTORE_OPERATIONS.md</code>.
+    </div>
+
+    <div class="sn-card sn-card--padded sn-form-card">
+        <div class="sn-card__header">
+            <h2 class="sn-card__title">Sauvegarde à restaurer</h2>
+        </div>
+        <div class="sn-form">
+            <div class="sn-form__group">
+                <label class="sn-form__label">Fichier</label>
+                <div class="sn-input sn-text-mono sn-copyable"
+                     th:attr="data-copy-value=${run.fileName()}"
+                     th:text="${run.fileName()}">subnetory-20260731-020000.dump</div>
+            </div>
+            <div class="sn-form__group" th:if="${run.label() != null}">
+                <label class="sn-form__label">Titre / commentaire</label>
+                <div class="sn-input" th:text="${run.label()}">—</div>
+            </div>
+            <div class="sn-form__group">
+                <label class="sn-form__label">Date de la sauvegarde</label>
+                <div class="sn-input" th:text="${#temporals.format(run.startedAt(), 'dd/MM/yyyy HH:mm:ss')}">—</div>
+            </div>
+            <div class="sn-form__group">
+                <label class="sn-form__label">Taille</label>
+                <div class="sn-input" th:text="${run.fileSizeFormatted()}">—</div>
+            </div>
+            <div class="sn-form__group">
+                <label class="sn-form__label">Empreinte SHA-256 <span class="sn-text-muted sn-fw-medium">(cliquer pour copier)</span></label>
+                <div class="sn-input sn-text-mono sn-copyable sn-input--auto-h"
+                     th:attr="data-copy-value=${run.checksumSha256()}"
+                     th:text="${run.checksumSha256()}">—</div>
+            </div>
+        </div>
+        <p th:unless="${fileAvailable}" class="sn-ldap-note sn-text-danger">
+            ⚠ Le fichier de cette sauvegarde n'est plus disponible sur le disque (purgé par la rétention).
+            La restauration est impossible.
+        </p>
+    </div>
+
+    <div class="sn-card sn-card--padded sn-form-card" th:if="${fileAvailable}">
+        <div class="sn-card__header">
+            <h2 class="sn-card__title">Confirmation</h2>
+        </div>
+        <form th:action="@{/admin/backup/runs/{id}/restore(id=${run.id()})}" method="post" class="sn-form">
+            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+            <div class="sn-form__group">
+                <label for="confirmationText" class="sn-form__label">
+                    Tapez exactement le nom du fichier pour confirmer :
+                    <code th:text="${run.fileName()}">subnetory-...dump</code>
+                </label>
+                <input id="confirmationText" name="confirmationText" type="text" autocomplete="off"
+                       class="sn-input sn-text-mono"
+                       th:attr="data-type-to-confirm=${run.fileName()}"
+                       data-type-to-confirm-submit="#restoreSubmitBtn"
+                       placeholder="Nom exact du fichier">
+                <p class="sn-form-hint">Le bouton « Restaurer maintenant » s'active dès que le nom saisi correspond exactement.</p>
+            </div>
+
+            <div class="sn-form__actions">
+                <button id="restoreSubmitBtn" type="submit" class="sn-btn sn-btn--danger" disabled>
+                    Restaurer maintenant
+                </button>
+                <a th:href="@{/admin/backup}" class="sn-btn sn-btn--ghost">Annuler</a>
+            </div>
+        </form>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

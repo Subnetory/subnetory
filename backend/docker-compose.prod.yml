@@ -1,0 +1,85 @@
+# Production — application seule avec PostgreSQL externe.
+#
+# IMPORTANT (audit du 31/07/2026) : les secrets (JWT, mot de passe admin,
+# mot de passe DB) sont fournis EXCLUSIVEMENT via les "secrets:" fichiers
+# ci-dessous (configtree), jamais en variable d'environnement bare ici.
+# Une variable d'environnement Spring Boot a toujours priorite sur un
+# secret fichier configtree : si SUBNETORY_JWT_SECRET/
+# SUBNETORY_ADMIN_DEFAULT_PASSWORD/SPRING_DATASOURCE_PASSWORD etaient
+# declarees ici sans valeur ("- SUBNETORY_JWT_SECRET"), Docker Compose les
+# resout depuis son contexte d'interpolation -- qui inclut automatiquement
+# un ".env" present a cote de ce fichier. Un ".env" de dev qui traine avec
+# un secret JWT faible et previsible ecraserait alors silencieusement le
+# secret fort genere par scripts/init-compose.*, permettant a quiconque
+# connait ce secret de forger un JWT ROLE_ADMIN valide. Ne jamais reverser
+# ce choix sans un mecanisme equivalent de protection.
+#
+# Construire l'image avant utilisation :
+#   docker build -t subnetory:latest .
+#
+# Puis lancer :
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Le serveur PostgreSQL externe doit lui-meme etre configure avec le meme
+# fuseau horaire que TZ ci-dessous (ex. "ALTER SYSTEM SET timezone =
+# 'Europe/Paris';" puis reload) -- sans cela, le decalage horaire corrige
+# le 31/07/2026 sur docker-compose.yml (base embarquee) peut reapparaitre
+# a l'identique ici, car pgjdbc convertit les colonnes timestamptz selon
+# le fuseau de SESSION que PostgreSQL annonce a la connexion, pas selon
+# celui de la JVM cliente.
+
+services:
+  app:
+    image: subnetory:latest
+    ports:
+      - "${HOST_PORT:-8080}:${SERVER_PORT:-8080}"
+    environment:
+      - SERVER_PORT=${SERVER_PORT:-8080}
+      - SPRING_DATASOURCE_URL
+      - SPRING_DATASOURCE_USERNAME
+      # Fuseau horaire de l'application. A adapter au pays de deploiement.
+      - TZ=${TZ:-Europe/Paris}
+    volumes:
+      # Sauvegardes (Phase 7 audit, 31/07/2026) : l'application ecrit ici
+      # les dumps pg_dump ; volume nomme persistant, en dehors du depot.
+      - subnetory_backups:/var/subnetory/backups
+    secrets:
+      - source: subnetory_jwt_secret
+        target: subnetory.jwt.secret
+      - source: subnetory_admin_default_password
+        target: subnetory.admin.default-password
+      - source: postgres_password
+        target: spring.datasource.password
+      # Chiffrement des sauvegardes (audit 01/08/2026, backlog #13) : active
+      # par defaut depuis le 01/08/2026. Le secret ./secrets/subnetory_backup_encryption_key
+      # (contenu = passphrase, jamais commite) est genere automatiquement par
+      # scripts/init-compose.ps1 / .sh. Voir backend/docs/BACKUP_ENCRYPTION.md
+      # avant toute rotation manuelle — changer cette valeur plus tard rend
+      # illisibles toutes les sauvegardes deja chiffrees, ce n'est pas une
+      # rotation. Pour desactiver explicitement cette fonctionnalite,
+      # regenerer les secrets avec -WithoutBackupEncryption / --without-backup-encryption
+      # et recommenter les deux lignes suivantes ET l'entree correspondante
+      # dans "secrets:" plus bas.
+      - source: subnetory_backup_encryption_key
+        target: subnetory.backup.encryption.key
+    restart: unless-stopped
+    stop_grace_period: 35s
+    healthcheck:
+      test: ["CMD-SHELL", 'wget -qO- "http://localhost:$${SERVER_PORT:-8080}/actuator/health/readiness" || exit 1']
+      interval: 30s
+      timeout: 5s
+      start_period: 45s
+      retries: 3
+
+volumes:
+  subnetory_backups:
+
+secrets:
+  subnetory_jwt_secret:
+    file: ./secrets/subnetory_jwt_secret
+  subnetory_admin_default_password:
+    file: ./secrets/subnetory_admin_default_password
+  postgres_password:
+    file: ./secrets/postgres_password
+  subnetory_backup_encryption_key:
+    file: ./secrets/subnetory_backup_encryption_key

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<head><title>Codes de recuperation MFA - Subnetory</title></head>
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <div class="sn-page__header">
+        <div>
+            <h1 class="sn-page__title">Codes de recuperation MFA</h1>
+            <p class="sn-page__subtitle">Notez ces codes des maintenant : ils ne seront plus jamais affiches.</p>
+        </div>
+        <nav class="sn-section-tabs" aria-label="Navigation">
+            <a th:href="@{/profile}" class="sn-section-tabs__item active">Profil</a>
+        </nav>
+    </div>
+
+    <div th:if="${flashSuccess}" class="sn-alert sn-alert--success" th:text="${flashSuccess}"></div>
+
+    <div class="sn-card sn-card--padded">
+        <div class="sn-card__header">
+            <h2 class="sn-card__title">Vos 10 codes a usage unique</h2>
+        </div>
+
+        <div class="sn-alert sn-alert--info">
+            Chaque code ne peut etre utilise qu'une seule fois pour vous connecter si vous perdez
+            l'acces a votre application d'authentification. Conservez-les dans un endroit sur
+            (gestionnaire de mots de passe, coffre-fort).
+        </div>
+
+        <div class="sn-mfa-codes-grid">
+            <code th:each="code : ${recoveryCodes}" th:text="${code}">xxxx-xxxx-xxxx-xxxx</code>
+        </div>
+
+        <div class="sn-form__actions">
+            <a th:href="@{/profile}" class="sn-btn sn-btn--primary">J'ai note mes codes, retour au profil</a>
+        </div>
+    </div>
+
+</div>
+</div>
+</body>
+</html>
