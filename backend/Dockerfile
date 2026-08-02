@@ -1,5 +1,5 @@
 # ── Stage 1 : Build ────────────────────────────────────────────────────────
-FROM eclipse-temurin:21-jdk-alpine AS builder
+FROM eclipse-temurin:25-jdk-alpine AS builder
 WORKDIR /build
 
 # Copier le wrapper Maven et le pom.xml en premier.
@@ -16,7 +16,7 @@ COPY src/ src/
 RUN ./mvnw package -DskipTests -q
 
 # ── Stage 2 : Runtime ──────────────────────────────────────────────────────
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:25-jre-alpine
 WORKDIR /app
 
 # Nmap est requis par la fonctionnalité de découverte réseau.
