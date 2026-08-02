@@ -1,18 +1,17 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
-<head><title>Réservation multiple — Subnetory</title></head>
 <body>
 <div id="main-content">
 <div class="sn-page">
 
     <div class="sn-page__header">
         <div>
-            <h1 class="sn-page__title">Réservation multiple d'adresses IP</h1>
-            <p class="sn-page__subtitle">Générez une liste d'IP libres, complétez les descriptions, réservez en un clic.</p>
+            <h1 class="sn-page__title" th:text="#{reserve.title}">Réservation multiple d'adresses IP</h1>
+            <p class="sn-page__subtitle" th:text="#{reserve.subtitle}">Générez une liste d'IP libres, complétez les descriptions, réservez en un clic.</p>
         </div>
         <div class="sn-page__actions">
-            <a th:href="@{/network/addresses}" class="sn-btn sn-btn--ghost">Retour aux adresses</a>
+            <a th:href="@{/network/addresses}" class="sn-btn sn-btn--ghost" th:text="#{reserve.backToAddresses}">Retour aux adresses</a>
         </div>
     </div>
 
@@ -23,14 +22,14 @@
 
         <div class="sn-card sn-card--padded">
             <div class="sn-card__header">
-                <h2 class="sn-card__title">1. Choisir un sous-réseau</h2>
+                <h2 class="sn-card__title" th:text="#{reserve.step1.title}">1. Choisir un sous-réseau</h2>
             </div>
 
             <div th:if="${form.rows.empty}" class="sn-form">
                 <div class="sn-form__group">
-                    <label for="subnetId" class="sn-form__label">Sous-réseau</label>
+                    <label for="subnetId" class="sn-form__label" th:text="#{address.form.subnet.label}">Sous-réseau</label>
                     <select id="subnetId" th:field="*{subnetId}" class="sn-input">
-                        <option value="">— Sélectionner un sous-réseau —</option>
+                        <option value="" th:text="#{select.placeholder.subnet}">— Sélectionner un sous-réseau —</option>
                         <option th:each="s : ${allSubnets}"
                                 th:value="${s.id}"
                                 th:text="|${s.network} — ${s.siteName}|">Subnet</option>
@@ -38,13 +37,13 @@
                 </div>
 
                 <div class="sn-form__group">
-                    <label for="additionalCount" class="sn-form__label">Nombre d'IP à générer</label>
+                    <label for="additionalCount" class="sn-form__label" th:text="#{reserve.countToGenerate}">Nombre d'IP à générer</label>
                     <input type="number" id="additionalCount" th:field="*{additionalCount}"
                            class="sn-input sn-input--narrow" min="1" max="50">
                 </div>
 
                 <div class="sn-form__actions">
-                    <button type="submit" class="sn-btn sn-btn--primary">Générer les IP disponibles</button>
+                    <button type="submit" class="sn-btn sn-btn--primary" th:text="#{reserve.generate}">Générer les IP disponibles</button>
                 </div>
             </div>
 
@@ -52,30 +51,32 @@
                 <input type="hidden" th:field="*{subnetId}">
                 <div th:each="s : ${allSubnets}" th:if="${s.id == form.subnetId}">
                     <p class="sn-text-secondary">
-                        Sous-réseau sélectionné : <strong th:text="|${s.network} — ${s.siteName}|">10.0.0.0/24</strong>
-                        — <a th:href="@{/network/addresses/reserve}">changer de sous-réseau</a>
-                        (réinitialise le tableau)
+                        <span th:text="#{reserve.selectedSubnet.prefix}">Sous-réseau sélectionné :</span> <strong th:text="|${s.network} — ${s.siteName}|">10.0.0.0/24</strong>
+                        — <a th:href="@{/network/addresses/reserve}" th:text="#{reserve.selectedSubnet.change}">changer de sous-réseau</a>
+                        <span th:text="#{reserve.selectedSubnet.resetHint}">(réinitialise le tableau)</span>
                     </p>
                 </div>
 
                 <div class="sn-form__group">
-                    <label for="additionalCount" class="sn-form__label">Nombre de lignes supplémentaires</label>
+                    <label for="additionalCount" class="sn-form__label" th:text="#{reserve.additionalRows}">Nombre de lignes supplémentaires</label>
                     <input type="number" id="additionalCount" th:field="*{additionalCount}"
                            class="sn-input sn-input--narrow" min="1" max="50">
                 </div>
 
                 <div class="sn-form__actions">
-                    <button type="submit" class="sn-btn sn-btn--secondary">+ Générer des lignes supplémentaires</button>
+                    <button type="submit" class="sn-btn sn-btn--secondary" th:text="#{reserve.generateMore}">+ Générer des lignes supplémentaires</button>
                 </div>
             </div>
         </div>
 
         <div class="sn-card sn-card--padded sn-mt-5" th:unless="${form.rows.empty}">
             <div class="sn-card__header">
-                <h2 class="sn-card__title">2. Compléter et réserver</h2>
+                <h2 class="sn-card__title" th:text="#{reserve.step2.title}">2. Compléter et réserver</h2>
             </div>
 
-            <p class="sn-text-muted" th:text="${form.rows.size()} + ' ligne(s) prête(s) — décochez celles à ignorer.'">
+            <p class="sn-text-muted"
+               th:with="suffix=#{reserve.rowsReady.suffix}"
+               th:text="${form.rows.size()} + ' ' + suffix">
                 N ligne(s) prête(s)
             </p>
 
@@ -83,12 +84,12 @@
                 <table class="sn-table">
                     <thead>
                         <tr>
-                            <th>Inclure</th>
-                            <th>Adresse IP</th>
-                            <th>Hostname</th>
-                            <th>Description</th>
-                            <th>MAC</th>
-                            <th>Temporaire</th>
+                            <th th:text="#{table.include}">Inclure</th>
+                            <th th:text="#{table.ip}">Adresse IP</th>
+                            <th th:text="#{table.hostname}">Hostname</th>
+                            <th th:text="#{common.description}">Description</th>
+                            <th th:text="#{table.mac}">MAC</th>
+                            <th th:text="#{table.temporary}">Temporaire</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -102,15 +103,15 @@
                             </td>
                             <td>
                                 <input type="text" th:field="*{rows[__${rowStat.index}__].hostname}"
-                                       class="sn-input" placeholder="ex : srv-web-01" maxlength="100">
+                                       class="sn-input" th:placeholder="#{reserve.hostname.placeholder}" maxlength="100">
                             </td>
                             <td>
                                 <input type="text" th:field="*{rows[__${rowStat.index}__].description}"
-                                       class="sn-input" placeholder="Description" maxlength="500">
+                                       class="sn-input" th:placeholder="#{reserve.description.placeholder}" maxlength="500">
                             </td>
                             <td>
                                 <input type="text" th:field="*{rows[__${rowStat.index}__].mac}"
-                                       class="sn-input sn-text-mono" placeholder="aa:bb:cc:dd:ee:ff" maxlength="17">
+                                       class="sn-input sn-text-mono" th:placeholder="#{reserve.mac.placeholder}" maxlength="17">
                             </td>
                             <td>
                                 <input type="checkbox" class="sn-table-checkbox" th:field="*{rows[__${rowStat.index}__].temporary}">
@@ -122,8 +123,8 @@
 
             <div class="sn-form__actions sn-mt-4">
                 <button type="submit" th:formaction="@{/network/addresses/reserve}"
-                        class="sn-btn sn-btn--primary">Réserver ces adresses</button>
-                <a th:href="@{/network/addresses/reserve}" class="sn-btn sn-btn--ghost">Tout effacer</a>
+                        class="sn-btn sn-btn--primary" th:text="#{reserve.submit}">Réserver ces adresses</button>
+                <a th:href="@{/network/addresses/reserve}" class="sn-btn sn-btn--ghost" th:text="#{reserve.clearAll}">Tout effacer</a>
             </div>
         </div>
     </form>

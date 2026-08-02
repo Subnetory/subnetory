@@ -1,23 +1,22 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
-<head><title>Nouvel utilisateur — Subnetory</title></head>
 <body>
 <div id="main-content">
 <div class="sn-page">
 
     <div class="sn-page__header">
         <div>
-            <a th:href="@{/admin/users}" class="sn-btn sn-btn--ghost sn-btn--sm sn-mb-2">Retour utilisateurs</a>
-            <h1 class="sn-page__title">Nouvel utilisateur</h1>
-            <p class="sn-page__subtitle">Définissez les identifiants, les rôles et le périmètre de contextes du nouveau compte.</p>
+            <a th:href="@{/admin/users}" class="sn-btn sn-btn--ghost sn-btn--sm sn-mb-2" th:text="#{admin.userForm.back}">Retour utilisateurs</a>
+            <h1 class="sn-page__title" th:text="#{admin.userForm.heading}">Nouvel utilisateur</h1>
+            <p class="sn-page__subtitle" th:text="#{admin.userForm.subtitle}">Définissez les identifiants, les rôles et le périmètre de contextes du nouveau compte.</p>
         </div>
-        <nav class="sn-admin-subnav" aria-label="Navigation administration">
-            <a th:href="@{/admin/users}" class="sn-admin-subnav__item active">Comptes</a>
-            <a th:href="@{/admin/ldap}" class="sn-admin-subnav__item">LDAP</a>
-            <a th:href="@{/admin/audit-log}" class="sn-admin-subnav__item">Audit</a>
-            <a th:href="@{/admin/backup}" class="sn-admin-subnav__item">Sauvegardes</a>
-            <a th:href="@{/admin/help}" class="sn-admin-subnav__item">Aide</a>
+        <nav class="sn-admin-subnav" th:aria-label="#{profile.nav.aria}">
+            <a th:href="@{/admin/users}" class="sn-admin-subnav__item active" th:text="#{admin.subnav.accounts}">Comptes</a>
+            <a th:href="@{/admin/ldap}" class="sn-admin-subnav__item" th:text="#{admin.subnav.ldap}">LDAP</a>
+            <a th:href="@{/admin/audit-log}" class="sn-admin-subnav__item" th:text="#{admin.subnav.audit}">Audit</a>
+            <a th:href="@{/admin/backup}" class="sn-admin-subnav__item" th:text="#{admin.subnav.backup}">Sauvegardes</a>
+            <a th:href="@{/admin/help}" class="sn-admin-subnav__item" th:text="#{admin.subnav.help}">Aide</a>
         </nav>
     </div>
 
@@ -25,38 +24,38 @@
 
     <form th:action="@{/admin/users}" th:object="${userForm}" method="post" class="sn-admin-grid">
         <div class="sn-card">
-            <div class="sn-card__header"><h2 class="sn-card__title">Compte</h2></div>
+            <div class="sn-card__header"><h2 class="sn-card__title" th:text="#{admin.userForm.account.title}">Compte</h2></div>
 
             <div class="sn-form__group">
-                <label for="username" class="sn-form__label">Identifiant</label>
+                <label for="username" class="sn-form__label" th:text="#{profile.account.username}">Identifiant</label>
                 <input id="username" name="username" th:field="*{username}" class="sn-input"
                        autocomplete="username" required maxlength="100">
-                <p class="sn-text-muted">Lettres, chiffres, point, tiret ou underscore.</p>
+                <p class="sn-text-muted" th:text="#{admin.userForm.username.hint}">Lettres, chiffres, point, tiret ou underscore.</p>
             </div>
 
             <div class="sn-form__group">
-                <label for="email" class="sn-form__label">Email</label>
+                <label for="email" class="sn-form__label" th:text="#{profile.account.email}">Email</label>
                 <input id="email" name="email" th:field="*{email}" class="sn-input"
                        type="email" autocomplete="email" maxlength="255">
             </div>
 
             <div class="sn-form__group">
-                <label for="password" class="sn-form__label">Mot de passe temporaire</label>
+                <label for="password" class="sn-form__label" th:text="#{admin.userForm.password.label}">Mot de passe temporaire</label>
                 <input id="password" name="password" th:field="*{password}" class="sn-input"
                        type="password" autocomplete="new-password" required>
-                <p class="sn-text-muted">
+                <p class="sn-text-muted" th:text="#{admin.userForm.password.hint}">
                     L'utilisateur devra le remplacer à sa première connexion.
                 </p>
             </div>
 
             <label class="sn-chip-checkbox">
                 <input type="checkbox" class="sn-chip-checkbox__input" th:field="*{enabled}">
-                <span class="sn-chip-checkbox__pill">Compte actif</span>
+                <span class="sn-chip-checkbox__pill" th:text="#{admin.userForm.enabled.pill}">Compte actif</span>
             </label>
         </div>
 
         <div class="sn-card">
-            <div class="sn-card__header"><h2 class="sn-card__title">Rôles</h2></div>
+            <div class="sn-card__header"><h2 class="sn-card__title" th:text="#{admin.userForm.roles.title}">Rôles</h2></div>
             <div class="sn-roles-list">
                 <label th:each="role : ${allRoles}" class="sn-chip-checkbox">
                     <input type="checkbox"
@@ -70,19 +69,19 @@
         </div>
 
         <div class="sn-card">
-            <div class="sn-card__header"><h2 class="sn-card__title">Contextes autorisés</h2></div>
-            <p class="sn-text-secondary sn-mb-2">
+            <div class="sn-card__header"><h2 class="sn-card__title" th:text="#{admin.userForm.contexts.title}">Contextes autorisés</h2></div>
+            <p class="sn-text-secondary sn-mb-2" th:text="#{admin.userForm.contexts.hint}">
                 Les comptes non administrateurs ne verront que les contextes sélectionnés.
             </p>
             <div class="sn-table-actions sn-mb-2" th:if="${!allContexts.empty}">
                 <button type="button"
                         class="sn-btn sn-btn--secondary sn-btn--sm"
-                        data-check-all="#user-create-contexts">
+                        data-check-all="#user-create-contexts" th:text="#{admin.contexts.checkAll}">
                     Tout sélectionner
                 </button>
                 <button type="button"
                         class="sn-btn sn-btn--ghost sn-btn--sm"
-                        data-uncheck-all="#user-create-contexts">
+                        data-uncheck-all="#user-create-contexts" th:text="#{admin.contexts.uncheckAll}">
                     Tout désélectionner
                 </button>
             </div>
@@ -96,20 +95,20 @@
                     <span class="sn-chip-checkbox__pill" th:text="${ctx.name}">PRODUCTION</span>
                 </label>
             </div>
-            <p class="sn-alert sn-alert--info" th:if="${allContexts.empty}">
+            <p class="sn-alert sn-alert--info" th:if="${allContexts.empty}" th:text="#{admin.contexts.empty}">
                 Aucun contexte disponible.
             </p>
         </div>
 
         <div class="sn-card">
-            <div class="sn-card__header"><h2 class="sn-card__title">Validation</h2></div>
-            <p class="sn-text-secondary sn-mb-2">
+            <div class="sn-card__header"><h2 class="sn-card__title" th:text="#{admin.userForm.validation.title}">Validation</h2></div>
+            <p class="sn-text-secondary sn-mb-2" th:text="#{admin.userForm.validation.hint}">
                 Le compte est créé localement. Les rôles définissent les actions possibles ;
                 les contextes définissent les données visibles.
             </p>
             <div class="sn-form__actions">
-                <button type="submit" class="sn-btn sn-btn--primary">Créer l'utilisateur</button>
-                <a th:href="@{/admin/users}" class="sn-btn sn-btn--secondary">Annuler</a>
+                <button type="submit" class="sn-btn sn-btn--primary" th:text="#{admin.userForm.submit}">Créer l'utilisateur</button>
+                <a th:href="@{/admin/users}" class="sn-btn sn-btn--secondary" th:text="#{common.cancel}">Annuler</a>
             </div>
         </div>
     </form>

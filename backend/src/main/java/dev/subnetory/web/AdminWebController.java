@@ -19,6 +19,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Locale;
+import org.springframework.context.MessageSource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
 import org.springframework.http.HttpHeaders;
@@ -72,6 +74,7 @@ public class AdminWebController {
     private final LdapConfigurationService ldapConfigurationService;
     private final UserTokenInvalidationService userTokenInvalidationService;
     private final ClientIpResolver clientIpResolver;
+    private final MessageSource messageSource;
 
     /**
      * Retention appliquee par la purge automatique planifiee
@@ -94,7 +97,8 @@ public class AdminWebController {
                               LdapAdminDiagnosticService ldapAdminDiagnosticService,
                               LdapConfigurationService ldapConfigurationService,
                               UserTokenInvalidationService userTokenInvalidationService,
-                              ClientIpResolver clientIpResolver) {
+                              ClientIpResolver clientIpResolver,
+                              MessageSource messageSource) {
         this.userAdminService = userAdminService;
         this.authAuditService = authAuditService;
         this.authAuditRetentionService = authAuditRetentionService;
@@ -102,26 +106,31 @@ public class AdminWebController {
         this.ldapConfigurationService = ldapConfigurationService;
         this.userTokenInvalidationService = userTokenInvalidationService;
         this.clientIpResolver = clientIpResolver;
+        this.messageSource = messageSource;
+    }
+
+    private String msg(String key, Locale locale, Object... args) {
+        return messageSource.getMessage(key, args, locale);
     }
 
     // Liste des utilisateurs
 
     @GetMapping("/users")
-    public String list(@RequestParam(defaultValue = "0") int page, Model model) {
+    public String list(@RequestParam(defaultValue = "0") int page, Model model, Locale locale) {
         model.addAttribute("users",
                 userAdminService.findAll(PageRequest.of(page, PAGE_SIZE, Sort.by("username"))));
         model.addAttribute("activeSection", "admin");
-        model.addAttribute("pageTitle", "Utilisateurs");
+        model.addAttribute("pageTitle", msg("pageTitle.adminUsers", locale));
         return "admin/users";
     }
 
     @GetMapping("/users/new")
-    public String newUser(Model model) {
+    public String newUser(Model model, Locale locale) {
         model.addAttribute("userForm", new UserCreateForm());
         model.addAttribute("allRoles", userAdminService.findAssignableRoles());
         model.addAttribute("allContexts", userAdminService.findAllContexts());
         model.addAttribute("activeSection", "admin");
-        model.addAttribute("pageTitle", "Nouvel utilisateur");
+        model.addAttribute("pageTitle", msg("pageTitle.adminUserNew", locale));
         return "admin/user-form";
     }
 
@@ -129,7 +138,8 @@ public class AdminWebController {
     public String createUser(@ModelAttribute("userForm") UserCreateForm form,
                              Authentication auth,
                              RedirectAttributes flash,
-                             Model model) {
+                             Model model,
+                             Locale locale) {
         try {
             var user = userAdminService.createLocalUser(
                     form.getUsername(),
@@ -139,18 +149,18 @@ public class AdminWebController {
                     form.getRoleIds(),
                     form.getContextIds(),
                     auth.getName());
-            flash.addFlashAttribute("flashSuccess", "Compte utilisateur créé.");
+            flash.addFlashAttribute("flashSuccess", msg("flash.admin.userCreated", locale));
             return "redirect:/admin/users/" + user.getId();
         } catch (PasswordPolicyException | AdminLockoutException | IllegalArgumentException e) {
             model.addAttribute("flashError", e.getMessage());
         } catch (ResourceNotFoundException e) {
-            model.addAttribute("flashError", "Rôle ou contexte introuvable.");
+            model.addAttribute("flashError", msg("flash.admin.roleOrContextNotFound", locale));
         }
 
         model.addAttribute("allRoles", userAdminService.findAssignableRoles());
         model.addAttribute("allContexts", userAdminService.findAllContexts());
         model.addAttribute("activeSection", "admin");
-        model.addAttribute("pageTitle", "Nouvel utilisateur");
+        model.addAttribute("pageTitle", msg("pageTitle.adminUserNew", locale));
         return "admin/user-form";
     }
 
@@ -159,7 +169,8 @@ public class AdminWebController {
     @GetMapping("/users/{id}")
     public String detail(@PathVariable Long id,
                          Model model,
-                         HttpServletResponse response) {
+                         HttpServletResponse response,
+                         Locale locale) {
         try {
             var user = userAdminService.findById(id);
             model.addAttribute("user", user);
@@ -179,7 +190,7 @@ public class AdminWebController {
                     .collect(Collectors.toSet());
             model.addAttribute("userContextIds", userContextIds);
             model.addAttribute("activeSection", "admin");
-            model.addAttribute("pageTitle", "Detail utilisateur");
+            model.addAttribute("pageTitle", msg("pageTitle.adminUserDetail", locale));
         } catch (ResourceNotFoundException e) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
             return "error/404";
@@ -193,7 +204,8 @@ public class AdminWebController {
     public String auditLog(@RequestParam(required = false) String q,
                            @RequestParam(required = false) String eventType,
                            @RequestParam(defaultValue = "0") int page,
-                           Model model) {
+                           Model model,
+                           Locale locale) {
         int safePage = Math.max(0, page);
 
         model.addAttribute("logs",
@@ -208,7 +220,7 @@ public class AdminWebController {
         model.addAttribute("auditRetentionDays", auditRetentionDays);
         model.addAttribute("auditRetentionEnabled", auditRetentionEnabled);
         model.addAttribute("activeSection", "admin");
-        model.addAttribute("pageTitle", "Journal d'audit");
+        model.addAttribute("pageTitle", msg("pageTitle.adminAuditLog", locale));
         return "admin/audit-log";
     }
 
@@ -219,18 +231,19 @@ public class AdminWebController {
      */
     @PostMapping("/audit-log/purge")
     public String purgeAuditLog(@RequestParam("beforeDate") java.time.LocalDate beforeDate,
-                                RedirectAttributes flash) {
+                                RedirectAttributes flash,
+                                Locale locale) {
         var cutoff = beforeDate.atStartOfDay().atOffset(java.time.ZoneOffset.UTC);
         int deleted = authAuditRetentionService.purgeOlderThan(cutoff);
         flash.addFlashAttribute("flashSuccess",
-                "Journal d'audit purgé avant le " + beforeDate + " : " + deleted + " entrée(s) supprimée(s).");
+                msg("flash.admin.auditPurged", locale, beforeDate, deleted));
         return "redirect:/admin/audit-log";
     }
 
     // Annuaire LDAP
 
     @GetMapping("/ldap")
-    public String ldap(Model model) {
+    public String ldap(Model model, Locale locale) {
         LdapSettingsForm form = ldapConfigurationService.form();
         model.addAttribute("ldapStatus", ldapAdminDiagnosticService.status());
         model.addAttribute("ldapForm", form);
@@ -238,17 +251,18 @@ public class AdminWebController {
         model.addAttribute("ldapFilterOptions", LDAP_FILTER_OPTIONS);
         model.addAttribute("ldapCustomFilter", isCustomLdapFilter(form.getUserSearchFilter()));
         model.addAttribute("activeSection", "admin");
-        model.addAttribute("pageTitle", "Annuaire LDAP");
+        model.addAttribute("pageTitle", msg("pageTitle.adminLdap", locale));
         return "admin/ldap";
     }
 
     @PostMapping("/ldap")
     public String updateLdap(@ModelAttribute("ldapForm") LdapSettingsForm form,
                              RedirectAttributes flash,
-                             Model model) {
+                             Model model,
+                             Locale locale) {
         try {
             ldapConfigurationService.save(form);
-            flash.addFlashAttribute("flashSuccess", "Configuration LDAP enregistrée.");
+            flash.addFlashAttribute("flashSuccess", msg("flash.admin.ldapConfigSaved", locale));
             return "redirect:/admin/ldap";
         } catch (IllegalArgumentException | IllegalStateException e) {
             model.addAttribute("flashError", e.getMessage());
@@ -258,7 +272,7 @@ public class AdminWebController {
             model.addAttribute("ldapFilterOptions", LDAP_FILTER_OPTIONS);
             model.addAttribute("ldapCustomFilter", isCustomLdapFilter(form.getUserSearchFilter()));
             model.addAttribute("activeSection", "admin");
-            model.addAttribute("pageTitle", "Annuaire LDAP");
+            model.addAttribute("pageTitle", msg("pageTitle.adminLdap", locale));
             return "admin/ldap";
         }
     }
@@ -272,7 +286,8 @@ public class AdminWebController {
 
     @PostMapping("/ldap/test-user")
     public String testLdapUser(@RequestParam String username,
-                               RedirectAttributes flash) {
+                               RedirectAttributes flash,
+                               Locale locale) {
         try {
             var result = ldapAdminDiagnosticService.testUserSearch(username);
             flash.addFlashAttribute("ldapDiagnostic", result);
@@ -280,7 +295,7 @@ public class AdminWebController {
         } catch (IllegalArgumentException e) {
             flash.addFlashAttribute("ldapDiagnostic",
                     LdapAdminDiagnosticService.LdapDiagnosticResult.error(
-                            "Recherche refusée",
+                            msg("flash.admin.ldapSearchDenied", locale),
                             e.getMessage()));
         }
         return "redirect:/admin/ldap";
@@ -303,14 +318,15 @@ public class AdminWebController {
     public String updateRoles(@PathVariable Long id,
                               @ModelAttribute("form") UserRoleForm form,
                               Authentication auth,
-                              RedirectAttributes flash) {
+                              RedirectAttributes flash,
+                              Locale locale) {
         try {
             userAdminService.updateRoles(id, form.getRoleIds(), auth.getName());
-            flash.addFlashAttribute("flashSuccess", "Roles mis a jour.");
+            flash.addFlashAttribute("flashSuccess", msg("flash.admin.rolesUpdated", locale));
         } catch (AdminLockoutException e) {
             flash.addFlashAttribute("flashError", e.getMessage());
         } catch (ResourceNotFoundException e) {
-            flash.addFlashAttribute("flashError", "Utilisateur ou role introuvable.");
+            flash.addFlashAttribute("flashError", msg("flash.admin.userOrRoleNotFound", locale));
         }
         return "redirect:/admin/users/" + id;
     }
@@ -319,12 +335,13 @@ public class AdminWebController {
     public String updateContexts(@PathVariable Long id,
                                  @ModelAttribute("contextForm") UserContextForm form,
                                  Authentication auth,
-                                 RedirectAttributes flash) {
+                                 RedirectAttributes flash,
+                                 Locale locale) {
         try {
             userAdminService.updateContexts(id, form.getContextIds(), auth.getName());
-            flash.addFlashAttribute("flashSuccess", "Contextes autorises mis a jour.");
+            flash.addFlashAttribute("flashSuccess", msg("flash.admin.contextsUpdated", locale));
         } catch (ResourceNotFoundException e) {
-            flash.addFlashAttribute("flashError", "Utilisateur ou contexte introuvable.");
+            flash.addFlashAttribute("flashError", msg("flash.admin.userOrContextNotFound", locale));
         }
         return "redirect:/admin/users/" + id;
     }
@@ -334,12 +351,13 @@ public class AdminWebController {
     @PostMapping("/users/{id}/enable")
     public String enable(@PathVariable Long id,
                          Authentication auth,
-                         RedirectAttributes flash) {
+                         RedirectAttributes flash,
+                         Locale locale) {
         try {
             userAdminService.setEnabled(id, true, auth.getName());
-            flash.addFlashAttribute("flashSuccess", "Compte active.");
+            flash.addFlashAttribute("flashSuccess", msg("flash.admin.accountEnabled", locale));
         } catch (ResourceNotFoundException e) {
-            flash.addFlashAttribute("flashError", "Utilisateur introuvable.");
+            flash.addFlashAttribute("flashError", msg("flash.admin.userNotFound", locale));
         }
         return "redirect:/admin/users/" + id;
     }
@@ -349,14 +367,15 @@ public class AdminWebController {
     @PostMapping("/users/{id}/disable")
     public String disable(@PathVariable Long id,
                           Authentication auth,
-                          RedirectAttributes flash) {
+                          RedirectAttributes flash,
+                          Locale locale) {
         try {
             userAdminService.setEnabled(id, false, auth.getName());
-            flash.addFlashAttribute("flashSuccess", "Compte desactive.");
+            flash.addFlashAttribute("flashSuccess", msg("flash.admin.accountDisabled", locale));
         } catch (AdminLockoutException e) {
             flash.addFlashAttribute("flashError", e.getMessage());
         } catch (ResourceNotFoundException e) {
-            flash.addFlashAttribute("flashError", "Utilisateur introuvable.");
+            flash.addFlashAttribute("flashError", msg("flash.admin.userNotFound", locale));
         }
         return "redirect:/admin/users/" + id;
     }
@@ -367,18 +386,19 @@ public class AdminWebController {
     public String disableMfa(@PathVariable Long id,
                              Authentication auth,
                              HttpServletRequest request,
-                             RedirectAttributes flash) {
+                             RedirectAttributes flash,
+                             Locale locale) {
         try {
             userAdminService.adminDisableMfa(
                     id,
                     auth.getName(),
                     clientIpResolver.resolve(request),
                     request.getHeader("User-Agent"));
-            flash.addFlashAttribute("flashSuccess", "MFA desactive pour ce compte.");
+            flash.addFlashAttribute("flashSuccess", msg("flash.admin.mfaDisabled", locale));
         } catch (PasswordPolicyException e) {
             flash.addFlashAttribute("flashError", e.getMessage());
         } catch (ResourceNotFoundException e) {
-            flash.addFlashAttribute("flashError", "Utilisateur introuvable.");
+            flash.addFlashAttribute("flashError", msg("flash.admin.userNotFound", locale));
         }
         return "redirect:/admin/users/" + id;
     }
@@ -389,7 +409,8 @@ public class AdminWebController {
     public String invalidateTokens(@PathVariable Long id,
                                    Authentication auth,
                                    HttpServletRequest request,
-                                   RedirectAttributes flash) {
+                                   RedirectAttributes flash,
+                                   Locale locale) {
         try {
             var user = userAdminService.findById(id);
             String reason = UserTokenInvalidationService.REASON_ADMIN_REVOKE;
@@ -402,9 +423,9 @@ public class AdminWebController {
                     request.getHeader("User-Agent"),
                     reason);
 
-            flash.addFlashAttribute("flashSuccess", "Tokens API revoques pour ce compte.");
+            flash.addFlashAttribute("flashSuccess", msg("flash.admin.tokensRevoked", locale));
         } catch (ResourceNotFoundException e) {
-            flash.addFlashAttribute("flashError", "Utilisateur introuvable.");
+            flash.addFlashAttribute("flashError", msg("flash.admin.userNotFound", locale));
         }
         return "redirect:/admin/users/" + id;
     }
@@ -416,7 +437,8 @@ public class AdminWebController {
                                 @RequestParam String newPassword,
                                 Authentication auth,
                                 HttpServletRequest request,
-                                RedirectAttributes flash) {
+                                RedirectAttributes flash,
+                                Locale locale) {
         try {
             String ipAddress = clientIpResolver.resolve(request);
             String userAgent = request.getHeader("User-Agent");
@@ -428,11 +450,11 @@ public class AdminWebController {
                     ipAddress,
                     userAgent);
 
-            flash.addFlashAttribute("flashSuccess", "Mot de passe reinitialise.");
+            flash.addFlashAttribute("flashSuccess", msg("flash.admin.passwordReset", locale));
         } catch (PasswordPolicyException e) {
             flash.addFlashAttribute("flashError", e.getMessage());
         } catch (ResourceNotFoundException e) {
-            flash.addFlashAttribute("flashError", "Utilisateur introuvable.");
+            flash.addFlashAttribute("flashError", msg("flash.admin.userNotFound", locale));
         }
         return "redirect:/admin/users/" + id;
     }

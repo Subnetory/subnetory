@@ -10,15 +10,15 @@ public class VlanForm {
 
     private Long id;
 
-    @Size(max = 100, message = "100 caractères maximum")
+    @Size(max = 100, message = "{validation.size.max}")
     private String name;
 
-    @NotNull(message = "Le VLAN ID est obligatoire")
-    @Min(value = 0,    message = "Le VLAN ID doit être compris entre 0 et 4094")
-    @Max(value = 4094, message = "Le VLAN ID doit être compris entre 0 et 4094")
+    @NotNull(message = "{validation.vlanId.required}")
+    @Min(value = 0,    message = "{validation.vlanId.range}")
+    @Max(value = 4094, message = "{validation.vlanId.range}")
     private Integer vid;
 
-    @NotNull(message = "Le site est obligatoire")
+    @NotNull(message = "{validation.field.siteRequired}")
     private Long siteId;
 
     public VlanForm() {}

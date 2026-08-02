@@ -1031,13 +1031,17 @@ $PostgresPassword = New-RandomBase64Url -ByteCount 36
 $TemporaryAdminPassword = New-CompliantPassword -Length 32
 $NewAdminPassword = New-CompliantPassword -Length 36
 $BackupEncryptionKey = New-RandomBase64Url -ByteCount 36
+# Cle de chiffrement dediee (audit 02/08/2026) des secrets stockes en base
+# (bind LDAP, secret TOTP MFA), separee du secret JWT — voir docker-compose.yml.
+$EncryptionKey = New-RandomBase64Url -ByteCount 36
 
 $SecretEntries = @(
     [PSCustomObject]@{ Name = "JWT"; Value = $JwtSecret },
     [PSCustomObject]@{ Name = "PostgreSQL"; Value = $PostgresPassword },
     [PSCustomObject]@{ Name = "Admin temporaire"; Value = $TemporaryAdminPassword },
     [PSCustomObject]@{ Name = "Admin final"; Value = $NewAdminPassword },
-    [PSCustomObject]@{ Name = "Chiffrement sauvegardes"; Value = $BackupEncryptionKey }
+    [PSCustomObject]@{ Name = "Chiffrement sauvegardes"; Value = $BackupEncryptionKey },
+    [PSCustomObject]@{ Name = "Chiffrement secrets (LDAP/MFA)"; Value = $EncryptionKey }
 )
 $script:SecretValues = @($SecretEntries | ForEach-Object { $_.Value })
 
@@ -1143,12 +1147,14 @@ try {
             Admin = Join-Path $SecretsPath "subnetory_admin_default_password"
             Postgres = Join-Path $SecretsPath "postgres_password"
             BackupEncryption = Join-Path $SecretsPath "subnetory_backup_encryption_key"
+            EncryptionKey = Join-Path $SecretsPath "subnetory_encryption_key"
         }
 
         Write-Utf8NoBomNoNewline -Path $SecretPaths.Jwt -Value $JwtSecret
         Write-Utf8NoBomNoNewline -Path $SecretPaths.Admin -Value $TemporaryAdminPassword
         Write-Utf8NoBomNoNewline -Path $SecretPaths.Postgres -Value $PostgresPassword
         Write-Utf8NoBomNoNewline -Path $SecretPaths.BackupEncryption -Value $BackupEncryptionKey
+        Write-Utf8NoBomNoNewline -Path $SecretPaths.EncryptionKey -Value $EncryptionKey
 
         Write-Host "`n=== Configuration Compose ===" -ForegroundColor Cyan
 
@@ -1313,7 +1319,7 @@ try {
                 "sh",
                 $script:AppImageId,
                 "-ec",
-                "test ! -e /run/secrets/subnetory.jwt.secret && test ! -e /run/secrets/subnetory.admin.default-password && test ! -e /run/secrets/spring.datasource.password && test ! -e /run/secrets/subnetory.backup.encryption.key"
+                "test ! -e /run/secrets/subnetory.jwt.secret && test ! -e /run/secrets/subnetory.admin.default-password && test ! -e /run/secrets/spring.datasource.password && test ! -e /run/secrets/subnetory.backup.encryption.key && test ! -e /run/secrets/subnetory.security.encryption-key"
             )
 
         Write-Host "Image            : construite"
@@ -1461,6 +1467,7 @@ try {
         $HostAdminHash = (Get-FileHash -LiteralPath $SecretPaths.Admin -Algorithm SHA256).Hash.ToUpperInvariant()
         $HostDbHash = (Get-FileHash -LiteralPath $SecretPaths.Postgres -Algorithm SHA256).Hash.ToUpperInvariant()
         $HostBackupEncryptionHash = (Get-FileHash -LiteralPath $SecretPaths.BackupEncryption -Algorithm SHA256).Hash.ToUpperInvariant()
+        $HostEncryptionKeyHash = (Get-FileHash -LiteralPath $SecretPaths.EncryptionKey -Algorithm SHA256).Hash.ToUpperInvariant()
 
         if ((Get-ContainerSecretHash -Service "app" -Path "/run/secrets/subnetory.jwt.secret") -ne $HostJwtHash) {
             throw "Secret JWT monté différent du fichier temporaire."
@@ -1476,6 +1483,9 @@ try {
         }
         if ((Get-ContainerSecretHash -Service "app" -Path "/run/secrets/subnetory.backup.encryption.key") -ne $HostBackupEncryptionHash) {
             throw "Secret de chiffrement des sauvegardes monté différent du fichier temporaire."
+        }
+        if ((Get-ContainerSecretHash -Service "app" -Path "/run/secrets/subnetory.security.encryption-key") -ne $HostEncryptionKeyHash) {
+            throw "Secret de chiffrement des secrets (LDAP/MFA) monté différent du fichier temporaire."
         }
 
         $DbPasswordLogin = Invoke-Compose -Arguments @(
@@ -1513,7 +1523,7 @@ try {
         Write-Host "Readiness        : UP"
         Write-Host "Liveness         : UP"
         Write-Host "Processus        : subnetory non-root"
-        Write-Host "Config tree      : quatre secrets applicatifs liés"
+        Write-Host "Config tree      : cinq secrets applicatifs liés"
         Write-Host "PostgreSQL       : login secret réussi, aucun port hôte"
         Write-Host "Flyway           : $($ExpectedFlyway.Count) migrations, version V$($ExpectedFlyway.LatestVersion)"
 

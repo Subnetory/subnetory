@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
-<head><title th:text="${pageTitle} + ' — Subnetory'">VLAN — Subnetory</title></head>
 <body>
 <div id="main-content">
 <div class="sn-page">
@@ -9,7 +8,7 @@
     <div class="sn-page__header">
         <div>
             <h1 class="sn-page__title" th:text="${pageTitle}">VLAN</h1>
-            <p class="sn-page__subtitle">Rattachez ce VLAN à un site pour l'associer à vos sous-réseaux.</p>
+            <p class="sn-page__subtitle" th:text="#{vlan.form.subtitle}">Rattachez ce VLAN à un site pour l'associer à vos sous-réseaux.</p>
         </div>
     </div>
 
@@ -26,13 +25,13 @@
 
             <div class="sn-form__group" th:classappend="${#fields.hasErrors('vid')} ? ' sn-form__group--error'">
                 <label for="vid" class="sn-form__label">
-                    VLAN ID <span class="sn-form-required">*</span>
+                    <span th:text="#{vlan.form.vid.label}">VLAN ID</span> <span class="sn-form-required">*</span>
                 </label>
                 <input type="number"
                        id="vid"
                        th:field="*{vid}"
                        class="sn-input"
-                       placeholder="0 – 4094"
+                       th:placeholder="#{vlan.form.vid.placeholder}"
                        min="0"
                        max="4094"
                        required
@@ -43,12 +42,12 @@
             </div>
 
             <div class="sn-form__group" th:classappend="${#fields.hasErrors('name')} ? ' sn-form__group--error'">
-                <label for="name" class="sn-form__label">Nom</label>
+                <label for="name" class="sn-form__label" th:text="#{common.name}">Nom</label>
                 <input type="text"
                        id="name"
                        th:field="*{name}"
                        class="sn-input"
-                       placeholder="ex : VLAN-PROD (optionnel)"
+                       th:placeholder="#{vlan.form.name.placeholder}"
                        autocomplete="off"
                        maxlength="100" />
                 <span class="sn-form__error"
@@ -58,14 +57,14 @@
 
             <div class="sn-form__group" th:classappend="${#fields.hasErrors('siteId')} ? ' sn-form__group--error'">
                 <label for="siteId" class="sn-form__label">
-                    Site <span class="sn-form-required">*</span>
+                    <span th:text="#{common.site}">Site</span> <span class="sn-form-required">*</span>
                 </label>
                 <select id="siteId"
                         th:field="*{siteId}"
                         class="sn-input"
                         required
                         aria-required="true">
-                    <option value="">— Sélectionner un site —</option>
+                    <option value="" th:text="#{select.placeholder.site}">— Sélectionner un site —</option>
                     <option th:each="site : ${allSites}"
                             th:value="${site.id}"
                             th:text="|${site.code} — ${site.name}|">SITE</option>
@@ -76,8 +75,8 @@
             </div>
 
             <div class="sn-form__actions">
-                <button type="submit" class="sn-btn sn-btn--primary">Enregistrer</button>
-                <a th:href="${cancelUrl}" class="sn-btn sn-btn--secondary">Annuler</a>
+                <button type="submit" class="sn-btn sn-btn--primary" th:text="#{common.save}">Enregistrer</button>
+                <a th:href="${cancelUrl}" class="sn-btn sn-btn--secondary" th:text="#{common.cancel}">Annuler</a>
             </div>
 
         </form>

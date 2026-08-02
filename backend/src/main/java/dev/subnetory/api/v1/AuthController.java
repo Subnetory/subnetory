@@ -112,11 +112,13 @@ public class AuthController {
         String ipAddress = clientIpResolver.resolve(httpRequest);
         String userAgent = httpRequest.getHeader("User-Agent");
 
-        // 1. Blocage prealable si l'IP est deja verrouillee.
-        if (loginRateLimiter.isLocked(ipAddress)) {
+        // 1. Blocage prealable si l'IP OU le nom d'utilisateur est deja verrouille
+        // (audit 02/08/2026 : compteur par utilisateur ajoute en complement de
+        // l'IP, voir LoginRateLimiter).
+        if (loginRateLimiter.isLocked(ipAddress, request.username())) {
             authAuditService.recordLoginLocked(
                     request.username(), ipAddress, userAgent,
-                    "Trop de tentatives via l'API. IP temporairement bloquee.");
+                    "Trop de tentatives via l'API. Compte ou IP temporairement bloque.");
             throw new ResponseStatusException(
                     HttpStatus.TOO_MANY_REQUESTS,
                     "Too many authentication attempts. Try again later.");
@@ -128,12 +130,12 @@ public class AuthController {
             auth = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.username(), request.password()));
         } catch (AuthenticationException ex) {
-            LoginRateLimiter.RateLimitDecision decision = loginRateLimiter.recordFailure(ipAddress);
+            LoginRateLimiter.RateLimitDecision decision = loginRateLimiter.recordFailure(ipAddress, request.username());
 
             if (decision.locked()) {
                 authAuditService.recordLoginLocked(
                         request.username(), ipAddress, userAgent,
-                        "Trop de tentatives via l'API. IP temporairement bloquee.");
+                        "Trop de tentatives via l'API. Compte ou IP temporairement bloque.");
                 throw new ResponseStatusException(
                         HttpStatus.TOO_MANY_REQUESTS,
                         "Too many authentication attempts. Try again later.");
@@ -167,7 +169,7 @@ public class AuthController {
         }
 
         // 4. Succes : reset du compteur + audit + emission du token.
-        loginRateLimiter.recordSuccess(ipAddress);
+        loginRateLimiter.recordSuccess(ipAddress, auth.getName());
         authAuditService.recordLoginSuccess(auth.getName(), ipAddress, userAgent);
 
         if (passwordChangeService.isRequired(auth.getName())) {
@@ -179,12 +181,12 @@ public class AuthController {
     }
 
     private void applyMfaChallengeFailure(String username, String ipAddress, String userAgent) {
-        LoginRateLimiter.RateLimitDecision decision = loginRateLimiter.recordFailure(ipAddress);
+        LoginRateLimiter.RateLimitDecision decision = loginRateLimiter.recordFailure(ipAddress, username);
 
         if (decision.locked()) {
             authAuditService.recordLoginLocked(
                     username, ipAddress, userAgent,
-                    "Trop de tentatives via l'API (code MFA). IP temporairement bloquee.");
+                    "Trop de tentatives via l'API (code MFA). Compte ou IP temporairement bloque.");
             throw new ResponseStatusException(
                     HttpStatus.TOO_MANY_REQUESTS,
                     "Too many authentication attempts. Try again later.");
@@ -233,10 +235,10 @@ public class AuthController {
         String ipAddress = clientIpResolver.resolve(httpRequest);
         String userAgent = httpRequest.getHeader("User-Agent");
 
-        if (loginRateLimiter.isLocked(ipAddress)) {
+        if (loginRateLimiter.isLocked(ipAddress, request.username())) {
             authAuditService.recordLoginLocked(
                     request.username(), ipAddress, userAgent,
-                    "Trop de tentatives via l'API. IP temporairement bloquee.");
+                    "Trop de tentatives via l'API. Compte ou IP temporairement bloque.");
             throw new ResponseStatusException(
                     HttpStatus.TOO_MANY_REQUESTS,
                     "Too many authentication attempts. Try again later.");
@@ -247,12 +249,12 @@ public class AuthController {
                     new UsernamePasswordAuthenticationToken(
                             request.username(), request.currentPassword()));
         } catch (AuthenticationException ex) {
-            LoginRateLimiter.RateLimitDecision decision = loginRateLimiter.recordFailure(ipAddress);
+            LoginRateLimiter.RateLimitDecision decision = loginRateLimiter.recordFailure(ipAddress, request.username());
 
             if (decision.locked()) {
                 authAuditService.recordLoginLocked(
                         request.username(), ipAddress, userAgent,
-                        "Trop de tentatives via l'API. IP temporairement bloquee.");
+                        "Trop de tentatives via l'API. Compte ou IP temporairement bloque.");
                 throw new ResponseStatusException(
                         HttpStatus.TOO_MANY_REQUESTS,
                         "Too many authentication attempts. Try again later.");
@@ -269,7 +271,7 @@ public class AuthController {
             throw ex;
         }
 
-        loginRateLimiter.recordSuccess(ipAddress);
+        loginRateLimiter.recordSuccess(ipAddress, request.username());
 
         if (!passwordChangeService.isRequired(request.username())) {
             throw new ConflictException(

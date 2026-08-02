@@ -34,6 +34,14 @@ services:
       # (`docker network inspect <projet>_default`).
       - SUBNETORY_SECURITY_TRUSTED_PROXY=true
       - SUBNETORY_SECURITY_TRUSTED_PROXY_CIDRS=${SUBNETORY_TRUSTED_PROXY_CIDRS:-172.16.0.0/12}
+      # Correctif securite MOYENNE (02/08/2026) : sans cette variable,
+      # Spring ignore le X-Forwarded-Proto: https envoye par Caddy, donc
+      # request.isSecure() reste faux cote app et le cookie de session
+      # n'obtient jamais l'attribut Secure (voir application.yml et
+      # HTTPS_REVERSE_PROXY.md, section 4). "framework" est la valeur
+      # recommandee par Spring Boot pour un reverse proxy de confiance
+      # unique en amont.
+      - SERVER_FORWARD_HEADERS_STRATEGY=framework
 
   caddy:
     image: caddy:2.11-alpine

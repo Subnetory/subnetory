@@ -2,15 +2,14 @@
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity6"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
-<head><title>Sous-réseaux — Subnetory</title></head>
 <body>
 <div id="main-content">
 <div class="sn-page">
 
     <div class="sn-page__header">
         <div>
-            <h1 class="sn-page__title">Sous-réseaux</h1>
-            <p class="sn-page__subtitle">Gérez vos blocs IP, lancez un scan et trouvez les adresses disponibles.</p>
+            <h1 class="sn-page__title" th:text="#{nav.subnets}">Sous-réseaux</h1>
+            <p class="sn-page__subtitle" th:text="#{subnet.subtitle}">Gérez vos blocs IP, lancez un scan et trouvez les adresses disponibles.</p>
         </div>
         <div class="sn-page__actions">
             <!-- Exports — liens vers les endpoints Web session, filtres actifs transmis.
@@ -22,7 +21,7 @@
                class="sn-btn sn-btn--ghost sn-btn--sm">↓ Excel</a>
             <!-- Nouveau sous-réseau — conditionnel canManage -->
             <a th:if="${canManage}" href="/network/subnets/new"
-               class="sn-btn sn-btn--primary">+ Nouveau sous-réseau</a>
+               class="sn-btn sn-btn--primary" th:text="#{subnet.button.new}">+ Nouveau sous-réseau</a>
         </div>
     </div>
 
@@ -32,15 +31,15 @@
     <div th:if="${flashError}"   class="sn-alert sn-alert--error"   th:text="${flashError}"></div>
 
     <form th:action="@{/network/subnets}" method="get" class="sn-search sn-filter-bar">
-        <select name="contextId" class="sn-search__select" data-auto-submit>
-            <option value="">Tous les contextes</option>
+        <select name="contextId" class="sn-search__select" th:aria-label="#{filter.context.aria}" data-auto-submit>
+            <option value="" th:text="#{site.filter.allContexts}">Tous les contextes</option>
             <option th:each="ctx : ${contexts}"
                     th:value="${ctx.id}"
                     th:text="${ctx.name}"
                     th:selected="${ctx.id == selectedContextId}">Default</option>
         </select>
-        <select name="siteId" class="sn-search__select" data-auto-submit>
-            <option value="">Tous les sites</option>
+        <select name="siteId" class="sn-search__select" th:aria-label="#{filter.site.aria}" data-auto-submit>
+            <option value="" th:text="#{vlan.filter.allSites}">Tous les sites</option>
             <option th:each="site : ${sites}"
                     th:value="${site.id}"
                     th:text="|${site.code} — ${site.name}|"
@@ -53,16 +52,16 @@
             <table class="sn-table">
                 <thead>
                     <tr>
-                        <th>Réseau</th>
-                        <th>Description</th>
-                        <th>Gateway</th>
-                        <th>VLAN</th>
-                        <th>Site</th>
-                        <th>Contexte</th>
+                        <th th:text="#{table.network}">Réseau</th>
+                        <th th:text="#{common.description}">Description</th>
+                        <th th:text="#{table.gateway}">Gateway</th>
+                        <th th:text="#{table.vlan}">VLAN</th>
+                        <th th:text="#{common.site}">Site</th>
+                        <th th:text="#{common.context}">Contexte</th>
                         <th:block th:if="${canScan}">
-                        <th class="sn-table-col-scan">Scan</th>
+                        <th class="sn-table-col-scan" th:text="#{table.scan}">Scan</th>
                         </th:block>
-                        <th th:if="${canManage}" class="sn-table-col-actions sn-table-col-actions--subnets">Actions</th>
+                        <th th:if="${canManage}" class="sn-table-col-actions sn-table-col-actions--subnets" th:text="#{common.actions}">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -86,12 +85,12 @@
                         <td class="sn-table-scan">
                             <div th:if="${row.scannable}" class="sn-table-scan__control">
                                 <a th:href="@{/network/subnets/{id}/scan(id=${row.id})}"
-                                   class="sn-btn sn-btn--ghost sn-btn--sm">Configurer</a>
+                                   class="sn-btn sn-btn--ghost sn-btn--sm" th:text="#{subnet.scan.configure}">Configurer</a>
                             </div>
                             <span th:unless="${row.scannable}"
                                   class="sn-badge sn-badge--neutral"
-                                  title="Subnets plus grands que /24 ne peuvent pas être scannés en mode synchrone">
-                                Non scannable
+                                  th:title="#{subnet.scan.notScannable.title}">
+                                <span th:text="#{subnet.scan.notScannable}">Non scannable</span>
                             </span>
                         </td>
                         </th:block>
@@ -99,21 +98,21 @@
                             <div class="sn-table-action-group">
                                 <a th:href="@{/network/addresses/reserve(subnetId=${row.id})}"
                                    sec:authorize="hasAnyRole('ADMIN', 'IP')"
-                                   class="sn-btn sn-btn--ghost sn-btn--sm">Réserver IP</a>
+                                   class="sn-btn sn-btn--ghost sn-btn--sm" th:text="#{subnet.action.reserveIp}">Réserver IP</a>
                                 <a th:href="@{/network/subnets/{id}/edit(id=${row.id})}"
-                                   class="sn-btn sn-btn--secondary sn-btn--sm">Modifier</a>
+                                   class="sn-btn sn-btn--secondary sn-btn--sm" th:text="#{common.edit}">Modifier</a>
                                 <form th:action="@{/network/subnets/{id}/delete(id=${row.id})}"
                                       method="post"
                                       class="sn-inline-form"
-                                      th:attr="data-confirm=|Supprimer le sous-réseau ${row.network} ?|"
+                                      th:attr="data-confirm=#{subnet.confirm.delete(${row.network})}"
                                       sec:authorize="hasRole('ADMIN')">
-                                    <button type="submit" class="sn-btn sn-btn--danger sn-btn--sm">Supprimer</button>
+                                    <button type="submit" class="sn-btn sn-btn--danger sn-btn--sm" th:text="#{common.delete}">Supprimer</button>
                                 </form>
                             </div>
                         </td>
                     </tr>
                     <tr th:if="${subnets.empty}" class="sn-table--empty">
-                        <td th:colspan="${6 + (canScan ? 1 : 0) + (canManage ? 1 : 0)}">Aucun sous-réseau enregistré.</td>
+                        <td th:colspan="${6 + (canScan ? 1 : 0) + (canManage ? 1 : 0)}" th:text="#{subnet.empty}">Aucun sous-réseau enregistré.</td>
                     </tr>
                 </tbody>
             </table>
@@ -121,7 +120,8 @@
 
         <div class="sn-pagination" th:if="${!subnets.empty}">
             <span class="sn-pagination__info"
-                  th:text="${subnets.totalElements} + ' sous-réseau(x)'">N subnets</span>
+                  th:with="suffix=#{pagination.subnets.suffix}"
+                  th:text="${subnets.totalElements} + ' ' + suffix">N subnets</span>
             <nav class="sn-pagination__nav" th:if="${subnets.totalPages > 1}">
                 <a th:href="@{/network/subnets(page=${subnets.number - 1}, contextId=${selectedContextId}, siteId=${selectedSiteId}, vlanId=${selectedVlanId})}"
                    th:classappend="${subnets.first ? 'sn-pagination__btn--disabled' : ''}"

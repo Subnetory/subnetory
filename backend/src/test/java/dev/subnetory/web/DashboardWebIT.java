@@ -102,7 +102,7 @@ class DashboardWebIT {
         assertThat(body)
                 .contains("Contextes")
                 .contains("Sites")
-                .contains("VLANs")
+                .contains("VLAN")
                 .contains("Sous-réseaux")
                 .contains("Adresses IP");
     }

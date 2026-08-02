@@ -1,0 +1,162 @@
+package dev.subnetory.service;
+
+import dev.subnetory.domain.NetworkContext;
+import dev.subnetory.domain.Site;
+import dev.subnetory.domain.Subnet;
+import dev.subnetory.dto.SubnetRequest;
+import dev.subnetory.exception.ConflictException;
+import dev.subnetory.repository.SubnetRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.lang.reflect.Field;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
+
+/**
+ * Regression (audit du 02/08/2026, correctif ELEVEE) : {@code buildSubnet}
+ * ne verifiait jusqu'ici que l'appartenance du parent au meme contexte,
+ * jamais que le CIDR de l'enfant soit reellement contenu dans celui du
+ * parent, ni l'absence de cycle dans la chaine de parente (y compris un
+ * sous-reseau choisi comme son propre parent). Un utilisateur pouvait donc
+ * construire une hierarchie incoherente (parent 10.0.0.0/24, enfant
+ * 192.168.1.0/28, aucun lien reel) ou circulaire.
+ *
+ * <p>Ce test ne necessite pas de contexte Spring ni de base de donnees : les
+ * dependances de {@link SubnetService} sont mockees, seule la logique pure
+ * de {@code buildSubnet} / {@code isContainedInParent} est exercee via
+ * {@link SubnetService#create} et {@link SubnetService#update}.</p>
+ */
+@ExtendWith(MockitoExtension.class)
+class SubnetServiceTest {
+
+    @Mock SubnetRepository subnetRepository;
+    @Mock NetworkContextService contextService;
+    @Mock SiteService siteService;
+    @Mock VlanService vlanService;
+    @Mock ContextAccessService contextAccessService;
+
+    SubnetService service;
+
+    NetworkContext context;
+    Site site;
+
+    @BeforeEach
+    void setUp() {
+        service = new SubnetService(subnetRepository, contextService, siteService, vlanService, contextAccessService);
+
+        context = new NetworkContext();
+        setId(context, 1L);
+
+        site = new Site();
+        setId(site, 10L);
+        site.setContext(context);
+
+        lenient().when(contextService.getEntityById(1L)).thenReturn(context);
+        lenient().when(siteService.getEntityById(10L)).thenReturn(site);
+    }
+
+    private Subnet subnetWith(Long id, String network, Subnet parent) {
+        Subnet s = new Subnet();
+        setId(s, id);
+        s.setNetwork(network);
+        s.setContext(context);
+        s.setSite(site);
+        s.setParent(parent);
+        return s;
+    }
+
+    private static void setId(Object entity, Long id) {
+        try {
+            Field field = entity.getClass().getDeclaredField("id");
+            field.setAccessible(true);
+            field.set(entity, id);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @Test
+    void create_rejectsParentThatDoesNotContainChildCidr() {
+        // Parent 10.0.0.0/24 ne contient pas du tout 192.168.1.0/28 : aucun
+        // recouvrement d'adresses entre les deux blocs.
+        Subnet parent = subnetWith(100L, "10.0.0.0/24", null);
+        when(subnetRepository.findById(100L)).thenReturn(java.util.Optional.of(parent));
+
+        var request = new SubnetRequest("192.168.1.0/28", null, null, 1L, 10L, null, 100L);
+
+        assertThatThrownBy(() -> service.create(request))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("n'est pas contenu");
+    }
+
+    @Test
+    void create_rejectsChildWiderThanParent() {
+        // Prefixe enfant (/16) moins specifique que le parent (/24) : ne
+        // peut pas etre "contenu", meme si les adresses de depart coincident.
+        Subnet parent = subnetWith(100L, "10.0.0.0/24", null);
+        when(subnetRepository.findById(100L)).thenReturn(java.util.Optional.of(parent));
+
+        var request = new SubnetRequest("10.0.0.0/16", null, null, 1L, 10L, null, 100L);
+
+        assertThatThrownBy(() -> service.create(request))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("n'est pas contenu");
+    }
+
+    @Test
+    void create_acceptsChildFullyContainedInParent() {
+        Subnet parent = subnetWith(100L, "10.0.0.0/16", null);
+        when(subnetRepository.findById(100L)).thenReturn(java.util.Optional.of(parent));
+        when(subnetRepository.save(any(Subnet.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var request = new SubnetRequest("10.0.5.0/24", null, null, 1L, 10L, null, 100L);
+
+        var response = service.create(request);
+
+        assertThat(response.network()).isEqualTo("10.0.5.0/24");
+        assertThat(response.parentId()).isEqualTo(100L);
+    }
+
+    @Test
+    void update_rejectsSubnetAsItsOwnParent() {
+        Subnet existing = subnetWith(5L, "10.0.0.0/24", null);
+        when(subnetRepository.findById(5L)).thenReturn(java.util.Optional.of(existing));
+
+        // parentId == id du sous-reseau lui-meme
+        var request = new SubnetRequest("10.0.0.0/24", null, null, 1L, 10L, null, 5L);
+
+        assertThatThrownBy(() -> service.update(5L, request))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("propre parent");
+    }
+
+    @Test
+    void update_rejectsIndirectCycleThroughAncestorChain() {
+        // A (id=1) -> B (id=2) -> C (id=3) deja en place. Tenter de faire de
+        // C le parent de A creerait un cycle A -> C -> B -> A.
+        Subnet a = subnetWith(1L, "10.0.0.0/16", null);
+        Subnet b = subnetWith(2L, "10.0.0.0/20", a);
+        Subnet c = subnetWith(3L, "10.0.0.0/24", b);
+
+        when(subnetRepository.findById(1L)).thenReturn(java.util.Optional.of(a));
+        when(subnetRepository.findById(3L)).thenReturn(java.util.Optional.of(c));
+
+        // A prend C comme parent -> en remontant C -> B -> A, on retombe sur A (id=1).
+        // Le CIDR propose (10.0.0.0/25) est volontairement contenu dans celui
+        // de C (10.0.0.0/24) pour isoler la detection de cycle du controle de
+        // confinement CIDR, teste separement ci-dessus.
+        var request = new SubnetRequest("10.0.0.0/25", null, null, 1L, 10L, null, 3L);
+
+        assertThatThrownBy(() -> service.update(1L, request))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("cycle");
+    }
+}

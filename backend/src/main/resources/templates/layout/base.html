@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity6"
       th:fragment="layout(content)">
 <head>
@@ -10,15 +10,42 @@
     <meta name="_csrf_header" th:content="${_csrf != null ? _csrf.headerName : 'X-CSRF-TOKEN'}">
     <link rel="stylesheet" th:href="@{/assets/css/app.css}">
 </head>
-<body>
+<body th:attr="data-i18n-copy-hint=#{common.copyValue.hint},
+             data-i18n-copy-done=#{common.copyValue.done},
+             data-i18n-initials-aria=#{profileChip.initialsAria},
+             data-i18n-scan-running-button=#{scan.submit.running},
+             data-i18n-scan-status-running=#{scan.status.running},
+             data-i18n-scan-starting=#{scan.starting},
+             data-i18n-scan-progress-hint=#{scan.progressHint},
+             data-i18n-suggest-no-results=#{address.form.suggest.noResults},
+             data-i18n-suggest-selected=#{address.form.suggest.selected},
+             data-i18n-suggest-click-hint=#{address.form.suggest.clickHint},
+             data-i18n-suggest-loading=#{address.form.suggest.loading},
+             data-i18n-suggest-error=#{address.form.suggest.error},
+             data-i18n-suggest-select-subnet=#{address.form.suggest.hint},
+             data-i18n-cron-day-mon=#{cron.day.mon.full},
+             data-i18n-cron-day-tue=#{cron.day.tue.full},
+             data-i18n-cron-day-wed=#{cron.day.wed.full},
+             data-i18n-cron-day-thu=#{cron.day.thu.full},
+             data-i18n-cron-day-fri=#{cron.day.fri.full},
+             data-i18n-cron-day-sat=#{cron.day.sat.full},
+             data-i18n-cron-day-sun=#{cron.day.sun.full},
+             data-i18n-cron-daily=#{cron.preview.daily},
+             data-i18n-cron-weekly=#{cron.preview.weekly},
+             data-i18n-cron-monthly-first=#{cron.preview.monthlyFirst},
+             data-i18n-cron-monthly-nth=#{cron.preview.monthlyNth},
+             data-i18n-cron-interval-days-one=#{cron.preview.intervalDays.one},
+             data-i18n-cron-interval-days-other=#{cron.preview.intervalDays.other},
+             data-i18n-cron-interval-hours-one=#{cron.preview.intervalHours.one},
+             data-i18n-cron-interval-hours-other=#{cron.preview.intervalHours.other}">
 
 <header class="sn-appbar">
     <div class="sn-appbar__left">
-        <a th:href="@{/}" class="sn-brand" aria-label="Accueil Subnetory">
+        <a th:href="@{/}" class="sn-brand" th:aria-label="#{nav.home.aria}">
             <span class="sn-brand__mark">S</span><span>Subnetory</span>
         </a>
         <a th:href="@{/}" class="sn-nav-tile" th:classappend="${activeSection == 'dashboard' ? ' active' : ''}">
-            <span class="sn-nav-tile__icon" aria-hidden="true">⌂</span><span>Tableau de bord</span>
+            <span class="sn-nav-tile__icon" aria-hidden="true">⌂</span><span th:text="#{nav.dashboard}">Tableau de bord</span>
         </a>
     </div>
 
@@ -27,10 +54,10 @@
             <form th:action="@{/context-selection}" method="post" class="sn-context-switcher__form">
                 <input type="hidden" name="returnTo" th:value="${currentRequestPath}">
                 <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-                <label for="globalContext" class="sn-context-switcher__label">Contexte actif</label>
+                <label for="globalContext" class="sn-context-switcher__label" th:text="#{context.active}">Contexte actif</label>
                 <select id="globalContext" name="contextId" data-auto-submit class="sn-context-switcher__select"
-                        aria-label="Sélectionner le contexte actif">
-                    <option value="" disabled th:selected="${activeContextId == null}">Choisir un contexte</option>
+                        th:aria-label="#{context.select.aria}">
+                    <option value="" disabled th:selected="${activeContextId == null}" th:text="#{context.choose}">Choisir un contexte</option>
                     <option th:each="ctx : ${navigationContexts}" th:value="${ctx.id}"
                             th:text="${ctx.name}" th:selected="${ctx.id == activeContextId}">Contexte</option>
                 </select>
@@ -38,45 +65,49 @@
             <form th:action="@{/context-selection/reset}" method="post" class="sn-context-switcher__reset">
                 <input type="hidden" name="returnTo" th:value="${currentRequestPath}">
                 <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-                <button type="submit" class="sn-icon-button" title="Réinitialiser le contexte" aria-label="Réinitialiser le contexte">↺</button>
+                <button type="submit" class="sn-icon-button" th:title="#{context.reset}" th:aria-label="#{context.reset}">↺</button>
             </form>
         </div>
 
-        <nav class="sn-main-nav" aria-label="Navigation réseau">
-            <a th:href="@{/network/contexts}" class="sn-nav-tile" th:classappend="${activeSection == 'contexts' ? ' active' : ''}"><span class="sn-nav-tile__icon">◎</span><span>Contextes</span></a>
-            <a th:href="@{/network/sites}" class="sn-nav-tile" th:classappend="${activeSection == 'sites' ? ' active' : ''}"><span class="sn-nav-tile__icon">⌖</span><span>Sites</span></a>
-            <a th:href="@{/network/vlans}" class="sn-nav-tile" th:classappend="${activeSection == 'vlans' ? ' active' : ''}"><span class="sn-nav-tile__icon">◇</span><span>VLAN</span></a>
-            <a th:href="@{/network/subnets}" class="sn-nav-tile" th:classappend="${activeSection == 'subnets' ? ' active' : ''}"><span class="sn-nav-tile__icon">▦</span><span>Sous-réseaux</span></a>
-            <a th:href="@{/network/addresses}" class="sn-nav-tile" th:classappend="${activeSection == 'addresses' ? ' active' : ''}"><span class="sn-nav-tile__icon">⌁</span><span>Adresses IP</span></a>
+        <nav class="sn-main-nav" th:aria-label="#{nav.network.aria}">
+            <a th:href="@{/network/contexts}" class="sn-nav-tile" th:classappend="${activeSection == 'contexts' ? ' active' : ''}"><span class="sn-nav-tile__icon">◎</span><span th:text="#{nav.contexts}">Contextes</span></a>
+            <a th:href="@{/network/sites}" class="sn-nav-tile" th:classappend="${activeSection == 'sites' ? ' active' : ''}"><span class="sn-nav-tile__icon">⌖</span><span th:text="#{nav.sites}">Sites</span></a>
+            <a th:href="@{/network/vlans}" class="sn-nav-tile" th:classappend="${activeSection == 'vlans' ? ' active' : ''}"><span class="sn-nav-tile__icon">◇</span><span th:text="#{nav.vlans}">VLAN</span></a>
+            <a th:href="@{/network/subnets}" class="sn-nav-tile" th:classappend="${activeSection == 'subnets' ? ' active' : ''}"><span class="sn-nav-tile__icon">▦</span><span th:text="#{nav.subnets}">Sous-réseaux</span></a>
+            <a th:href="@{/network/addresses}" class="sn-nav-tile" th:classappend="${activeSection == 'addresses' ? ' active' : ''}"><span class="sn-nav-tile__icon">⌁</span><span th:text="#{nav.addresses}">Adresses IP</span></a>
         </nav>
     </div>
 
     <div class="sn-appbar__right">
-        <div class="sn-admin-cluster" aria-label="Administration et profil">
+        <div class="sn-lang-switcher" th:aria-label="#{lang.switch.aria}">
+            <a th:href="@{${currentRequestPath}(lang='fr')}" class="sn-lang-link" th:classappend="${#locale.language == 'fr' ? ' active' : ''}">FR</a>
+            <a th:href="@{${currentRequestPath}(lang='en')}" class="sn-lang-link" th:classappend="${#locale.language == 'en' ? ' active' : ''}">EN</a>
+        </div>
+        <div class="sn-admin-cluster" th:aria-label="#{nav.admin.cluster.aria}">
             <a sec:authorize="hasRole('ADMIN')" th:href="@{/admin/users}" class="sn-admin-icon"
                th:classappend="${activeSection == 'admin' ? ' active' : ''}"
-               title="Administration" aria-label="Administration">
+               th:title="#{nav.admin}" th:aria-label="#{nav.admin}">
                 <span aria-hidden="true">⚙</span>
             </a>
             <a th:href="@{/help}" class="sn-admin-icon"
                th:classappend="${activeSection == 'help' ? ' active' : ''}"
-               title="Aide" aria-label="Aide">
+               th:title="#{nav.help}" th:aria-label="#{nav.help}">
                 <span aria-hidden="true">?</span>
             </a>
             <a th:href="@{/profile}" class="sn-profile-chip" th:classappend="${activeSection == 'profile' ? ' active' : ''}">
                 <span class="sn-profile-chip__avatar" sec:authentication="name">U</span>
-                <span class="sn-profile-chip__text"><small>Profil</small><strong sec:authentication="name">Utilisateur</strong></span>
+                <span class="sn-profile-chip__text"><small th:text="#{nav.profile}">Profil</small><strong sec:authentication="name">Utilisateur</strong></span>
             </a>
         </div>
         <form th:action="@{/logout}" method="post" class="sn-logout-form">
-            <button type="submit" class="sn-icon-button" title="Déconnexion" aria-label="Déconnexion">⇥</button>
+            <button type="submit" class="sn-icon-button" th:title="#{nav.logout}" th:aria-label="#{nav.logout}">⇥</button>
         </form>
     </div>
 </header>
 
 <div class="sn-context-banner" th:if="${activeContextId != null}">
     <span class="sn-context-banner__dot"></span>
-    Les données affichées appartiennent au contexte <strong th:text="${activeContextName}">Contexte</strong>.
+    <span th:text="#{context.banner.prefix}">Les données affichées appartiennent au contexte</span> <strong th:text="${activeContextName}">Contexte</strong>.
 </div>
 
 <main class="sn-layout"><th:block th:insert="${content}"></th:block></main>

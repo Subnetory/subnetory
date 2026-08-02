@@ -4,7 +4,7 @@
 # mot de passe DB) sont fournis EXCLUSIVEMENT via les "secrets:" fichiers
 # ci-dessous (configtree), jamais en variable d'environnement bare ici.
 # Une variable d'environnement Spring Boot a toujours priorite sur un
-# secret fichier configtree : si SUBNETORY_JWT_SECRET/
+# secret fichier configtree : si SUBNETORY_JWT_SECRET/SUBNETORY_ENCRYPTION_KEY/
 # SUBNETORY_ADMIN_DEFAULT_PASSWORD/SPRING_DATASOURCE_PASSWORD etaient
 # declarees ici sans valeur ("- SUBNETORY_JWT_SECRET"), Docker Compose les
 # resout depuis son contexte d'interpolation -- qui inclut automatiquement
@@ -46,6 +46,8 @@ services:
     secrets:
       - source: subnetory_jwt_secret
         target: subnetory.jwt.secret
+      - source: subnetory_encryption_key
+        target: subnetory.security.encryption-key
       - source: subnetory_admin_default_password
         target: subnetory.admin.default-password
       - source: postgres_password
@@ -77,6 +79,15 @@ volumes:
 secrets:
   subnetory_jwt_secret:
     file: ./secrets/subnetory_jwt_secret
+  # Cle de chiffrement dediee (audit 02/08/2026) pour les secrets stockes en
+  # base (mot de passe de bind LDAP, secret TOTP MFA), separee du secret
+  # JWT ci-dessus. Generee automatiquement par scripts/init-compose.ps1/.sh
+  # au meme titre que subnetory_jwt_secret. Sur une instance existante mise
+  # a jour depuis une version anterieure a cet audit, relancer
+  # scripts/init-compose.sh (sans --force) : seul ce nouveau secret manquant
+  # sera cree, les 3 autres restent strictement inchanges.
+  subnetory_encryption_key:
+    file: ./secrets/subnetory_encryption_key
   subnetory_admin_default_password:
     file: ./secrets/subnetory_admin_default_password
   postgres_password:

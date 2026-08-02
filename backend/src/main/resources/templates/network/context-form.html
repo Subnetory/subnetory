@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
-<head><title th:text="${pageTitle} + ' — Subnetory'">Contexte — Subnetory</title></head>
 <body>
 <div id="main-content">
 <div class="sn-page">
@@ -9,7 +8,7 @@
     <div class="sn-page__header">
         <div>
             <h1 class="sn-page__title" th:text="${pageTitle}">Contexte</h1>
-            <p class="sn-page__subtitle">Un contexte isole les sites et sous-réseaux d'un client ou d'un environnement.</p>
+            <p class="sn-page__subtitle" th:text="#{context.form.subtitle}">Un contexte isole les sites et sous-réseaux d'un client ou d'un environnement.</p>
         </div>
     </div>
 
@@ -26,13 +25,13 @@
 
             <div class="sn-form__group" th:classappend="${#fields.hasErrors('name')} ? ' sn-form__group--error'">
                 <label for="name" class="sn-form__label">
-                    Nom <span class="sn-form-required">*</span>
+                    <span th:text="#{common.name}">Nom</span> <span class="sn-form-required">*</span>
                 </label>
                 <input type="text"
                        id="name"
                        th:field="*{name}"
                        class="sn-input"
-                       placeholder="ex : Production"
+                       th:placeholder="#{context.form.name.placeholder}"
                        autocomplete="off"
                        maxlength="100"
                        required
@@ -43,12 +42,12 @@
             </div>
 
             <div class="sn-form__group" th:classappend="${#fields.hasErrors('description')} ? ' sn-form__group--error'">
-                <label for="description" class="sn-form__label">Description</label>
+                <label for="description" class="sn-form__label" th:text="#{common.description}">Description</label>
                 <textarea id="description"
                           th:field="*{description}"
                           class="sn-input"
                           rows="3"
-                          placeholder="Description optionnelle"
+                          th:placeholder="#{form.description.placeholder}"
                           maxlength="500"></textarea>
                 <span class="sn-form__error"
                       th:if="${#fields.hasErrors('description')}"
@@ -56,8 +55,8 @@
             </div>
 
             <div class="sn-form__actions">
-                <button type="submit" class="sn-btn sn-btn--primary">Enregistrer</button>
-                <a th:href="${cancelUrl}" class="sn-btn sn-btn--secondary">Annuler</a>
+                <button type="submit" class="sn-btn sn-btn--primary" th:text="#{common.save}">Enregistrer</button>
+                <a th:href="${cancelUrl}" class="sn-btn sn-btn--secondary" th:text="#{common.cancel}">Annuler</a>
             </div>
 
         </form>

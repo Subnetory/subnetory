@@ -1,25 +1,24 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
-<head><title>Déploiement Kubernetes - Guide admin - Subnetory</title></head>
 <body>
 <div id="main-content">
 <div class="sn-page">
 
-    <p class="sn-help-crumb"><a th:href="@{/admin/help}">Guide administrateur</a> / Déploiement Kubernetes</p>
+    <p class="sn-help-crumb"><a th:href="@{/admin/help}" th:text="#{helpAdmin.crumbPrefix}">Guide administrateur</a> / <span th:text="#{adminHelp.card.kubernetes.title}">Déploiement Kubernetes</span></p>
 
     <div class="sn-help-layout">
         <div th:replace="~{help/fragments :: sidebar-admin('deploiement-kubernetes')}"></div>
 
         <div class="sn-help-article">
             <div class="sn-help-article__header">
-                <h1 class="sn-page__title">Déploiement Kubernetes</h1>
-                <p>Chart Helm mono-réplique, avec PostgreSQL inclus ou externe.</p>
+                <h1 class="sn-page__title" th:text="#{adminHelp.card.kubernetes.title}">Déploiement Kubernetes</h1>
+                <p th:text="#{helpAdmin.k8s.subtitle}">Chart Helm mono-réplique, avec PostgreSQL inclus ou externe.</p>
             </div>
 
             <section class="sn-help-section">
-                <h2>Périmètre</h2>
-                <p>
+                <h2 th:text="#{helpAdmin.k8s.scope.title}">Périmètre</h2>
+                <p th:utext="#{helpAdmin.k8s.scope.body}">
                     Le chart <code>charts/subnetory</code> impose <code>replicaCount: 1</code>. Il ne fournit
                     ni haute disponibilité applicative, ni opérateur PostgreSQL, ni image publique officielle —
                     l'image doit être construite et rendue accessible aux nœuds du cluster.
@@ -27,12 +26,12 @@
             </section>
 
             <section class="sn-help-section">
-                <h2>Fournir l'image</h2>
+                <h2 th:text="#{helpAdmin.k8s.image.title}">Fournir l'image</h2>
                 <div class="sn-command-preview">
-                    <span>Cluster kind (build local)</span>
+                    <span th:text="#{helpAdmin.k8s.image.kindLabel}">Cluster kind (build local)</span>
                     <code>docker build --tag subnetory:0.7.0 .\backend<br>kind load docker-image subnetory:0.7.0 --name NOM_DU_CLUSTER</code>
                 </div>
-                <p>
+                <p th:utext="#{helpAdmin.k8s.image.body}">
                     Pour un autre cluster : construire l'image, la publier dans le registre privé autorisé,
                     puis fournir <code>image.repository</code>/<code>image.tag</code> et
                     <code>image.imagePullSecrets</code> dans les valeurs. Ne jamais utiliser un tag flottant
@@ -41,16 +40,16 @@
             </section>
 
             <section class="sn-help-section">
-                <h2>Secrets Kubernetes</h2>
-                <p>
+                <h2 th:text="#{helpAdmin.k8s.secrets.title}">Secrets Kubernetes</h2>
+                <p th:text="#{helpAdmin.k8s.secrets.body1}">
                     Comme pour Docker Compose, un script dédié crée les Secrets sans jamais afficher leur
                     valeur, et refuse d'écraser un Secret existant :
                 </p>
                 <div class="sn-command-preview">
-                    <span>PowerShell</span>
+                    <span th:text="#{helpAdmin.k8s.secrets.powershellLabel}">PowerShell</span>
                     <code>kubectl create namespace subnetory<br>pwsh -NoProfile -File .\scripts\init-helm-secrets.ps1 -Namespace subnetory</code>
                 </div>
-                <p>
+                <p th:utext="#{helpAdmin.k8s.secrets.body2}">
                     Deux objets sont créés : <code>subnetory-runtime-secrets</code> (secret JWT, mot de passe
                     PostgreSQL) et <code>subnetory-bootstrap-secrets</code> (mot de passe administrateur
                     temporaire). Le chart ne génère aucun Secret et n'accepte aucune valeur secrète en clair
@@ -59,12 +58,12 @@
             </section>
 
             <section class="sn-help-section">
-                <h2>Installer avec PostgreSQL inclus</h2>
+                <h2 th:text="#{helpAdmin.k8s.installIncluded.title}">Installer avec PostgreSQL inclus</h2>
                 <div class="sn-command-preview">
-                    <span>Valider puis installer</span>
+                    <span th:text="#{helpAdmin.k8s.installIncluded.commandLabel}">Valider puis installer</span>
                     <code>helm lint .\charts\subnetory --strict<br>helm upgrade --install subnetory .\charts\subnetory --namespace subnetory --wait --timeout 10m</code>
                 </div>
-                <p>
+                <p th:utext="#{helpAdmin.k8s.installIncluded.body}">
                     Crée un Deployment applicatif (stratégie <code>Recreate</code>), un Service
                     <code>ClusterIP</code>, un StatefulSet PostgreSQL, et un PVC PostgreSQL de 8 Gi par défaut
                     (ajustable via <code>postgresql.persistence</code>).
@@ -72,39 +71,39 @@
             </section>
 
             <section class="sn-help-section">
-                <h2>Installer avec PostgreSQL externe</h2>
-                <p>
+                <h2 th:text="#{helpAdmin.k8s.installExternal.title}">Installer avec PostgreSQL externe</h2>
+                <p th:utext="#{helpAdmin.k8s.installExternal.body}">
                     Le rôle et la base externes doivent déjà exister. La valeur <code>postgres-password</code>
                     du Secret runtime doit correspondre exactement au mot de passe du rôle externe configuré.
                 </p>
                 <div class="sn-command-preview">
-                    <span>values non sensibles</span>
+                    <span th:text="#{helpAdmin.k8s.installExternal.valuesLabel}">values non sensibles</span>
                     <code>postgresql:<br>&nbsp;&nbsp;enabled: false<br>externalDatabase:<br>&nbsp;&nbsp;enabled: true<br>&nbsp;&nbsp;host: postgresql.example.internal<br>&nbsp;&nbsp;port: 5432<br>&nbsp;&nbsp;database: subnetory<br>&nbsp;&nbsp;username: subnetory<br>&nbsp;&nbsp;sslMode: require</code>
                 </div>
             </section>
 
             <section class="sn-help-section">
-                <h2>Sauvegardes planifiées (optionnel)</h2>
-                <p>
+                <h2 th:text="#{helpAdmin.k8s.scheduledBackups.title}">Sauvegardes planifiées (optionnel)</h2>
+                <p th:text="#{helpAdmin.k8s.scheduledBackups.body}">
                     Désactivées par défaut, réservées au PostgreSQL inclus (le chart refuse leur activation
                     avec une base externe). CronJobs par palier (hourly/daily/monthly/quarterly), chacun avec
                     sa propre rétention. Une NetworkPolicy dédiée aux pods de sauvegarde refuse les entrées et
                     limite les sorties au PostgreSQL inclus et au DNS du cluster.
                 </p>
-                <div class="sn-alert sn-alert--warning">
+                <div class="sn-alert sn-alert--warning" th:utext="#{helpAdmin.k8s.scheduledBackups.warning}">
                     Combiner ces sauvegardes planifiées (<code>backup.enabled</code>) avec le moteur intégré
                     applicatif (<code>backupApp.enabled</code>) sur la même base est explicitement rejeté par
                     le chart au rendu (<code>helm template</code> échoue volontairement).
                 </div>
-                <p class="sn-mt-3">
+                <p class="sn-mt-3" th:utext="#{helpAdmin.k8s.scheduledBackups.validate}">
                     Toujours valider le rendu avant activation :
                     <code>helm lint .\charts\subnetory --strict</code>.
                 </p>
             </section>
 
             <section class="sn-help-section">
-                <h2>Documents liés</h2>
-                <p>
+                <h2 th:text="#{helpAdmin.k8s.docs.title}">Documents liés</h2>
+                <p th:utext="#{helpAdmin.k8s.docs.body}">
                     <code>backend/docs/INSTALL_KUBERNETES.md</code> (procédure complète, y compris rotation et
                     dépannage), <code>backend/docs/KUBERNETES_OPERATIONS.md</code>,
                     <code>backend/docs/KUBERNETES_COMPATIBILITY.md</code>.

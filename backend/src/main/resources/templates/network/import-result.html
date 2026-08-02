@@ -1,20 +1,19 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
-<head><title>Rapport d'import — Subnetory</title></head>
 <body>
 <div id="main-content">
 <div class="sn-page">
 
     <div class="sn-page__header">
         <div>
-            <h1 class="sn-page__title">Rapport d'import</h1>
+            <h1 class="sn-page__title" th:text="#{importResult.title}">Rapport d'import</h1>
             <p class="sn-page__subtitle">
-                Resultat de l'import <span th:text="${importFormat}">fichier</span>
+                <span th:text="#{importResult.subtitle.prefix}">Resultat de l'import</span> <span th:text="${importFormat}">fichier</span>
             </p>
         </div>
         <div class="sn-page__actions">
-            <a th:href="@{/network/addresses}" class="sn-btn sn-btn--ghost">Retour aux adresses</a>
+            <a th:href="@{/network/addresses}" class="sn-btn sn-btn--ghost" th:text="#{reserve.backToAddresses}">Retour aux adresses</a>
         </div>
     </div>
 
@@ -23,29 +22,29 @@
 
     <div class="sn-card sn-card--padded">
         <div class="sn-card__header">
-            <h2 class="sn-card__title">Synthese</h2>
+            <h2 class="sn-card__title" th:text="#{result.summary}">Synthese</h2>
         </div>
 
         <table class="sn-table">
             <tbody>
             <tr>
-                <th>Total lignes</th>
+                <th th:text="#{result.totalRows}">Total lignes</th>
                 <td th:text="${importResult.totalRows}">0</td>
             </tr>
             <tr>
-                <th>Creees</th>
+                <th th:text="#{result.created}">Creees</th>
                 <td th:text="${importResult.created}">0</td>
             </tr>
             <tr>
-                <th>Mises a jour</th>
+                <th th:text="#{result.updated}">Mises a jour</th>
                 <td th:text="${importResult.updatedLastSeen}">0</td>
             </tr>
             <tr>
-                <th>Ignorees</th>
+                <th th:text="#{result.skipped}">Ignorees</th>
                 <td th:text="${importResult.skipped}">0</td>
             </tr>
             <tr>
-                <th>Erreurs</th>
+                <th th:text="#{result.errors}">Erreurs</th>
                 <td th:text="${importResult.errors}">0</td>
             </tr>
             </tbody>
@@ -54,16 +53,16 @@
 
     <div class="sn-card sn-card--padded sn-mt-5">
         <div class="sn-card__header">
-            <h2 class="sn-card__title">Erreurs ligne par ligne</h2>
+            <h2 class="sn-card__title" th:text="#{result.errorsPerLine}">Erreurs ligne par ligne</h2>
         </div>
 
         <div class="sn-table-wrapper">
             <table class="sn-table">
                 <thead>
                 <tr>
-                    <th>Ligne</th>
-                    <th>Champ</th>
-                    <th>Raison</th>
+                    <th th:text="#{result.line}">Ligne</th>
+                    <th th:text="#{result.field}">Champ</th>
+                    <th th:text="#{result.reason}">Raison</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -73,7 +72,7 @@
                     <td th:text="${err.reason}">Erreur</td>
                 </tr>
                 <tr th:if="${importResult.errors == 0}" class="sn-table--empty">
-                    <td colspan="3">Aucune erreur détaillée.</td>
+                    <td colspan="3" th:text="#{result.noDetailedError}">Aucune erreur détaillée.</td>
                 </tr>
                 </tbody>
             </table>

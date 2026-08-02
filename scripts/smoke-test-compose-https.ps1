@@ -197,7 +197,10 @@ $JwtSecret = New-RandomBase64Url -ByteCount 64
 $PostgresPassword = New-RandomBase64Url -ByteCount 36
 $AdminPassword = New-RandomBase64Url -ByteCount 24
 $BackupEncryptionKey = New-RandomBase64Url -ByteCount 36
-$script:SecretValues = @($JwtSecret, $PostgresPassword, $AdminPassword, $BackupEncryptionKey)
+# Cle de chiffrement dediee (audit 02/08/2026) des secrets stockes en base
+# (bind LDAP, secret TOTP MFA), separee du secret JWT — voir docker-compose.yml.
+$EncryptionKey = New-RandomBase64Url -ByteCount 36
+$script:SecretValues = @($JwtSecret, $PostgresPassword, $AdminPassword, $BackupEncryptionKey, $EncryptionKey)
 
 Write-Host "=== Smoke test overlay HTTPS (Caddy, mode interne) ===" -ForegroundColor Cyan
 Write-Host "Projet Compose : $ProjectName"
@@ -239,6 +242,7 @@ try {
         Write-Utf8NoBomNoNewline -Path (Join-Path $SecretsPath "subnetory_admin_default_password") -Value $AdminPassword
         Write-Utf8NoBomNoNewline -Path (Join-Path $SecretsPath "postgres_password") -Value $PostgresPassword
         Write-Utf8NoBomNoNewline -Path (Join-Path $SecretsPath "subnetory_backup_encryption_key") -Value $BackupEncryptionKey
+        Write-Utf8NoBomNoNewline -Path (Join-Path $SecretsPath "subnetory_encryption_key") -Value $EncryptionKey
 
         $DeployPath = Join-Path $BackendPath "deploy"
         Copy-Item -LiteralPath (Join-Path $DeployPath "Caddyfile.internal") -Destination (Join-Path $DeployPath "Caddyfile") -Force

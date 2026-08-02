@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
-<head><title th:text="${pageTitle} + ' — Subnetory'">Sous-réseau — Subnetory</title></head>
 <body>
 <div id="main-content">
 <div class="sn-page">
@@ -9,7 +8,7 @@
     <div class="sn-page__header">
         <div>
             <h1 class="sn-page__title" th:text="${pageTitle}">Sous-réseau</h1>
-            <p class="sn-page__subtitle">Définissez le réseau, la passerelle et le site de rattachement.</p>
+            <p class="sn-page__subtitle" th:text="#{subnet.form.subtitle}">Définissez le réseau, la passerelle et le site de rattachement.</p>
         </div>
     </div>
 
@@ -26,13 +25,13 @@
 
             <div class="sn-form__group" th:classappend="${#fields.hasErrors('network')} ? ' sn-form__group--error'">
                 <label for="network" class="sn-form__label">
-                    Réseau <span class="sn-form-required">*</span>
+                    <span th:text="#{subnet.form.network.label}">Réseau</span> <span class="sn-form-required">*</span>
                 </label>
                 <input type="text"
                        id="network"
                        th:field="*{network}"
                        class="sn-input sn-text-mono"
-                       placeholder="ex : 192.168.1.0/24"
+                       th:placeholder="#{subnet.form.network.placeholder}"
                        autocomplete="off"
                        maxlength="50"
                        required
@@ -43,12 +42,12 @@
             </div>
 
             <div class="sn-form__group" th:classappend="${#fields.hasErrors('description')} ? ' sn-form__group--error'">
-                <label for="description" class="sn-form__label">Description</label>
+                <label for="description" class="sn-form__label" th:text="#{common.description}">Description</label>
                 <textarea id="description"
                           th:field="*{description}"
                           class="sn-input"
                           rows="2"
-                          placeholder="Description optionnelle"
+                          th:placeholder="#{form.description.placeholder}"
                           maxlength="500"></textarea>
                 <span class="sn-form__error"
                       th:if="${#fields.hasErrors('description')}"
@@ -56,22 +55,22 @@
             </div>
 
             <div class="sn-form__group">
-                <label for="gateway" class="sn-form__label">Gateway</label>
+                <label for="gateway" class="sn-form__label" th:text="#{subnet.form.gateway.label}">Gateway</label>
                 <input type="text"
                        id="gateway"
                        th:field="*{gateway}"
                        class="sn-input sn-text-mono"
-                       placeholder="ex : 192.168.1.1 (optionnel)"
+                       th:placeholder="#{subnet.form.gateway.placeholder}"
                        autocomplete="off"
                        maxlength="45" />
             </div>
 
             <div class="sn-form__group" th:classappend="${#fields.hasErrors('contextId')} ? ' sn-form__group--error'">
                 <label for="contextId" class="sn-form__label">
-                    Contexte <span class="sn-form-required">*</span>
+                    <span th:text="#{common.context}">Contexte</span> <span class="sn-form-required">*</span>
                 </label>
                 <select id="contextId" th:field="*{contextId}" class="sn-input" required aria-required="true">
-                    <option value="">— Sélectionner un contexte —</option>
+                    <option value="" th:text="#{select.placeholder.context}">— Sélectionner un contexte —</option>
                     <option th:each="ctx : ${allContexts}"
                             th:value="${ctx.id}"
                             th:text="${ctx.name}">Contexte</option>
@@ -83,10 +82,10 @@
 
             <div class="sn-form__group" th:classappend="${#fields.hasErrors('siteId')} ? ' sn-form__group--error'">
                 <label for="siteId" class="sn-form__label">
-                    Site <span class="sn-form-required">*</span>
+                    <span th:text="#{common.site}">Site</span> <span class="sn-form-required">*</span>
                 </label>
                 <select id="siteId" th:field="*{siteId}" class="sn-input" required aria-required="true">
-                    <option value="">— Sélectionner un site —</option>
+                    <option value="" th:text="#{select.placeholder.site}">— Sélectionner un site —</option>
                     <option th:each="site : ${allSites}"
                             th:value="${site.id}"
                             th:text="|${site.code} — ${site.name}|">Site</option>
@@ -97,9 +96,9 @@
             </div>
 
             <div class="sn-form__group">
-                <label for="vlanId" class="sn-form__label">VLAN</label>
+                <label for="vlanId" class="sn-form__label" th:text="#{subnet.form.vlan.label}">VLAN</label>
                 <select id="vlanId" th:field="*{vlanId}" class="sn-input">
-                    <option value="">— Aucun VLAN —</option>
+                    <option value="" th:text="#{select.placeholder.novlan}">— Aucun VLAN —</option>
                     <option th:each="vlan : ${allVlans}"
                             th:value="${vlan.id}"
                             th:text="|VLAN ${vlan.vid} — ${vlan.siteName}|">VLAN</option>
@@ -107,9 +106,9 @@
             </div>
 
             <div class="sn-form__group">
-                <label for="parentId" class="sn-form__label">Sous-réseau parent</label>
+                <label for="parentId" class="sn-form__label" th:text="#{subnet.form.parent.label}">Sous-réseau parent</label>
                 <select id="parentId" th:field="*{parentId}" class="sn-input">
-                    <option value="">— Aucun parent —</option>
+                    <option value="" th:text="#{select.placeholder.noparent}">— Aucun parent —</option>
                     <option th:each="s : ${allSubnets}"
                             th:if="${form.id == null or s.id != form.id}"
                             th:value="${s.id}"
@@ -118,8 +117,8 @@
             </div>
 
             <div class="sn-form__actions">
-                <button type="submit" class="sn-btn sn-btn--primary">Enregistrer</button>
-                <a th:href="${cancelUrl}" class="sn-btn sn-btn--secondary">Annuler</a>
+                <button type="submit" class="sn-btn sn-btn--primary" th:text="#{common.save}">Enregistrer</button>
+                <a th:href="${cancelUrl}" class="sn-btn sn-btn--secondary" th:text="#{common.cancel}">Annuler</a>
             </div>
 
         </form>

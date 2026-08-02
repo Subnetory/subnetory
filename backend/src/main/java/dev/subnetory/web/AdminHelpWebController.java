@@ -1,5 +1,7 @@
 package dev.subnetory.web;
 
+import java.util.Locale;
+import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,45 +23,55 @@ import org.springframework.web.bind.annotation.RequestMapping;
 @RequestMapping("/admin/help")
 public class AdminHelpWebController {
 
+    private final MessageSource messageSource;
+
+    public AdminHelpWebController(MessageSource messageSource) {
+        this.messageSource = messageSource;
+    }
+
+    private String msg(String key, Locale locale, Object... args) {
+        return messageSource.getMessage(key, args, locale);
+    }
+
     @GetMapping
-    public String hub(Model model) {
+    public String hub(Model model, Locale locale) {
         model.addAttribute("activeSection", "admin");
-        model.addAttribute("pageTitle", "Guide administrateur");
+        model.addAttribute("pageTitle", msg("pageTitle.adminHelp", locale));
         return "admin/help";
     }
 
     @GetMapping("/utilisateurs-roles")
-    public String utilisateursRoles(Model model) {
+    public String utilisateursRoles(Model model, Locale locale) {
         model.addAttribute("activeSection", "admin");
-        model.addAttribute("pageTitle", "Utilisateurs, rôles et MFA");
+        model.addAttribute("pageTitle", msg("pageTitle.adminHelpUsersRoles", locale));
         return "admin/help/utilisateurs-roles";
     }
 
     @GetMapping("/audit")
-    public String audit(Model model) {
+    public String audit(Model model, Locale locale) {
         model.addAttribute("activeSection", "admin");
-        model.addAttribute("pageTitle", "Audit et journalisation");
+        model.addAttribute("pageTitle", msg("pageTitle.adminHelpAudit", locale));
         return "admin/help/audit";
     }
 
     @GetMapping("/sauvegardes")
-    public String sauvegardes(Model model) {
+    public String sauvegardes(Model model, Locale locale) {
         model.addAttribute("activeSection", "admin");
-        model.addAttribute("pageTitle", "Sauvegarde et restauration");
+        model.addAttribute("pageTitle", msg("pageTitle.adminHelpBackup", locale));
         return "admin/help/sauvegardes";
     }
 
     @GetMapping("/deploiement-docker")
-    public String deploiementDocker(Model model) {
+    public String deploiementDocker(Model model, Locale locale) {
         model.addAttribute("activeSection", "admin");
-        model.addAttribute("pageTitle", "Déploiement Docker Compose et HTTPS");
+        model.addAttribute("pageTitle", msg("pageTitle.adminHelpDocker", locale));
         return "admin/help/deploiement-docker";
     }
 
     @GetMapping("/deploiement-kubernetes")
-    public String deploiementKubernetes(Model model) {
+    public String deploiementKubernetes(Model model, Locale locale) {
         model.addAttribute("activeSection", "admin");
-        model.addAttribute("pageTitle", "Déploiement Kubernetes");
+        model.addAttribute("pageTitle", msg("pageTitle.adminHelpKubernetes", locale));
         return "admin/help/deploiement-kubernetes";
     }
 }

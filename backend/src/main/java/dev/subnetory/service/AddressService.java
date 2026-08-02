@@ -12,6 +12,7 @@ import dev.subnetory.exception.ResourceNotFoundException;
 import dev.subnetory.repository.AddressRepository;
 import dev.subnetory.repository.AddressSpecifications;
 import dev.subnetory.util.IpUtils;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -146,7 +147,24 @@ public class AddressService {
         address.setTemporary(request.temporary());
         address.setDiscoverySource(
                 validSource(request.discoverySource(), DEFAULT_SOURCE));
-        return toResponse(addressRepository.save(address));
+        // Filet de securite (02/08/2026, correctif MOYENNE) : le pre-controle
+        // findByIpExactAndSubnetId() ci-dessus laisse une fenetre de course
+        // entre deux requetes concurrentes visant la meme adresse dans le
+        // meme sous-reseau (ex. deux operateurs qui reservent la meme IP au
+        // meme instant, ou une reservation groupee en parallele d'un import).
+        // Les deux pre-controles peuvent passer avant que l'un des deux
+        // INSERT ne s'execute ; le second declenche alors la contrainte
+        // d'unicite reelle en base (uq_addresses_address_subnet, migration
+        // V11) sous forme de DataIntegrityViolationException brute, non geree
+        // jusqu'ici cote controleur (500 generique au lieu du message
+        // "adresse deja assignee"). GenerationType.IDENTITY sur Address force
+        // l'INSERT immediat lors de save(), donc l'exception remonte bien
+        // dans ce bloc try.
+        try {
+            return toResponse(addressRepository.save(address));
+        } catch (DataIntegrityViolationException e) {
+            throw new ConflictException("Address " + request.address() + " is already assigned");
+        }
     }
 
     @Transactional
@@ -169,7 +187,17 @@ public class AddressService {
         address.setModifiedBy(currentUser);
         address.setTemporary(request.temporary());
         // discovery_source non modifié sur PUT
-        return toResponse(addressRepository.save(address));
+        // Filet de securite (02/08/2026, correctif MOYENNE) : meme fenetre de
+        // course qu'en creation (voir create() ci-dessus). saveAndFlush()
+        // (et non save()) est indispensable ici : "address" est une entite
+        // deja managee (chargee par getAccessibleAddress()), donc l'UPDATE
+        // serait normalement differe au flush de fin de transaction — hors
+        // de la portee de ce try/catch — sans un flush explicite.
+        try {
+            return toResponse(addressRepository.saveAndFlush(address));
+        } catch (DataIntegrityViolationException e) {
+            throw new ConflictException("Address " + request.address() + " is already assigned");
+        }
     }
 
     // -------------------------------------------------------
@@ -275,8 +303,20 @@ public class AddressService {
                         entry.address(), entry.subnetId());
 
                 if (existing.isEmpty()) {
-                    // Création
-                    Subnet subnet = subnetService.getEntityById(entry.subnetId());
+                    // Création.
+                    // On utilise findEntityByIdOptional() au lieu de getEntityById() : ce
+                    // dernier est expose par un bean @Transactional(readOnly=true)
+                    // (SubnetService) et, s'il leve ResourceNotFoundException, Spring
+                    // marque la transaction PHYSIQUE partagee "rollback-only" des la
+                    // sortie de cet appel imbrique — avant meme que le catch(Exception)
+                    // de cette boucle n'ait eu l'occasion d'agir. Le rapport continuerait
+                    // alors a compter cette ligne (et toutes les suivantes) comme
+                    // creees/mises a jour, mais un UnexpectedRollbackException annulerait
+                    // silencieusement tout le lot au commit final — voir resolveSubnetId()
+                    // ci-dessous, qui documente et applique deja ce meme contournement
+                    // pour l'import CSV (audit i18n/fonctionnel du 02/08/2026).
+                    Subnet subnet = subnetService.findEntityByIdOptional(entry.subnetId())
+                            .orElseThrow(() -> new ResourceNotFoundException("Subnet", entry.subnetId()));
                     assertInSubnet(entry.address(), subnet);
                     Address address = new Address();
                     address.setAddress(entry.address());
@@ -294,8 +334,16 @@ public class AddressService {
                     created++;
                 } else {
                     Address address = existing.get();
-                    contextAccessService.requireResourceAccess(
-                            address.getContext().getId(), "Address", entry.address());
+                    // Meme raison que ci-dessus : contextAccessService.requireResourceAccess()
+                    // est expose par un bean @Transactional(readOnly=true) et leve
+                    // ResourceNotFoundException, ce qui marquerait la transaction partagee
+                    // rollback-only. On utilise ici canAccess() (non-levant) et on leve
+                    // l'exception nous-memes, directement dans le corps de bulkUpsert() —
+                    // elle ne traverse alors aucun proxy transactionnel imbrique avant
+                    // d'etre interceptee par le catch(Exception) de cette boucle.
+                    if (!contextAccessService.canAccess(address.getContext().getId())) {
+                        throw new ResourceNotFoundException("Address", entry.address());
+                    }
                     address.setLastSeenAt(now); // toujours
 
                     if (request.override()) {

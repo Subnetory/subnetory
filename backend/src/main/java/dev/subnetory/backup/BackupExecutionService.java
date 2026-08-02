@@ -960,6 +960,24 @@ public class BackupExecutionService {
      * echec au lieu de continuer a executer une archive partiellement
      * incompatible — une restauration qui echoue reste franche, sans effet
      * de bord silencieux sur l'etat de la base.</p>
+     *
+     * <p>{@code --single-transaction} (audit du 02/08/2026, correctif ELEVEE) :
+     * {@code --exit-on-error} arrete l'execution au premier echec, mais
+     * n'annule pas a lui seul les instructions deja executees avant cet
+     * echec — sans {@code --single-transaction}, chaque instruction de
+     * l'archive s'execute dans sa propre transaction implicite et est donc
+     * deja committee individuellement des son execution. Une restauration
+     * qui echoue a mi-parcours (ex. contrainte violee, connexion coupee)
+     * peut alors laisser la base dans un etat partiellement restaure :
+     * certaines tables deja droppees/recreees avec le contenu du dump,
+     * d'autres encore a l'etat anterieur — un etat incoherent, ni l'ancien
+     * ni le nouveau. {@code --single-transaction} enveloppe l'integralite
+     * de la restauration dans un unique {@code BEGIN}/{@code COMMIT} : en
+     * cas d'echec, PostgreSQL annule tout (ROLLBACK), et la base reste
+     * exactement dans l'etat ou elle etait avant la tentative de
+     * restauration — jamais d'etat intermediaire incoherent, quel que soit
+     * le point d'echec dans l'archive. Sans objet avec plusieurs jobs
+     * paralleles ({@code --jobs}), mais cette commande n'en utilise pas.</p>
      */
     List<String> buildPgRestoreCommand(DbConnectionInfo conn, Path sourceFile) {
         return List.of(
@@ -969,6 +987,7 @@ public class BackupExecutionService {
                 "--no-owner",
                 "--no-password",
                 "--exit-on-error",
+                "--single-transaction",
                 "--host=" + conn.host(),
                 "--port=" + conn.port(),
                 "--username=" + dbUser,

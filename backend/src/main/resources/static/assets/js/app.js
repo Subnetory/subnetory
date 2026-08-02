@@ -1,6 +1,31 @@
 (function () {
   'use strict';
 
+  // Petites aides i18n (audit du 02/08/2026) : les libellés statiques sont
+  // deja localises via th:text/th:attr dans les templates ; les quelques
+  // libellés que ce script génère dynamiquement (messages de progression,
+  // suggestions IP, aperçu cron...) lisent leurs traductions depuis des
+  // attributs data-i18n-* poses sur <body> par layout/base.html (voir
+  // messages.properties / messages_fr.properties / messages_en.properties).
+  // Le deuxième argument sert de repli si l'attribut est absent (pages qui
+  // n'étendent pas layout/base, ou attribut pas encore déployé).
+  function i18n(key, fallback) {
+    var value = document.body ? document.body.getAttribute('data-i18n-' + key) : null;
+    return value != null && value !== '' ? value : fallback;
+  }
+
+  // Remplacement simple de type MessageFormat : fmt('IP {0}', ['1.2.3.4'])
+  // -> 'IP 1.2.3.4'. Suffisant pour les gabarits {0}/{1}/{2} utilisés ici,
+  // cohérent avec la convention déjà en place côté serveur (ex. scan.error.generic).
+  function fmt(template, args) {
+    return template.replace(/\{(\d+)\}/g, function (match, index) {
+      var value = args[Number(index)];
+      return value != null ? value : match;
+    });
+  }
+
+  window.snI18n = { t: i18n, fmt: fmt };
+
   document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('[data-confirm]').forEach(function (el) {
       el.addEventListener('click', function (e) {
@@ -40,6 +65,25 @@
       check();
     });
 
+    // Normalisation majuscules a la saisie (audit 02/08/2026, correctif
+    // ELEVEE lie au format de code Site) : certains champs (ex. code Site,
+    // desormais valide par un pattern majuscules/chiffres/_/- cote serveur)
+    // beneficient d'une conversion automatique a la frappe plutot que de
+    // laisser l'utilisateur decouvrir l'erreur de format seulement a la
+    // soumission. Conserve la position du curseur pour ne pas gener la
+    // frappe. Toujours revalide cote serveur (Bean Validation) : ceci est un
+    // confort UX, pas un mecanisme de securite.
+    document.querySelectorAll('[data-uppercase]').forEach(function (input) {
+      input.addEventListener('input', function () {
+        var start = input.selectionStart;
+        var end = input.selectionEnd;
+        input.value = input.value.toUpperCase();
+        if (start !== null && end !== null) {
+          input.setSelectionRange(start, end);
+        }
+      });
+    });
+
     document.querySelectorAll('[data-auto-submit]').forEach(function (el) {
       el.addEventListener('change', function () {
         var form = el.closest('form');
@@ -66,9 +110,18 @@
       var fileName = drop.querySelector('[data-file-name]');
       if (!input) return;
 
+      // Regression fix (audit du 02/08/2026) : le libellé "aucun fichier"
+      // est deja localise via th:text dans le template (ex. import.filedrop.noneSelected,
+      // backup.filePicker.none). On capture ce texte initial une seule fois
+      // au lieu de le remplacer par une chaîne française codée en dur a
+      // chaque changement — sinon le placeholder repassait systematiquement
+      // en français quelle que soit la langue active dès la première
+      // sélection/désélection de fichier.
+      var emptyLabel = fileName ? fileName.textContent : '';
+
       function updateFileName() {
         var file = input.files && input.files.length > 0 ? input.files[0] : null;
-        if (fileName) fileName.textContent = file ? file.name : 'Aucun fichier sélectionné';
+        if (fileName) fileName.textContent = file ? file.name : emptyLabel;
         drop.classList.toggle('has-file', !!file);
       }
 
@@ -110,7 +163,7 @@
         ? (parts[0][0] + parts[1][0])
         : raw.slice(0, 2);
       avatar.textContent = initials.toUpperCase();
-      avatar.setAttribute('aria-label', 'Initiales ' + initials.toUpperCase());
+      avatar.setAttribute('aria-label', fmt(i18n('initials-aria', 'Initiales {0}'), [initials.toUpperCase()]));
     });
 
     document.querySelectorAll('[data-scan-form]').forEach(function (form) {
@@ -210,10 +263,10 @@
 
         if (button) {
           button.disabled = true;
-          button.textContent = 'Scan en cours…';
+          button.textContent = i18n('scan-running-button', 'Scan en cours…');
         }
         if (status) {
-          status.textContent = 'En cours';
+          status.textContent = i18n('scan-status-running', 'En cours');
           status.className = 'sn-badge sn-badge--blue';
         }
         if (terminal) {
@@ -221,8 +274,8 @@
           terminal.innerHTML = '';
           [
             '$ ' + commandText,
-            'Initialisation du scan…',
-            'Exécution en cours, merci de patienter.'
+            i18n('scan-starting', 'Initialisation du scan…'),
+            i18n('scan-progress-hint', 'Exécution en cours, merci de patienter.')
           ].forEach(function (line) {
             var p = document.createElement('p');
             p.textContent = line;
@@ -256,7 +309,7 @@
         var selector = copyButton.getAttribute('data-copy-target');
         var target = selector ? document.querySelector(selector) : null;
         var initialLabel = copyButton.getAttribute('data-copy-label') || copyButton.textContent;
-        var doneLabel = copyButton.getAttribute('data-copy-done') || 'Copié';
+        var doneLabel = copyButton.getAttribute('data-copy-done') || i18n('copy-done', 'Copié');
         var value = target ? target.innerText.trim() : '';
         if (!value) return;
 
@@ -287,7 +340,7 @@
       el.classList.add('sn-copyable');
       if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
       if (!el.hasAttribute('role')) el.setAttribute('role', 'button');
-      var baseTitle = el.getAttribute('title') || 'Cliquer pour copier';
+      var baseTitle = el.getAttribute('title') || i18n('copy-hint', 'Cliquer pour copier');
       el.setAttribute('title', baseTitle);
 
       function doCopy() {
@@ -296,7 +349,7 @@
 
         function markCopied() {
           el.classList.add('sn-copyable--copied');
-          el.setAttribute('title', 'Copié');
+          el.setAttribute('title', i18n('copy-done', 'Copié'));
           window.setTimeout(function () {
             el.classList.remove('sn-copyable--copied');
             el.setAttribute('title', baseTitle);
@@ -344,6 +397,9 @@
 (function () {
   'use strict';
 
+  var i18n = window.snI18n.t;
+  var fmt = window.snI18n.fmt;
+
   document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('[data-ip-suggestion]').forEach(function (container) {
       var subnetSelectId = container.getAttribute('data-subnet-select-id') || 'subnetId';
@@ -377,7 +433,7 @@
 
         if (!hasSubnet) {
           clearResults();
-          setMessage('Sélectionnez un sous-réseau pour activer la suggestion.', false);
+          setMessage(i18n('suggest-select-subnet', 'Sélectionnez un sous-réseau pour activer la suggestion.'), false);
         } else {
           setMessage('', false);
         }
@@ -387,7 +443,7 @@
         clearResults();
 
         if (!ips || ips.length === 0) {
-          setMessage('Aucune IP disponible dans ce sous-réseau.', false);
+          setMessage(i18n('suggest-no-results', 'Aucune IP disponible dans ce sous-réseau.'), false);
           return;
         }
 
@@ -399,14 +455,14 @@
           ipButton.addEventListener('click', function () {
             addressInput.value = ip;
             clearResults();
-            setMessage('IP sélectionnée : ' + ip, false);
+            setMessage(fmt(i18n('suggest-selected', 'IP sélectionnée : {0}'), [ip]), false);
             addressInput.focus();
           });
           results.appendChild(ipButton);
         });
 
         results.hidden = false;
-        setMessage('Cliquez sur une IP pour remplir automatiquement le champ adresse.', false);
+        setMessage(i18n('suggest-click-hint', 'Cliquez sur une IP pour remplir automatiquement le champ adresse.'), false);
       }
 
       subnetSelect.addEventListener('change', updateButtonState);
@@ -419,7 +475,7 @@
 
         clearResults();
         button.disabled = true;
-        setMessage('Recherche des IPs disponibles...', false);
+        setMessage(i18n('suggest-loading', 'Recherche des IPs disponibles...'), false);
 
         fetch('/network/subnets/' + encodeURIComponent(subnetSelect.value) + '/available-ips?count=' + encodeURIComponent(count), {
           headers: {
@@ -437,7 +493,7 @@
           })
           .catch(function () {
             clearResults();
-            setMessage('Impossible de récupérer les IPs disponibles pour ce sous-réseau.', true);
+            setMessage(i18n('suggest-error', 'Impossible de récupérer les IPs disponibles pour ce sous-réseau.'), true);
           })
           .finally(function () {
             button.disabled = !subnetSelect.value;
@@ -462,11 +518,29 @@
   // génèrent l'expression à partir de contrôles simples ; toute expression
   // qu'ils ne reconnaissent pas exactement au chargement retombe en mode
   // Personnalisé, où le champ texte reste librement éditable.
+  var i18n = window.snI18n.t;
+  var fmt = window.snI18n.fmt;
+
   var DAY_ORDER = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-  var DAY_LABELS = {
+  var DAY_LABEL_FALLBACK = {
     MON: 'lundi', TUE: 'mardi', WED: 'mercredi', THU: 'jeudi',
     FRI: 'vendredi', SAT: 'samedi', SUN: 'dimanche'
   };
+  var DAY_DATA_KEY = {
+    MON: 'cron-day-mon', TUE: 'cron-day-tue', WED: 'cron-day-wed', THU: 'cron-day-thu',
+    FRI: 'cron-day-fri', SAT: 'cron-day-sat', SUN: 'cron-day-sun'
+  };
+
+  function dayLabel(code) {
+    return i18n(DAY_DATA_KEY[code], DAY_LABEL_FALLBACK[code]);
+  }
+
+  // Pluralisation simple (fr/en : singulier seulement pour n == 1) via deux
+  // clés .one / .other, sur le même principe que les gabarits {0}/{1}/{2}
+  // ci-dessus. Suffisant pour les deux langues actuellement supportées.
+  function pluralKey(base, n) {
+    return n === 1 ? base + '-one' : base + '-other';
+  }
 
   function pad2(value) {
     var n = parseInt(value, 10);
@@ -535,7 +609,7 @@
         if (mode === 'daily') {
           var t = timeValue('daily');
           rawInput.value = '0 ' + parseInt(t.minute, 10) + ' ' + parseInt(t.hour, 10) + ' * * *';
-          preview.textContent = 'Tous les jours à ' + t.hour + ':' + t.minute + '.';
+          preview.textContent = fmt(i18n('cron-daily', 'Tous les jours à {0}:{1}.'), [t.hour, t.minute]);
         } else if (mode === 'weekly') {
           var t2 = timeValue('weekly');
           var days = selectedDays();
@@ -548,13 +622,15 @@
             days = [todayCode];
           }
           rawInput.value = '0 ' + parseInt(t2.minute, 10) + ' ' + parseInt(t2.hour, 10) + ' * * ' + days.join(',');
-          var labels = days.map(function (d) { return DAY_LABELS[d]; });
-          preview.textContent = 'Chaque ' + labels.join(', ') + ' à ' + t2.hour + ':' + t2.minute + '.';
+          var labels = days.map(dayLabel);
+          preview.textContent = fmt(i18n('cron-weekly', 'Chaque {0} à {1}:{2}.'), [labels.join(', '), t2.hour, t2.minute]);
         } else if (mode === 'monthly') {
           var t3 = timeValue('monthly');
           var dom = monthlyDaySelect ? monthlyDaySelect.value : '1';
           rawInput.value = '0 ' + parseInt(t3.minute, 10) + ' ' + parseInt(t3.hour, 10) + ' ' + dom + ' * *';
-          preview.textContent = (dom === '1' ? 'Le 1er' : 'Le ' + dom) + ' de chaque mois à ' + t3.hour + ':' + t3.minute + '.';
+          preview.textContent = dom === '1'
+            ? fmt(i18n('cron-monthly-first', 'Le 1er de chaque mois à {0}:{1}.'), [t3.hour, t3.minute])
+            : fmt(i18n('cron-monthly-nth', 'Le {0} de chaque mois à {1}:{2}.'), [dom, t3.hour, t3.minute]);
         } else if (mode === 'interval') {
           var unit = intervalUnitSelect ? intervalUnitSelect.value : 'hours';
           var n = intervalValueInput ? parseInt(intervalValueInput.value, 10) : NaN;
@@ -567,13 +643,18 @@
               ? { hour: pad2(intervalTimeInput.value.split(':')[0]), minute: pad2(intervalTimeInput.value.split(':')[1]) }
               : { hour: '02', minute: '00' };
             rawInput.value = '0 ' + parseInt(t4.minute, 10) + ' ' + parseInt(t4.hour, 10) + ' */' + n + ' * *';
-            preview.textContent = 'Tous les ' + n + (n > 1 ? ' jours' : ' jour')
-              + ' à ' + t4.hour + ':' + t4.minute + ' (à partir du 1er du mois).';
+            preview.textContent = fmt(
+              i18n(pluralKey('cron-interval-days', n), 'Tous les {0} jour(s) à {1}:{2} (à partir du 1er du mois).'),
+              [n, t4.hour, t4.minute]
+            );
           } else {
             if (n > 23) n = 23;
             if (intervalValueInput) intervalValueInput.value = n;
             rawInput.value = '0 0 */' + n + ' * * *';
-            preview.textContent = 'Toutes les ' + n + (n > 1 ? ' heures' : ' heure') + ' (à partir de minuit).';
+            preview.textContent = fmt(
+              i18n(pluralKey('cron-interval-hours', n), 'Toutes les {0} heure(s) (à partir de minuit).'),
+              [n]
+            );
           }
         }
       }

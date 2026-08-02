@@ -107,6 +107,76 @@ class LoginRateLimiterTest {
         assertThat(limiter.getFailureCount("unknown")).isEqualTo(2);
     }
 
+    // -------------------------------------------------------
+    // Compteur par nom d'utilisateur (audit 02/08/2026, correctif MOYENNE)
+    // -------------------------------------------------------
+
+    @Test
+    void usernameLockThreshold_locksAcrossDifferentIps() {
+        // Meme compte cible depuis des IP toutes differentes : chaque IP
+        // reste individuellement sous le seuil, mais le compteur par
+        // utilisateur doit quand meme se declencher.
+        MutableClock clock = new MutableClock();
+        LoginRateLimiter limiter = new LoginRateLimiter(clock);
+        String username = "alice";
+
+        LoginRateLimiter.RateLimitDecision lastDecision = null;
+        for (int i = 1; i <= LoginRateLimiter.LOCK_THRESHOLD; i++) {
+            lastDecision = limiter.recordFailure("203.0.113." + i, username);
+        }
+
+        assertThat(lastDecision.locked()).isTrue();
+        assertThat(limiter.getFailureCountByUsername(username)).isEqualTo(LoginRateLimiter.LOCK_THRESHOLD);
+        // Chaque IP individuelle est restee tres en dessous du seuil.
+        assertThat(limiter.getFailureCount("203.0.113.1")).isEqualTo(1);
+    }
+
+    @Test
+    void isLocked_withUsername_reflectsUsernameLockEvenFromNewIp() {
+        MutableClock clock = new MutableClock();
+        LoginRateLimiter limiter = new LoginRateLimiter(clock);
+        String username = "bob";
+
+        for (int i = 1; i <= LoginRateLimiter.LOCK_THRESHOLD; i++) {
+            limiter.recordFailure("198.51.100." + i, username);
+        }
+
+        // Nouvelle IP jamais vue, mais meme compte : doit rester verrouille.
+        assertThat(limiter.isLocked("198.51.100.250", username)).isTrue();
+        // Sans le nom d'utilisateur, cette IP neuve n'est pas verrouillee
+        // (comportement historique IP-seul inchange).
+        assertThat(limiter.isLocked("198.51.100.250")).isFalse();
+    }
+
+    @Test
+    void usernameNormalization_isCaseInsensitive() {
+        MutableClock clock = new MutableClock();
+        LoginRateLimiter limiter = new LoginRateLimiter(clock);
+
+        limiter.recordFailure(IP, "Admin");
+        limiter.recordFailure(IP, "ADMIN");
+        limiter.recordFailure(IP, "admin");
+
+        assertThat(limiter.getFailureCountByUsername("admin")).isEqualTo(3);
+    }
+
+    @Test
+    void recordSuccess_withUsername_resetsBothCounters() {
+        MutableClock clock = new MutableClock();
+        LoginRateLimiter limiter = new LoginRateLimiter(clock);
+        String username = "carol";
+
+        limiter.recordFailure(IP, username);
+        limiter.recordFailure(IP, username);
+        assertThat(limiter.getFailureCount(IP)).isEqualTo(2);
+        assertThat(limiter.getFailureCountByUsername(username)).isEqualTo(2);
+
+        limiter.recordSuccess(IP, username);
+
+        assertThat(limiter.getFailureCount(IP)).isZero();
+        assertThat(limiter.getFailureCountByUsername(username)).isZero();
+    }
+
     private static final class MutableClock extends Clock {
         private Instant instant = Instant.parse("2026-06-01T00:00:00Z");
 

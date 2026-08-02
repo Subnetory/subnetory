@@ -42,7 +42,7 @@ class MfaServiceTest {
     @BeforeEach
     void setUp() {
         passwordEncoder = new BCryptPasswordEncoder(4); // strength faible : tests rapides
-        secretCipherService = new SecretCipherService(TEST_JWT_SECRET);
+        secretCipherService = new SecretCipherService(TEST_JWT_SECRET, TEST_JWT_SECRET);
         service = new MfaService(userRepository, recoveryCodeRepository, secretCipherService, passwordEncoder);
 
         user = new User();

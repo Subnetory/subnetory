@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Erreur inattendue — Subnetory</title>
+    <title th:with="t=#{error500.title}" th:text="${t} + ' — Subnetory'">Erreur inattendue — Subnetory</title>
     <link rel="stylesheet" th:href="@{/assets/css/app.css}">
 </head>
 <body>
@@ -15,9 +15,9 @@
 </nav>
 <div class="sn-error-page">
     <div class="sn-error-page__code">500</div>
-    <h1 class="sn-error-page__title">Erreur inattendue</h1>
-    <p class="sn-error-page__message">Une erreur s'est produite. Réessayez ou contactez votre administrateur.</p>
-    <a th:href="@{/}" class="sn-btn sn-btn--ghost">Retour au tableau de bord</a>
+    <h1 class="sn-error-page__title" th:text="#{error500.title}">Erreur inattendue</h1>
+    <p class="sn-error-page__message" th:text="#{error500.message}">Une erreur s'est produite. Réessayez ou contactez votre administrateur.</p>
+    <a th:href="@{/}" class="sn-btn sn-btn--ghost" th:text="#{error.backToDashboard}">Retour au tableau de bord</a>
 </div>
 </body>
 </html>

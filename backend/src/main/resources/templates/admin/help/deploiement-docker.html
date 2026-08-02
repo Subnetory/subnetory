@@ -1,47 +1,46 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
-<head><title>Déploiement Docker Compose &amp; HTTPS - Guide admin - Subnetory</title></head>
 <body>
 <div id="main-content">
 <div class="sn-page">
 
-    <p class="sn-help-crumb"><a th:href="@{/admin/help}">Guide administrateur</a> / Déploiement Docker Compose &amp; HTTPS</p>
+    <p class="sn-help-crumb"><a th:href="@{/admin/help}" th:text="#{helpAdmin.crumbPrefix}">Guide administrateur</a> / <span th:text="#{adminHelp.card.docker.title}">Déploiement Docker Compose &amp; HTTPS</span></p>
 
     <div class="sn-help-layout">
         <div th:replace="~{help/fragments :: sidebar-admin('deploiement-docker')}"></div>
 
         <div class="sn-help-article">
             <div class="sn-help-article__header">
-                <h1 class="sn-page__title">Déploiement Docker Compose &amp; HTTPS</h1>
-                <p>Installation autonome avec PostgreSQL inclus, secrets fichiers, et exposition HTTPS optionnelle.</p>
+                <h1 class="sn-page__title" th:text="#{adminHelp.card.docker.title}">Déploiement Docker Compose &amp; HTTPS</h1>
+                <p th:text="#{helpAdmin.docker.subtitle}">Installation autonome avec PostgreSQL inclus, secrets fichiers, et exposition HTTPS optionnelle.</p>
             </div>
 
             <section class="sn-help-section">
-                <h2>Générer les secrets</h2>
-                <p>
+                <h2 th:text="#{helpAdmin.docker.secrets.title}">Générer les secrets</h2>
+                <p th:utext="#{helpAdmin.docker.secrets.body1}">
                     Trois secrets sont requis avant le premier démarrage : le secret JWT, le mot de passe
                     administrateur temporaire et le mot de passe PostgreSQL. Un script dédié les génère
                     aléatoirement sans jamais afficher leur valeur, et applique des permissions restrictives
                     (<code>icacls</code> sous Windows, <code>chmod 600</code> sous Linux/macOS).
                 </p>
                 <div class="sn-command-preview">
-                    <span>PowerShell</span>
+                    <span th:text="#{helpAdmin.docker.secrets.powershellLabel}">PowerShell</span>
                     <code>pwsh -File .\scripts\init-compose.ps1</code>
                 </div>
                 <div class="sn-command-preview">
-                    <span>Bash</span>
+                    <span th:text="#{helpAdmin.docker.secrets.bashLabel}">Bash</span>
                     <code>./scripts/init-compose.sh</code>
                 </div>
-                <p class="sn-mt-3">
-                    Un quatrième secret optionnel, <code>subnetory_backup_encryption_key</code>, active le
-                    chiffrement des sauvegardes (désactivé par défaut) :
+                <p class="sn-mt-3" th:utext="#{helpAdmin.docker.secrets.body2}">
+                    Un quatrième secret, <code>subnetory_backup_encryption_key</code>, active le
+                    chiffrement des sauvegardes (activé par défaut, généré automatiquement) :
                 </p>
                 <div class="sn-command-preview">
-                    <span>Avec chiffrement des sauvegardes</span>
-                    <code>pwsh -File .\scripts\init-compose.ps1 -WithBackupEncryption</code>
+                    <span th:text="#{helpAdmin.docker.secrets.withoutEncryptionLabel}">Sans chiffrement des sauvegardes</span>
+                    <code>pwsh -File .\scripts\init-compose.ps1 -WithoutBackupEncryption</code>
                 </div>
-                <div class="sn-alert sn-alert--info">
+                <div class="sn-alert sn-alert--info" th:utext="#{helpAdmin.docker.secrets.warning}">
                     Le script refuse d'écraser un secret existant. L'option <code>-Force</code>/<code>--force</code>
                     est réservée à une rotation volontaire et coordonnée — jamais une commande de réparation
                     générique.
@@ -49,26 +48,26 @@
             </section>
 
             <section class="sn-help-section">
-                <h2>Démarrer la stack</h2>
+                <h2 th:text="#{helpAdmin.docker.start.title}">Démarrer la stack</h2>
                 <div class="sn-command-preview">
-                    <span>Depuis backend/</span>
+                    <span th:text="#{helpAdmin.docker.start.fromBackendLabel}">Depuis backend/</span>
                     <code>docker compose up -d --build</code>
                 </div>
-                <p>
+                <p th:text="#{helpAdmin.docker.start.body}">
                     Les migrations Flyway s'appliquent automatiquement au démarrage. PostgreSQL reste
                     strictement interne au réseau Compose, jamais publié sur un port de l'hôte.
                 </p>
             </section>
 
             <section class="sn-help-section">
-                <h2>Protection des secrets sur le poste</h2>
-                <p>
+                <h2 th:text="#{helpAdmin.docker.secretsProtection.title}">Protection des secrets sur le poste</h2>
+                <p th:text="#{helpAdmin.docker.secretsProtection.body}">
                     Les permissions restrictives du script bloquent l'accès à un autre compte non privilégié
                     sur la même machine — elles ne protègent pas contre un attaquant qui obtiendrait les droits
                     de votre propre compte ou les droits administrateur, ni contre le vol d'un disque éteint
                     sans chiffrement de volume (BitLocker/LUKS).
                 </p>
-                <div class="sn-alert sn-alert--warning">
+                <div class="sn-alert sn-alert--warning" th:utext="#{helpAdmin.docker.secretsProtection.warning}">
                     Point d'attention particulier si le dossier du dépôt est synchronisé par un client cloud
                     (OneDrive Known Folder Move notamment) : le dossier <code>secrets/</code>, bien que
                     git-ignoré, partirait alors en clair vers le cloud. Vérifiez qu'aucune synchronisation
@@ -77,34 +76,34 @@
             </section>
 
             <section class="sn-help-section">
-                <h2>HTTPS clé en main (overlay Caddy, optionnel)</h2>
-                <p>
+                <h2 th:text="#{helpAdmin.docker.https.title}">HTTPS clé en main (overlay Caddy, optionnel)</h2>
+                <p th:utext="#{helpAdmin.docker.https.body1}">
                     <code>docker-compose.https.yml</code> ajoute un reverse proxy Caddy devant l'application,
                     sans infrastructure externe à gérer (pas de certificat à générer ou installer
                     manuellement).
                 </p>
                 <table class="sn-table">
-                    <thead><tr><th>Mode</th><th>Usage</th><th>Certificat</th></tr></thead>
+                    <thead><tr><th th:text="#{helpAdmin.table.mode}">Mode</th><th th:text="#{helpAdmin.table.usage}">Usage</th><th th:text="#{helpAdmin.table.certificate}">Certificat</th></tr></thead>
                     <tbody>
-                    <tr><td>Interne</td><td>Réseau d'entreprise, pas de domaine public</td><td>Auto-signé (avertissement navigateur normal)</td></tr>
-                    <tr><td>Public</td><td>Domaine résolu vers cet hôte, ports 80/443 accessibles depuis Internet</td><td>Let's Encrypt automatique, renouvelé sans intervention</td></tr>
+                    <tr><td th:text="#{helpAdmin.docker.https.mode.internal}">Interne</td><td th:text="#{helpAdmin.docker.https.mode.internal.usage}">Réseau d'entreprise, pas de domaine public</td><td th:text="#{helpAdmin.docker.https.mode.internal.cert}">Auto-signé (avertissement navigateur normal)</td></tr>
+                    <tr><td th:text="#{helpAdmin.docker.https.mode.public}">Public</td><td th:text="#{helpAdmin.docker.https.mode.public.usage}">Domaine résolu vers cet hôte, ports 80/443 accessibles depuis Internet</td><td th:text="#{helpAdmin.docker.https.mode.public.cert}">Let's Encrypt automatique, renouvelé sans intervention</td></tr>
                     </tbody>
                 </table>
                 <div class="sn-command-preview">
-                    <span>Mode interne — copier le Caddyfile</span>
+                    <span th:text="#{helpAdmin.docker.https.copyCaddyfileLabel}">Mode interne — copier le Caddyfile</span>
                     <code>Copy-Item deploy\Caddyfile.internal deploy\Caddyfile</code>
                 </div>
                 <div class="sn-command-preview">
-                    <span>Démarrer avec l'overlay</span>
+                    <span th:text="#{helpAdmin.docker.https.startOverlayLabel}">Démarrer avec l'overlay</span>
                     <code>docker compose -f docker-compose.yml -f docker-compose.https.yml up -d --build</code>
                 </div>
-                <p class="sn-mt-3">
+                <p class="sn-mt-3" th:utext="#{helpAdmin.docker.https.body2}">
                     L'overlay active automatiquement la confiance envers le proxy interne
                     (<code>SUBNETORY_SECURITY_TRUSTED_PROXY</code>) pour que le rate limiting par IP et l'audit
                     d'authentification restent exacts — sans cela, toutes les requêtes seraient comptées comme
                     venant d'une seule IP (le conteneur Caddy).
                 </p>
-                <div class="sn-alert sn-alert--info">
+                <div class="sn-alert sn-alert--info" th:utext="#{helpAdmin.docker.https.warning}">
                     Le volume <code>caddy_data</code> conserve les certificats entre redémarrages — ne pas le
                     supprimer sans raison en mode public (nouvelles demandes Let's Encrypt, risque de
                     limitation de débit en cas de suppressions répétées).
@@ -112,8 +111,8 @@
             </section>
 
             <section class="sn-help-section">
-                <h2>Documents liés</h2>
-                <p>
+                <h2 th:text="#{helpAdmin.docker.docs.title}">Documents liés</h2>
+                <p th:utext="#{helpAdmin.docker.docs.body}">
                     <code>backend/docs/INSTALL_DOCKER_COMPOSE.md</code>,
                     <code>backend/docs/HTTPS_REVERSE_PROXY.md</code>,
                     <code>backend/docs/DOCKER_COMPOSE_OPERATIONS.md</code>.

@@ -93,6 +93,10 @@ spec:
                 path: subnetory.jwt.secret
               - key: postgres-password
                 path: spring.datasource.password
+              {{- if .Values.secrets.encryptionKeyEnabled }}
+              - key: encryption-key
+                path: subnetory.security.encryption-key
+              {{- end }}
         - name: bootstrap-secrets
           secret:
             secretName: {{ .Values.secrets.existingSecretBootstrap }}

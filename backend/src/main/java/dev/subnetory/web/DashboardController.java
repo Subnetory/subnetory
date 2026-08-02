@@ -3,7 +3,9 @@ package dev.subnetory.web;
 import dev.subnetory.service.ActiveContextService;
 import dev.subnetory.service.DashboardService;
 import jakarta.servlet.http.HttpSession;
+import java.util.Locale;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,11 +21,14 @@ public class DashboardController {
 
     private final DashboardService dashboardService;
     private final ActiveContextService activeContextService;
+    private final MessageSource messageSource;
 
     public DashboardController(DashboardService dashboardService,
-                               ObjectProvider<ActiveContextService> activeContextServiceProvider) {
+                               ObjectProvider<ActiveContextService> activeContextServiceProvider,
+                               MessageSource messageSource) {
         this.dashboardService = dashboardService;
         this.activeContextService = activeContextServiceProvider.getIfAvailable();
+        this.messageSource = messageSource;
     }
 
     /**
@@ -33,11 +38,11 @@ public class DashboardController {
      * Calcule les statistiques globales et les transmet au template.</p>
      */
     @GetMapping("/")
-    public String dashboard(Model model, HttpSession session) {
+    public String dashboard(Model model, HttpSession session, Locale locale) {
         Long activeContextId = activeContextService == null ? null : activeContextService.get(session);
         model.addAttribute("stats", dashboardService.getStats(activeContextId));
         model.addAttribute("activeSection", "dashboard");
-        model.addAttribute("pageTitle", "Tableau de bord");
+        model.addAttribute("pageTitle", messageSource.getMessage("nav.dashboard", null, locale));
         return "dashboard";
     }
 }

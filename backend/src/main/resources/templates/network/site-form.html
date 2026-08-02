@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
-<head><title th:text="${pageTitle} + ' — Subnetory'">Site — Subnetory</title></head>
 <body>
 <div id="main-content">
 <div class="sn-page">
@@ -9,7 +8,7 @@
     <div class="sn-page__header">
         <div>
             <h1 class="sn-page__title" th:text="${pageTitle}">Site</h1>
-            <p class="sn-page__subtitle">Rattachez ce site à un contexte pour organiser vos VLAN et sous-réseaux.</p>
+            <p class="sn-page__subtitle" th:text="#{site.form.subtitle}">Rattachez ce site à un contexte pour organiser vos VLAN et sous-réseaux.</p>
         </div>
     </div>
 
@@ -26,13 +25,13 @@
 
             <div class="sn-form__group" th:classappend="${#fields.hasErrors('name')} ? ' sn-form__group--error'">
                 <label for="name" class="sn-form__label">
-                    Nom <span class="sn-form-required">*</span>
+                    <span th:text="#{common.name}">Nom</span> <span class="sn-form-required">*</span>
                 </label>
                 <input type="text"
                        id="name"
                        th:field="*{name}"
                        class="sn-input"
-                       placeholder="ex : Paris Nord"
+                       th:placeholder="#{site.form.name.placeholder}"
                        autocomplete="off"
                        maxlength="100"
                        required
@@ -44,17 +43,18 @@
 
             <div class="sn-form__group" th:classappend="${#fields.hasErrors('code')} ? ' sn-form__group--error'">
                 <label for="code" class="sn-form__label">
-                    Code <span class="sn-form-required">*</span>
+                    <span th:text="#{common.code}">Code</span> <span class="sn-form-required">*</span>
                 </label>
                 <input type="text"
                        id="code"
                        th:field="*{code}"
                        class="sn-input"
-                       placeholder="ex : PAR01 (converti en majuscules)"
+                       th:placeholder="#{site.form.code.placeholder}"
                        autocomplete="off"
                        maxlength="20"
                        required
-                       aria-required="true" />
+                       aria-required="true"
+                       data-uppercase />
                 <span class="sn-form__error"
                       th:if="${#fields.hasErrors('code')}"
                       th:errors="*{code}"></span>
@@ -62,14 +62,14 @@
 
             <div class="sn-form__group" th:classappend="${#fields.hasErrors('contextId')} ? ' sn-form__group--error'">
                 <label for="contextId" class="sn-form__label">
-                    Contexte <span class="sn-form-required">*</span>
+                    <span th:text="#{common.context}">Contexte</span> <span class="sn-form-required">*</span>
                 </label>
                 <select id="contextId"
                         th:field="*{contextId}"
                         class="sn-input"
                         required
                         aria-required="true">
-                    <option value="">— Sélectionner un contexte —</option>
+                    <option value="" th:text="#{select.placeholder.context}">— Sélectionner un contexte —</option>
                     <option th:each="ctx : ${allContexts}"
                             th:value="${ctx.id}"
                             th:text="${ctx.name}">Contexte</option>
@@ -80,8 +80,8 @@
             </div>
 
             <div class="sn-form__actions">
-                <button type="submit" class="sn-btn sn-btn--primary">Enregistrer</button>
-                <a th:href="${cancelUrl}" class="sn-btn sn-btn--secondary">Annuler</a>
+                <button type="submit" class="sn-btn sn-btn--primary" th:text="#{common.save}">Enregistrer</button>
+                <a th:href="${cancelUrl}" class="sn-btn sn-btn--secondary" th:text="#{common.cancel}">Annuler</a>
             </div>
 
         </form>

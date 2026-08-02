@@ -339,6 +339,15 @@ public class UserAdminService {
         target.setRoles(resolvedRoles);
         User saved = userRepository.save(target);
         invalidateAuthorizationTokens(saved.getUsername(), currentUsername);
+
+        // Audit manquant (02/08/2026, correctif MOYENNE) : contrairement a
+        // updateContexts() ci-dessus, cette modification de privileges
+        // (y compris attribution/retrait de ROLE_ADMIN) n'etait jusqu'ici
+        // pas tracee dans le journal d'audit.
+        if (authAuditService != null) {
+            authAuditService.recordUserRolesUpdated(
+                    currentUsername, saved.getUsername(), resolvedRoles.size());
+        }
         return saved;
     }
 
@@ -386,7 +395,15 @@ public class UserAdminService {
         }
 
         target.setEnabled(enabled);
-        return userRepository.save(target);
+        User saved = userRepository.save(target);
+
+        // Audit manquant (02/08/2026, correctif MOYENNE) : l'activation et
+        // surtout la desactivation d'un compte n'etaient jusqu'ici jamais
+        // tracees dans le journal d'audit.
+        if (authAuditService != null) {
+            authAuditService.recordUserEnabledChanged(currentUsername, saved.getUsername(), enabled);
+        }
+        return saved;
     }
 
     // Utilitaires prives

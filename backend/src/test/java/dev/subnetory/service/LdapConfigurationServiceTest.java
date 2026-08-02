@@ -23,12 +23,14 @@ class LdapConfigurationServiceTest {
     private final LdapSettingsRepository repository = mock(LdapSettingsRepository.class);
     private final RoleRepository roleRepository = mock(RoleRepository.class);
     private final SecretCipherService secretCipherService =
-            new SecretCipherService("01234567890123456789012345678901");
+            new SecretCipherService("01234567890123456789012345678901", "01234567890123456789012345678901");
+    private final AuthAuditService authAuditService = mock(AuthAuditService.class);
     private final LdapConfigurationService service = new LdapConfigurationService(
             fallbackProperties,
             repository,
             roleRepository,
-            secretCipherService);
+            secretCipherService,
+            authAuditService);
 
     @Test
     void effectiveSettings_usesFallbackPropertiesWhenDatabaseConfigurationDoesNotExist() {

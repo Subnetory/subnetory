@@ -9,6 +9,7 @@ import dev.subnetory.dto.SubnetResponse;
 import dev.subnetory.exception.ConflictException;
 import dev.subnetory.exception.ResourceNotFoundException;
 import dev.subnetory.repository.SubnetRepository;
+import dev.subnetory.util.IpUtils;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -195,15 +196,61 @@ public class SubnetService {
         }
 
         if (request.parentId() != null) {
+            // Validations ajoutees le 02/08/2026 (audit, correctif ELEVEE) :
+            // jusqu'ici, seule l'appartenance au meme contexte etait
+            // verifiee. Rien n'empechait de choisir un parent dont le CIDR
+            // ne contient pas reellement le sous-reseau (hierarchie
+            // incoherente affichee ensuite dans l'UI), ni un parent qui,
+            // directement ou via la chaine d'ancetres, remonte au
+            // sous-reseau lui-meme (cycle infini si on parcourt la
+            // hierarchie, ex. pour l'affichage ou un futur calcul
+            // d'adresses disponibles recursif).
+            if (request.parentId().equals(subnet.getId())) {
+                throw new ConflictException("Un sous-reseau ne peut pas etre son propre parent.");
+            }
             Subnet parent = getEntityById(request.parentId());
             if (!parent.getContext().getId().equals(context.getId())) {
                 throw new ConflictException("Le sous-reseau parent n'appartient pas au contexte choisi.");
+            }
+            if (!isContainedInParent(request.network(), parent.getNetwork())) {
+                throw new ConflictException(
+                        "Le sous-reseau " + request.network() + " n'est pas contenu dans le "
+                                + "sous-reseau parent " + parent.getNetwork() + ".");
+            }
+            if (subnet.getId() != null) {
+                Subnet ancestor = parent;
+                while (ancestor != null) {
+                    if (ancestor.getId().equals(subnet.getId())) {
+                        throw new ConflictException(
+                                "Le sous-reseau parent choisi cree un cycle "
+                                        + "(il descend indirectement de ce sous-reseau).");
+                    }
+                    ancestor = ancestor.getParent();
+                }
             }
             subnet.setParent(parent);
         } else {
             subnet.setParent(null);
         }
         return subnet;
+    }
+
+    /**
+     * Vrai si {@code childCidr} est entierement contenu dans {@code parentCidr} :
+     * le prefixe de l'enfant doit etre au moins aussi specifique (masque plus
+     * grand ou egal) que celui du parent, et les deux bornes de son intervalle
+     * (adresse reseau et broadcast) doivent tomber dans l'intervalle du parent.
+     * Suffisant pour des blocs CIDR alignes en puissance de deux (garanti par
+     * le type PostgreSQL {@code cidr} qui normalise l'adresse reseau).
+     */
+    private boolean isContainedInParent(String childCidr, String parentCidr) {
+        if (IpUtils.cidrPrefixLength(childCidr) < IpUtils.cidrPrefixLength(parentCidr)) {
+            return false;
+        }
+        String childNetwork = IpUtils.networkAddress(childCidr);
+        String childBroadcast = IpUtils.broadcastAddress(childCidr);
+        return IpUtils.isInNetwork(childNetwork, parentCidr)
+                && IpUtils.isInNetwork(childBroadcast, parentCidr);
     }
 
     // -------------------------------------------------------

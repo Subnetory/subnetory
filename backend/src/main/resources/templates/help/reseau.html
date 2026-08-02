@@ -1,25 +1,24 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
-<head><title>Contextes, sites, VLAN &amp; sous-réseaux - Aide - Subnetory</title></head>
 <body>
 <div id="main-content">
 <div class="sn-page">
 
-    <p class="sn-help-crumb"><a th:href="@{/help}">Aide</a> / Contextes, sites, VLAN &amp; sous-réseaux</p>
+    <p class="sn-help-crumb"><a th:href="@{/help}" th:text="#{help.crumbPrefix}">Aide</a> / <span th:text="#{help.card.network.title}">Contextes, sites, VLAN &amp; sous-réseaux</span></p>
 
     <div class="sn-help-layout">
         <div th:replace="~{help/fragments :: sidebar-user('reseau')}"></div>
 
         <div class="sn-help-article">
             <div class="sn-help-article__header">
-                <h1 class="sn-page__title">Contextes, sites, VLAN &amp; sous-réseaux</h1>
-                <p>Organiser la hiérarchie de votre réseau et lancer un scan de découverte.</p>
+                <h1 class="sn-page__title" th:text="#{help.card.network.title}">Contextes, sites, VLAN &amp; sous-réseaux</h1>
+                <p th:text="#{help.network.subtitle}">Organiser la hiérarchie de votre réseau et lancer un scan de découverte.</p>
             </div>
 
             <section class="sn-help-section">
-                <h2>Contextes</h2>
-                <p>
+                <h2 th:text="#{help.network.contexts.title}">Contextes</h2>
+                <p th:utext="#{help.network.contexts.body}">
                     Un contexte représente un espace de routage (VRF, table de routage). Il isole les données
                     d'un client ou d'un environnement des autres : sites, VLAN, sous-réseaux et adresses créés
                     dans un contexte n'apparaissent pas dans les listes d'un autre contexte tant que le sélecteur
@@ -28,41 +27,51 @@
             </section>
 
             <section class="sn-help-section">
-                <h2>Sites</h2>
-                <p>
+                <h2 th:text="#{help.network.sites.title}">Sites</h2>
+                <p th:utext="#{help.network.sites.body}">
                     Un site est un emplacement physique ou logique rattaché à un contexte (par exemple un
                     bâtiment, une agence, un datacenter). Menu <em>Sites → Nouveau site</em>.
                 </p>
             </section>
 
             <section class="sn-help-section">
-                <h2>VLAN</h2>
-                <p>
+                <h2 th:text="#{help.network.vlans.title}">VLAN</h2>
+                <p th:utext="#{help.network.vlans.body}">
                     Un VLAN se rattache à un site ; il est optionnel — beaucoup de sous-réseaux n'en ont pas
-                    besoin. Menu <em>VLANs → Nouveau VLAN</em>.
+                    besoin. Son identifiant (VLAN ID) doit être compris entre 0 et 4094. Menu
+                    <em>VLAN → Nouveau VLAN</em>.
                 </p>
             </section>
 
             <section class="sn-help-section">
-                <h2>Sous-réseaux</h2>
-                <p>
+                <h2 th:text="#{help.network.subnets.title}">Sous-réseaux</h2>
+                <p th:utext="#{help.network.subnets.body}">
                     Un sous-réseau se rattache à un site et peut être associé à un VLAN. Menu
                     <em>Sous-réseaux → Nouveau sous-réseau</em>. Exemple : réseau <code>192.168.1.0/24</code>,
                     passerelle <code>192.168.1.1</code>.
                 </p>
-                <h3>Adresses disponibles</h3>
-                <p>
-                    Depuis la fiche d'un sous-réseau, le bouton <strong>Adresses disponibles</strong> liste les
-                    IP du bloc qui ne sont pas encore enregistrées — pratique pour choisir la prochaine adresse
-                    à attribuer sans calcul manuel.
+                <h3 th:text="#{help.network.available.title}">Suggestion d'adresse disponible</h3>
+                <p th:utext="#{help.network.available.body}">
+                    Lors de la création d'une adresse (<em>Adresses IP → Nouvelle adresse</em>), une fois un
+                    sous-réseau sélectionné, le bouton <strong>Suggérer une IP disponible</strong> propose
+                    jusqu'à 5 IP libres du bloc — pratique pour choisir la prochaine adresse à attribuer sans
+                    calcul manuel.
                 </p>
-                <h3>Scan de découverte</h3>
-                <p>
-                    Le bouton <strong>Scanner</strong> lance une découverte réseau du sous-réseau (Nmap, mode
-                    <code>-sn</code>, sans élévation de privilèges). Utile pour repérer les hôtes actuellement
-                    joignables et rapprocher le résultat de l'inventaire déclaré.
+                <h3 th:text="#{help.network.scan.title}">Scan de découverte</h3>
+                <p th:utext="#{help.network.scan.body}">
+                    Dans la liste des sous-réseaux, un sous-réseau scannable affiche un lien
+                    <strong>Configurer</strong> dans la colonne « Scan ». Il ouvre un écran de configuration
+                    (résolution DNS, ping ARP, rythme du scan) où le bouton <strong>Lancer le scan</strong>
+                    déclenche la découverte réseau (Nmap, mode <code>-sn</code>, sans élévation de privilèges).
+                    Utile pour repérer les hôtes actuellement joignables et rapprocher le résultat de
+                    l'inventaire déclaré.
                 </p>
-                <div class="sn-alert sn-alert--info">
+                <p th:utext="#{help.network.scan.sizeLimit}">
+                    Le scan n'est proposé que pour les sous-réseaux de masque <code>/24</code> ou plus précis
+                    (par exemple <code>/24</code>, <code>/28</code>, <code>/30</code>) ; les blocs plus larges
+                    (<code>/23</code>, <code>/16</code>…) ne sont pas scannables depuis l'interface.
+                </p>
+                <div class="sn-alert sn-alert--info" th:utext="#{help.network.scan.warning}">
                     Le conteneur applicatif tourne volontairement sans privilège réseau étendu (pas de mode
                     <code>privileged</code>, pas de découverte ARP de niveau 2). Le scan reste utile pour une
                     découverte IP routée, mais ne doit pas être considéré comme un inventaire ARP exhaustif du
@@ -72,10 +81,10 @@
             </section>
 
             <section class="sn-help-section">
-                <h2>Pour aller plus loin</h2>
+                <h2 th:text="#{help.network.further.title}">Pour aller plus loin</h2>
                 <p>
-                    <a th:href="@{/help/adresses-ip}">Adresses IP</a> — créer, rechercher et réserver des
-                    adresses dans ces sous-réseaux.
+                    <a th:href="@{/help/adresses-ip}" th:text="#{help.card.addresses.title}">Adresses IP</a> — <span th:text="#{help.network.further.addresses}">créer, rechercher et réserver des
+                    adresses dans ces sous-réseaux.</span>
                 </p>
             </section>
         </div>

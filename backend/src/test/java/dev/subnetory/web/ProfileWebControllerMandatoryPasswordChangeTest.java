@@ -10,11 +10,13 @@ import dev.subnetory.security.ClientIpResolver;
 import dev.subnetory.service.UserAdminService;
 import dev.subnetory.web.form.PasswordChangeForm;
 import java.util.List;
+import java.util.Locale;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.support.ResourceBundleMessageSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -24,6 +26,8 @@ import org.springframework.validation.BeanPropertyBindingResult;
 @ExtendWith(MockitoExtension.class)
 class ProfileWebControllerMandatoryPasswordChangeTest {
 
+    private static final Locale LOCALE = Locale.FRENCH;
+
     @Mock UserAdminService userAdminService;
     @Mock ClientIpResolver clientIpResolver;
 
@@ -32,7 +36,10 @@ class ProfileWebControllerMandatoryPasswordChangeTest {
 
     @BeforeEach
     void setUp() {
-        controller = new ProfileWebController(userAdminService, clientIpResolver);
+        ResourceBundleMessageSource messageSource = new ResourceBundleMessageSource();
+        messageSource.setBasename("messages");
+        messageSource.setDefaultEncoding("UTF-8");
+        controller = new ProfileWebController(userAdminService, clientIpResolver, messageSource);
         authentication = new UsernamePasswordAuthenticationToken(
                 "admin", "n/a", List.of());
     }
@@ -43,7 +50,7 @@ class ProfileWebControllerMandatoryPasswordChangeTest {
                 .thenReturn(buildUser(true));
         ExtendedModelMap model = new ExtendedModelMap();
 
-        String view = controller.requiredPasswordChange(authentication, model);
+        String view = controller.requiredPasswordChange(authentication, model, LOCALE);
 
         assertThat(view).isEqualTo("auth/change-password-required");
         assertThat(model.get("form")).isInstanceOf(PasswordChangeForm.class);
@@ -55,7 +62,7 @@ class ProfileWebControllerMandatoryPasswordChangeTest {
                 .thenReturn(buildUser(false));
 
         String view = controller.requiredPasswordChange(
-                authentication, new ExtendedModelMap());
+                authentication, new ExtendedModelMap(), LOCALE);
 
         assertThat(view).isEqualTo("redirect:/profile");
     }
@@ -80,7 +87,8 @@ class ProfileWebControllerMandatoryPasswordChangeTest {
                 binding,
                 authentication,
                 request,
-                new ExtendedModelMap());
+                new ExtendedModelMap(),
+                LOCALE);
 
         assertThat(view).isEqualTo("redirect:/");
         verify(userAdminService).changeOwnPassword(
@@ -108,7 +116,8 @@ class ProfileWebControllerMandatoryPasswordChangeTest {
                 binding,
                 authentication,
                 new MockHttpServletRequest(),
-                new ExtendedModelMap());
+                new ExtendedModelMap(),
+                LOCALE);
 
         assertThat(view).isEqualTo("auth/change-password-required");
         assertThat(binding.hasFieldErrors("confirmPassword")).isTrue();

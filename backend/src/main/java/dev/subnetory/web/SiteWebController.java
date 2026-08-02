@@ -12,7 +12,9 @@ import dev.subnetory.web.form.SiteForm;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
+import java.util.Locale;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.context.MessageSource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -40,15 +42,22 @@ public class SiteWebController {
     private final NetworkContextService contextService;
     private final ActiveContextService activeContextService;
     private final AuthAuditService authAuditService;
+    private final MessageSource messageSource;
 
     public SiteWebController(SiteService siteService,
                              NetworkContextService contextService,
                              ObjectProvider<ActiveContextService> activeContextServiceProvider,
-                             AuthAuditService authAuditService) {
+                             AuthAuditService authAuditService,
+                             MessageSource messageSource) {
         this.siteService    = siteService;
         this.contextService = contextService;
         this.activeContextService = activeContextServiceProvider.getIfAvailable();
         this.authAuditService = authAuditService;
+        this.messageSource = messageSource;
+    }
+
+    private String msg(String key, Locale locale, Object... args) {
+        return messageSource.getMessage(key, args, locale);
     }
 
     // ── Liste ──────────────────────────────────────────────────────────────
@@ -58,7 +67,8 @@ public class SiteWebController {
                        @RequestParam(required = false) Long contextId,
                        Model model,
                        Authentication authentication,
-                       HttpSession session) {
+                       HttpSession session,
+                       Locale locale) {
         var pageable = PageRequest.of(page, PAGE_SIZE, Sort.by("code"));
         Long selectedContextId = activeContextService == null
                 ? contextId : activeContextService.resolve(session, contextId);
@@ -71,7 +81,7 @@ public class SiteWebController {
         model.addAttribute("selectedContextId", selectedContextId);
         model.addAttribute("canManage", canManage(authentication));
         model.addAttribute("activeSection", "sites");
-        model.addAttribute("pageTitle", "Sites");
+        model.addAttribute("pageTitle", msg("nav.sites", locale));
         return "network/sites";
     }
 
@@ -79,8 +89,8 @@ public class SiteWebController {
 
     @GetMapping("/new")
     @PreAuthorize("hasAnyRole('ADMIN', 'NETWORK')")
-    public String newForm(Model model) {
-        prepareFormModel(model, new SiteForm(), "Nouveau site",
+    public String newForm(Model model, Locale locale) {
+        prepareFormModel(model, new SiteForm(), msg("pageTitle.siteNew", locale),
                 "/network/sites", "/network/sites");
         return "network/site-form";
     }
@@ -93,9 +103,10 @@ public class SiteWebController {
                          BindingResult errors,
                          Model model,
                          Authentication auth,
-                         RedirectAttributes flash) {
+                         RedirectAttributes flash,
+                         Locale locale) {
         if (errors.hasErrors()) {
-            prepareFormModel(model, form, "Nouveau site",
+            prepareFormModel(model, form, msg("pageTitle.siteNew", locale),
                     "/network/sites", "/network/sites");
             return "network/site-form";
         }
@@ -104,11 +115,24 @@ public class SiteWebController {
                     siteService.create(new SiteRequest(form.getName(), form.getCode(), form.getContextId()));
             authAuditService.recordSiteCreated(auth.getName(), created.id(), created.name());
             flash.addFlashAttribute("flashSuccess",
-                    "Site « " + form.getName() + " » créé avec succès.");
+                    msg("flash.site.createSuccess", locale, form.getName()));
         } catch (ConflictException e) {
             model.addAttribute("formError",
-                    "Un site avec le code « " + form.getCode() + " » existe déjà.");
-            prepareFormModel(model, form, "Nouveau site",
+                    msg("flash.site.codeConflict", locale, form.getCode()));
+            prepareFormModel(model, form, msg("pageTitle.siteNew", locale),
+                    "/network/sites", "/network/sites");
+            return "network/site-form";
+        } catch (DataIntegrityViolationException e) {
+            // Filet de securite (audit 02/08/2026, correctif ELEVEE) : le
+            // pre-controle existsByCode() dans SiteService couvre la grande
+            // majorite des cas, mais une course concurrente entre deux
+            // creations avec le meme code (les deux passent le pre-controle
+            // avant que l'un des deux ne commite) reste possible. Sans ce
+            // catch, la contrainte d'unicite en base remontait comme une 500
+            // non geree au lieu du meme message clair que ConflictException.
+            model.addAttribute("formError",
+                    msg("flash.site.codeConflict", locale, form.getCode()));
+            prepareFormModel(model, form, msg("pageTitle.siteNew", locale),
                     "/network/sites", "/network/sites");
             return "network/site-form";
         }
@@ -121,10 +145,11 @@ public class SiteWebController {
     @PreAuthorize("hasAnyRole('ADMIN', 'NETWORK')")
     public String editForm(@PathVariable Long id,
                            Model model,
-                           HttpServletResponse response) {
+                           HttpServletResponse response,
+                           Locale locale) {
         try {
             prepareFormModel(model, SiteForm.from(siteService.findById(id)),
-                    "Modifier le site",
+                    msg("pageTitle.siteEdit", locale),
                     "/network/sites/" + id,
                     "/network/sites");
         } catch (ResourceNotFoundException e) {
@@ -143,9 +168,10 @@ public class SiteWebController {
                          BindingResult errors,
                          Model model,
                          RedirectAttributes flash,
-                         HttpServletResponse response) {
+                         HttpServletResponse response,
+                         Locale locale) {
         if (errors.hasErrors()) {
-            prepareFormModel(model, form, "Modifier le site",
+            prepareFormModel(model, form, msg("pageTitle.siteEdit", locale),
                     "/network/sites/" + id, "/network/sites");
             // Piege POST/redirect (audit du 31/07/2026) : cette vue est rendue
             // directement sur l'URL POST /network/sites/{id}, qui n'a aucun
@@ -158,14 +184,24 @@ public class SiteWebController {
         }
         try {
             siteService.update(id, new SiteRequest(form.getName(), form.getCode(), form.getContextId()));
-            flash.addFlashAttribute("flashSuccess", "Site mis à jour.");
+            flash.addFlashAttribute("flashSuccess", msg("flash.site.updateSuccess", locale));
         } catch (ResourceNotFoundException e) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
             return "error/404";
         } catch (ConflictException e) {
             model.addAttribute("formError",
-                    "Un site avec le code « " + form.getCode() + " » existe déjà.");
-            prepareFormModel(model, form, "Modifier le site",
+                    msg("flash.site.codeConflict", locale, form.getCode()));
+            prepareFormModel(model, form, msg("pageTitle.siteEdit", locale),
+                    "/network/sites/" + id, "/network/sites");
+            model.addAttribute("currentRequestPath", "/network/sites/" + id + "/edit");
+            return "network/site-form";
+        } catch (DataIntegrityViolationException e) {
+            // Meme filet de securite que create() ci-dessus : course
+            // concurrente possible entre le pre-controle existsByCode() de
+            // SiteService.update() et la contrainte d'unicite reelle en base.
+            model.addAttribute("formError",
+                    msg("flash.site.codeConflict", locale, form.getCode()));
+            prepareFormModel(model, form, msg("pageTitle.siteEdit", locale),
                     "/network/sites/" + id, "/network/sites");
             model.addAttribute("currentRequestPath", "/network/sites/" + id + "/edit");
             return "network/site-form";
@@ -177,17 +213,16 @@ public class SiteWebController {
 
     @PostMapping("/{id}/delete")
     @PreAuthorize("hasRole('ADMIN')")
-    public String delete(@PathVariable Long id, Authentication auth, RedirectAttributes flash) {
+    public String delete(@PathVariable Long id, Authentication auth, RedirectAttributes flash, Locale locale) {
         try {
             SiteResponse site = siteService.findById(id);
             siteService.delete(id);
             authAuditService.recordSiteDeleted(auth.getName(), id, site.name());
-            flash.addFlashAttribute("flashSuccess", "Site supprimé.");
+            flash.addFlashAttribute("flashSuccess", msg("flash.site.deleteSuccess", locale));
         } catch (ResourceNotFoundException e) {
-            flash.addFlashAttribute("flashError", "Site introuvable.");
+            flash.addFlashAttribute("flashError", msg("flash.site.notFound", locale));
         } catch (DataIntegrityViolationException e) {
-            flash.addFlashAttribute("flashError",
-                    "Impossible de supprimer : des sous-réseaux ou VLANs sont rattachés à ce site.");
+            flash.addFlashAttribute("flashError", msg("flash.site.deleteConflict", locale));
         }
         return "redirect:/network/sites";
     }

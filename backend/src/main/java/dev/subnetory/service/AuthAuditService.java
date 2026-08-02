@@ -28,6 +28,26 @@ public class AuthAuditService {
     public static final String CONTEXT_ACCESS_DENIED = "CONTEXT_ACCESS_DENIED";
     public static final String USER_CREATED = "USER_CREATED";
     public static final String USER_CONTEXTS_UPDATED = "USER_CONTEXTS_UPDATED";
+    /**
+     * Audit du 02/08/2026, correctif MOYENNE : {@code updateRoles} et
+     * {@code setEnabled} dans {@code UserAdminService} modifient les
+     * privileges d'un compte (attribution/retrait de roles, y compris
+     * ROLE_ADMIN ; activation/desactivation) sans jamais tracer l'action
+     * dans le journal d'audit, contrairement a {@code updateContexts}
+     * (voir {@link #USER_CONTEXTS_UPDATED}) qui suit deja ce patron. Deux
+     * evenements distincts (plutot qu'un seul generique) pour rester
+     * filtrable dans l'ecran d'audit au meme titre que MFA_ENABLED/MFA_DISABLED.
+     */
+    public static final String USER_ROLES_UPDATED = "USER_ROLES_UPDATED";
+    public static final String USER_ENABLED = "USER_ENABLED";
+    public static final String USER_DISABLED = "USER_DISABLED";
+    /**
+     * Audit du 02/08/2026, correctif MOYENNE : LdapConfigurationService.save()
+     * (URL, DN de bind, mot de passe de bind, role LDAP par defaut) n'etait
+     * jusqu'ici jamais audite, alors qu'un role par defaut mal configure
+     * peut octroyer ROLE_ADMIN a tout compte de l'annuaire.
+     */
+    public static final String LDAP_CONFIGURATION_UPDATED = "LDAP_CONFIGURATION_UPDATED";
     public static final String MFA_ENABLED = "MFA_ENABLED";
     public static final String MFA_DISABLED = "MFA_DISABLED";
     public static final String MFA_RECOVERY_CODES_REGENERATED = "MFA_RECOVERY_CODES_REGENERATED";
@@ -223,6 +243,28 @@ public class AuthAuditService {
                                           int contextCount) {
         record(USER_CONTEXTS_UPDATED, adminUsername, targetUsername, null, null, true,
                 "Perimetre de contextes mis a jour. contextCount=" + contextCount);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordUserRolesUpdated(String adminUsername,
+                                       String targetUsername,
+                                       int roleCount) {
+        record(USER_ROLES_UPDATED, adminUsername, targetUsername, null, null, true,
+                "Roles mis a jour. roleCount=" + roleCount);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordUserEnabledChanged(String adminUsername,
+                                         String targetUsername,
+                                         boolean enabled) {
+        record(enabled ? USER_ENABLED : USER_DISABLED, adminUsername, targetUsername, null, null, true,
+                enabled ? "Compte reactive." : "Compte desactive.");
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordLdapConfigurationUpdated(String adminUsername) {
+        record(LDAP_CONFIGURATION_UPDATED, adminUsername, null, null, null, true,
+                "Configuration LDAP modifiee.");
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

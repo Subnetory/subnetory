@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.support.ResourceBundleMessageSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -22,6 +23,7 @@ import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.web.servlet.mvc.support.RedirectAttributesModelMap;
 
 import java.util.List;
+import java.util.Locale;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -32,6 +34,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ProfileWebControllerMfaTest {
 
+    private static final Locale LOCALE = Locale.FRENCH;
+
     @Mock UserAdminService userAdminService;
     @Mock ClientIpResolver clientIpResolver;
 
@@ -40,7 +44,10 @@ class ProfileWebControllerMfaTest {
 
     @BeforeEach
     void setUp() {
-        controller = new ProfileWebController(userAdminService, clientIpResolver);
+        ResourceBundleMessageSource messageSource = new ResourceBundleMessageSource();
+        messageSource.setBasename("messages");
+        messageSource.setDefaultEncoding("UTF-8");
+        controller = new ProfileWebController(userAdminService, clientIpResolver, messageSource);
         authentication = new UsernamePasswordAuthenticationToken("operator", "n/a", List.of());
     }
 
@@ -56,7 +63,7 @@ class ProfileWebControllerMfaTest {
     void beginSetup_alreadyEnabled_redirectsToProfile() {
         when(userAdminService.findByUsername("operator")).thenReturn(buildUser(true));
 
-        String view = controller.beginMfaSetup(authentication, new MockHttpSession(), new ExtendedModelMap());
+        String view = controller.beginMfaSetup(authentication, new MockHttpSession(), new ExtendedModelMap(), LOCALE);
 
         assertThat(view).isEqualTo("redirect:/profile");
     }
@@ -69,7 +76,7 @@ class ProfileWebControllerMfaTest {
         MockHttpSession session = new MockHttpSession();
         ExtendedModelMap model = new ExtendedModelMap();
 
-        String view = controller.beginMfaSetup(authentication, session, model);
+        String view = controller.beginMfaSetup(authentication, session, model, LOCALE);
 
         assertThat(view).isEqualTo("profile-mfa-setup");
         assertThat(session.getAttribute("pendingMfaSecret")).isEqualTo("SECRET123");
@@ -85,7 +92,7 @@ class ProfileWebControllerMfaTest {
         BeanPropertyBindingResult binding = new BeanPropertyBindingResult(form, "form");
 
         String view = controller.confirmMfaSetup(
-                form, binding, authentication, session, new MockHttpServletRequest(), new ExtendedModelMap());
+                form, binding, authentication, session, new MockHttpServletRequest(), new ExtendedModelMap(), LOCALE);
 
         assertThat(view).isEqualTo("redirect:/profile/mfa/setup");
     }
@@ -103,7 +110,7 @@ class ProfileWebControllerMfaTest {
                 .thenReturn(List.of("a1-b2", "c3-d4"));
         ExtendedModelMap model = new ExtendedModelMap();
 
-        String view = controller.confirmMfaSetup(form, binding, authentication, session, request, model);
+        String view = controller.confirmMfaSetup(form, binding, authentication, session, request, model, LOCALE);
 
         assertThat(view).isEqualTo("profile-mfa-recovery-codes");
         assertThat(session.getAttribute("pendingMfaSecret")).isNull();
@@ -125,7 +132,7 @@ class ProfileWebControllerMfaTest {
                 .thenReturn("data:image/png;base64,xyz");
         ExtendedModelMap model = new ExtendedModelMap();
 
-        String view = controller.confirmMfaSetup(form, binding, authentication, session, request, model);
+        String view = controller.confirmMfaSetup(form, binding, authentication, session, request, model, LOCALE);
 
         assertThat(view).isEqualTo("profile-mfa-setup");
         assertThat(session.getAttribute("pendingMfaSecret")).isEqualTo("SECRET123");
@@ -139,7 +146,7 @@ class ProfileWebControllerMfaTest {
         binding.reject("required");
         RedirectAttributesModelMap flash = new RedirectAttributesModelMap();
 
-        String view = controller.disableMfa(form, binding, authentication, new MockHttpServletRequest(), flash);
+        String view = controller.disableMfa(form, binding, authentication, new MockHttpServletRequest(), flash, LOCALE);
 
         assertThat(view).isEqualTo("redirect:/profile");
         assertThat(flash.getFlashAttributes().get("flashError")).isNotNull();
@@ -156,7 +163,7 @@ class ProfileWebControllerMfaTest {
         when(clientIpResolver.resolve(request)).thenReturn("127.0.0.1");
         RedirectAttributesModelMap flash = new RedirectAttributesModelMap();
 
-        String view = controller.disableMfa(form, binding, authentication, request, flash);
+        String view = controller.disableMfa(form, binding, authentication, request, flash, LOCALE);
 
         assertThat(view).isEqualTo("redirect:/profile");
         assertThat(flash.getFlashAttributes().get("flashSuccess")).isNotNull();
@@ -175,7 +182,7 @@ class ProfileWebControllerMfaTest {
                 .when(userAdminService).disableOwnMfa("operator", "WrongPass!", "123456", "127.0.0.1", null);
         RedirectAttributesModelMap flash = new RedirectAttributesModelMap();
 
-        String view = controller.disableMfa(form, binding, authentication, request, flash);
+        String view = controller.disableMfa(form, binding, authentication, request, flash, LOCALE);
 
         assertThat(view).isEqualTo("redirect:/profile");
         assertThat(flash.getFlashAttributes().get("flashError")).isEqualTo("Le mot de passe actuel est incorrect.");
@@ -193,7 +200,7 @@ class ProfileWebControllerMfaTest {
         ExtendedModelMap model = new ExtendedModelMap();
         RedirectAttributesModelMap flash = new RedirectAttributesModelMap();
 
-        String view = controller.regenerateMfaRecoveryCodes(form, binding, authentication, request, model, flash);
+        String view = controller.regenerateMfaRecoveryCodes(form, binding, authentication, request, model, flash, LOCALE);
 
         assertThat(view).isEqualTo("profile-mfa-recovery-codes");
         assertThat(model.get("recoveryCodes")).isEqualTo(List.of("e5-f6"));

@@ -41,7 +41,8 @@ public class LoginRateLimitingFilter extends OncePerRequestFilter {
 
         if (isLoginPost(request)) {
             String ipAddress = clientIpResolver.resolve(request);
-            if (loginRateLimiter.isLocked(ipAddress)) {
+            String username = request.getParameter("username");
+            if (loginRateLimiter.isLocked(ipAddress, username)) {
                 response.sendRedirect(request.getContextPath() + LOCKED_URL);
                 return;
             }

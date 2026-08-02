@@ -28,6 +28,7 @@ import jakarta.validation.constraints.Min;
 import org.springframework.beans.factory.ObjectProvider;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.context.MessageSource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -51,6 +52,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Controller web pour les sous-réseaux.
@@ -81,6 +83,7 @@ public class SubnetWebController {
     private final VlanService vlanService;
     private final ActiveContextService activeContextService;
     private final AuthAuditService authAuditService;
+    private final MessageSource messageSource;
 
     public SubnetWebController(SubnetService subnetService,
                                 IpAllocService ipAllocService,
@@ -89,7 +92,8 @@ public class SubnetWebController {
                                 SiteService siteService,
                                 VlanService vlanService,
                                 ObjectProvider<ActiveContextService> activeContextServiceProvider,
-                                AuthAuditService authAuditService) {
+                                AuthAuditService authAuditService,
+                                MessageSource messageSource) {
         this.subnetService  = subnetService;
         this.ipAllocService = ipAllocService;
         this.scanService    = scanService;
@@ -98,6 +102,11 @@ public class SubnetWebController {
         this.vlanService    = vlanService;
         this.activeContextService = activeContextServiceProvider.getIfAvailable();
         this.authAuditService = authAuditService;
+        this.messageSource = messageSource;
+    }
+
+    private String msg(String key, Locale locale, Object... args) {
+        return messageSource.getMessage(key, args, locale);
     }
 
     // ── Liste ──────────────────────────────────────────────────────────────
@@ -109,7 +118,8 @@ public class SubnetWebController {
                        @RequestParam(required = false) Long vlanId,
                        Authentication auth,
                        Model model,
-                       HttpSession session) {
+                       HttpSession session,
+                       Locale locale) {
         var pageable = PageRequest.of(page, PAGE_SIZE, Sort.by("network"));
         Long selectedContextId = activeContextService == null
                 ? contextId : activeContextService.resolve(session, contextId);
@@ -155,7 +165,7 @@ public class SubnetWebController {
         model.addAttribute("canScan", canManage);
         model.addAttribute("canManage", canManage);
         model.addAttribute("activeSection", "subnets");
-        model.addAttribute("pageTitle", "Sous-réseaux");
+        model.addAttribute("pageTitle", msg("nav.subnets", locale));
         return "network/subnets";
     }
 
@@ -226,7 +236,8 @@ public class SubnetWebController {
             @RequestParam(required = false) Long siteId,
             @RequestParam(required = false) Long contextId,
             HttpServletResponse response,
-            HttpSession session) throws IOException {
+            HttpSession session,
+            Locale locale) throws IOException {
 
         response.setContentType(XLSX_CONTENT_TYPE);
         response.setCharacterEncoding("UTF-8");
@@ -239,7 +250,7 @@ public class SubnetWebController {
         List<SubnetResponse> subnets = subnetService.findAllForExport(siteId, selectedContextId);
 
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
-            Sheet sheet = workbook.createSheet("Sous-réseaux");
+            Sheet sheet = workbook.createSheet(msg("export.subnets.sheetName", locale));
 
             CellStyle headerStyle = workbook.createCellStyle();
             headerStyle.setFillForegroundColor(IndexedColors.ROYAL_BLUE.getIndex());
@@ -325,10 +336,11 @@ public class SubnetWebController {
                            @RequestParam(defaultValue = "normal") String timing,
                            @RequestParam(required = false) String dnsServers,
                            Model model,
-                           HttpServletResponse response) {
+                           HttpServletResponse response,
+                           Locale locale) {
         try {
             var subnet = subnetService.findById(id);
-            prepareScanModel(model, subnet, override, resolveDns, arpPing, timing, dnsServers);
+            prepareScanModel(model, subnet, override, resolveDns, arpPing, timing, dnsServers, locale);
         } catch (ResourceNotFoundException e) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
             return "error/404";
@@ -351,37 +363,33 @@ public class SubnetWebController {
                        @RequestParam(required = false) String dnsServers,
                        Authentication auth,
                        Model model,
-                       HttpServletResponse response) {
+                       HttpServletResponse response,
+                       Locale locale) {
         var request = new ScanRequest("nmap", override, resolveDns, arpPing, timing, dnsServers);
         SubnetResponse subnet;
         try {
             subnet = subnetService.findById(id);
             ScanResponse result = scanService.scan(id, request, auth.getName());
-            prepareScanModel(model, subnet, override, resolveDns, arpPing, timing, dnsServers);
+            prepareScanModel(model, subnet, override, resolveDns, arpPing, timing, dnsServers, locale);
             model.addAttribute("scanResult", result);
         } catch (ScanException e) {
             try {
                 subnet = subnetService.findById(id);
-                prepareScanModel(model, subnet, override, resolveDns, arpPing, timing, dnsServers);
+                prepareScanModel(model, subnet, override, resolveDns, arpPing, timing, dnsServers, locale);
             } catch (ResourceNotFoundException missing) {
                 response.setStatus(HttpServletResponse.SC_NOT_FOUND);
                 return "error/404";
             }
             if (e.getReason() == ScanException.Reason.TOOL_NOT_AVAILABLE) {
-                model.addAttribute("scanError",
-                        "Le moteur de scan n'est pas disponible. Vérifiez que Nmap est installé côté serveur.");
+                model.addAttribute("scanError", msg("scan.error.toolNotAvailable", locale));
             } else if (e.getReason() == ScanException.Reason.SUBNET_TOO_LARGE) {
-                model.addAttribute("scanError",
-                        "Ce subnet est trop grand pour un scan synchrone (maximum /24).");
+                model.addAttribute("scanError", msg("scan.error.subnetTooLarge", locale));
             } else if (e.getReason() == ScanException.Reason.TIMEOUT) {
-                model.addAttribute("scanError",
-                        "Le scan n'a pas répondu dans le délai prévu. Essayez le rythme rapide ou un sous-réseau plus restreint.");
+                model.addAttribute("scanError", msg("scan.error.timeout", locale));
             } else if (e.getReason() == ScanException.Reason.INVALID_OPTIONS) {
-                model.addAttribute("scanError",
-                        "La configuration du scan contient une valeur invalide.");
+                model.addAttribute("scanError", msg("scan.error.invalidOptions", locale));
             } else {
-                model.addAttribute("scanError",
-                        "Le scan a échoué : " + e.getMessage());
+                model.addAttribute("scanError", msg("scan.error.generic", locale, e.getMessage()));
             }
         } catch (ResourceNotFoundException e) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
@@ -394,8 +402,8 @@ public class SubnetWebController {
 
     @GetMapping("/new")
     @PreAuthorize("hasAnyRole('ADMIN', 'NETWORK')")
-    public String newForm(Model model) {
-        prepareFormModel(model, new SubnetForm(), "Nouveau sous-réseau",
+    public String newForm(Model model, Locale locale) {
+        prepareFormModel(model, new SubnetForm(), msg("pageTitle.subnetNew", locale),
                 "/network/subnets", "/network/subnets");
         return "network/subnet-form";
     }
@@ -408,9 +416,10 @@ public class SubnetWebController {
                          BindingResult errors,
                          Model model,
                          Authentication auth,
-                         RedirectAttributes flash) {
+                         RedirectAttributes flash,
+                         Locale locale) {
         if (errors.hasErrors()) {
-            prepareFormModel(model, form, "Nouveau sous-réseau",
+            prepareFormModel(model, form, msg("pageTitle.subnetNew", locale),
                     "/network/subnets", "/network/subnets");
             return "network/subnet-form";
         }
@@ -418,11 +427,10 @@ public class SubnetWebController {
             SubnetResponse created = subnetService.create(toRequest(form));
             authAuditService.recordSubnetCreated(auth.getName(), created.id(), created.network());
             flash.addFlashAttribute("flashSuccess",
-                    "Sous-réseau " + form.getNetwork() + " créé avec succès.");
+                    msg("flash.subnet.createSuccess", locale, form.getNetwork()));
         } catch (ConflictException e) {
-            model.addAttribute("formError",
-                    "Ce sous-réseau existe déjà sur ce site.");
-            prepareFormModel(model, form, "Nouveau sous-réseau",
+            model.addAttribute("formError", msg("flash.subnet.conflict", locale));
+            prepareFormModel(model, form, msg("pageTitle.subnetNew", locale),
                     "/network/subnets", "/network/subnets");
             return "network/subnet-form";
         }
@@ -435,10 +443,11 @@ public class SubnetWebController {
     @PreAuthorize("hasAnyRole('ADMIN', 'NETWORK')")
     public String editForm(@PathVariable Long id,
                            Model model,
-                           HttpServletResponse response) {
+                           HttpServletResponse response,
+                           Locale locale) {
         try {
             prepareFormModel(model, SubnetForm.from(subnetService.findById(id)),
-                    "Modifier le sous-réseau",
+                    msg("pageTitle.subnetEdit", locale),
                     "/network/subnets/" + id,
                     "/network/subnets");
         } catch (ResourceNotFoundException e) {
@@ -457,9 +466,10 @@ public class SubnetWebController {
                          BindingResult errors,
                          Model model,
                          RedirectAttributes flash,
-                         HttpServletResponse response) {
+                         HttpServletResponse response,
+                         Locale locale) {
         if (errors.hasErrors()) {
-            prepareFormModel(model, form, "Modifier le sous-réseau",
+            prepareFormModel(model, form, msg("pageTitle.subnetEdit", locale),
                     "/network/subnets/" + id, "/network/subnets");
             // Piege POST/redirect (audit du 31/07/2026), meme pattern que
             // AddressWebController.prepareReserveModel() : pas de @GetMapping
@@ -469,14 +479,13 @@ public class SubnetWebController {
         }
         try {
             subnetService.update(id, toRequest(form));
-            flash.addFlashAttribute("flashSuccess", "Sous-réseau mis à jour.");
+            flash.addFlashAttribute("flashSuccess", msg("flash.subnet.updateSuccess", locale));
         } catch (ResourceNotFoundException e) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
             return "error/404";
         } catch (ConflictException e) {
-            model.addAttribute("formError",
-                    "Ce sous-réseau existe déjà sur ce site.");
-            prepareFormModel(model, form, "Modifier le sous-réseau",
+            model.addAttribute("formError", msg("flash.subnet.conflict", locale));
+            prepareFormModel(model, form, msg("pageTitle.subnetEdit", locale),
                     "/network/subnets/" + id, "/network/subnets");
             model.addAttribute("currentRequestPath", "/network/subnets/" + id + "/edit");
             return "network/subnet-form";
@@ -484,9 +493,8 @@ public class SubnetWebController {
             // Verrouillage optimiste (audit du 31/07/2026) : quelqu'un d'autre
             // a modifié ce sous-réseau entre le chargement du formulaire et
             // cette soumission.
-            model.addAttribute("formError",
-                    "Ce sous-réseau a été modifié entre-temps par quelqu'un d'autre. Rechargez la page et réappliquez vos changements.");
-            prepareFormModel(model, form, "Modifier le sous-réseau",
+            model.addAttribute("formError", msg("flash.subnet.optimisticLock", locale));
+            prepareFormModel(model, form, msg("pageTitle.subnetEdit", locale),
                     "/network/subnets/" + id, "/network/subnets");
             model.addAttribute("currentRequestPath", "/network/subnets/" + id + "/edit");
             return "network/subnet-form";
@@ -498,17 +506,16 @@ public class SubnetWebController {
 
     @PostMapping("/{id}/delete")
     @PreAuthorize("hasRole('ADMIN')")
-    public String delete(@PathVariable Long id, Authentication auth, RedirectAttributes flash) {
+    public String delete(@PathVariable Long id, Authentication auth, RedirectAttributes flash, Locale locale) {
         try {
             SubnetResponse subnet = subnetService.findById(id);
             subnetService.delete(id);
             authAuditService.recordSubnetDeleted(auth.getName(), id, subnet.network());
-            flash.addFlashAttribute("flashSuccess", "Sous-réseau supprimé.");
+            flash.addFlashAttribute("flashSuccess", msg("flash.subnet.deleteSuccess", locale));
         } catch (ResourceNotFoundException e) {
-            flash.addFlashAttribute("flashError", "Sous-réseau introuvable.");
+            flash.addFlashAttribute("flashError", msg("flash.subnet.notFound", locale));
         } catch (DataIntegrityViolationException e) {
-            flash.addFlashAttribute("flashError",
-                    "Impossible de supprimer : des adresses IP sont enregistrées dans ce sous-réseau.");
+            flash.addFlashAttribute("flashError", msg("flash.subnet.deleteConflict", locale));
         }
         return "redirect:/network/subnets";
     }
@@ -567,7 +574,8 @@ public class SubnetWebController {
                                   boolean resolveDns,
                                   boolean arpPing,
                                   String timing,
-                                  String dnsServers) {
+                                  String dnsServers,
+                                  Locale locale) {
         String safeTiming = switch (timing) {
             case "fast", "gentle" -> timing;
             default -> "normal";
@@ -582,7 +590,7 @@ public class SubnetWebController {
                 subnet.network(),
                 new ScanRequest("nmap", override, resolveDns, arpPing, safeTiming, dnsServers)));
         model.addAttribute("activeSection", "subnets");
-        model.addAttribute("pageTitle", "Scan " + subnet.network());
+        model.addAttribute("pageTitle", msg("pageTitle.subnetScanPrefix", locale) + " " + subnet.network());
     }
 
     private boolean canManage(Authentication authentication) {

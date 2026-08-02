@@ -7,13 +7,13 @@ import jakarta.validation.constraints.NotBlank;
  */
 public class PasswordChangeForm {
 
-    @NotBlank(message = "Le mot de passe actuel est obligatoire.")
+    @NotBlank(message = "{validation.mfa.currentPasswordRequired}")
     private String currentPassword;
 
-    @NotBlank(message = "Le nouveau mot de passe est obligatoire.")
+    @NotBlank(message = "{validation.password.newRequired}")
     private String newPassword;
 
-    @NotBlank(message = "La confirmation du nouveau mot de passe est obligatoire.")
+    @NotBlank(message = "{validation.password.confirmRequired}")
     private String confirmPassword;
 
     public String getCurrentPassword() {

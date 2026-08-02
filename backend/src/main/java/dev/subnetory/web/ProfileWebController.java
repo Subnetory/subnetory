@@ -12,6 +12,8 @@ import dev.subnetory.web.form.PasswordChangeForm;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
+import java.util.Locale;
+import org.springframework.context.MessageSource;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -40,27 +42,34 @@ public class ProfileWebController {
 
     private final UserAdminService userAdminService;
     private final ClientIpResolver clientIpResolver;
+    private final MessageSource messageSource;
 
     public ProfileWebController(UserAdminService userAdminService,
-                                ClientIpResolver clientIpResolver) {
+                                ClientIpResolver clientIpResolver,
+                                MessageSource messageSource) {
         this.userAdminService = userAdminService;
         this.clientIpResolver = clientIpResolver;
+        this.messageSource = messageSource;
+    }
+
+    private String msg(String key, Locale locale, Object... args) {
+        return messageSource.getMessage(key, args, locale);
     }
 
     @GetMapping
-    public String profile(Authentication authentication, Model model) {
-        prepareProfileModel(authentication, model, new PasswordChangeForm());
+    public String profile(Authentication authentication, Model model, Locale locale) {
+        prepareProfileModel(authentication, model, new PasswordChangeForm(), locale);
         return "profile";
     }
 
     @GetMapping("/change-password-required")
-    public String requiredPasswordChange(Authentication authentication, Model model) {
+    public String requiredPasswordChange(Authentication authentication, Model model, Locale locale) {
         User user = userAdminService.findByUsername(authentication.getName());
         if (!requiresPasswordChange(user)) {
             return "redirect:/profile";
         }
 
-        prepareRequiredPasswordChangeModel(model, new PasswordChangeForm());
+        prepareRequiredPasswordChangeModel(model, new PasswordChangeForm(), locale);
         return "auth/change-password-required";
     }
 
@@ -70,15 +79,16 @@ public class ProfileWebController {
             BindingResult bindingResult,
             Authentication authentication,
             HttpServletRequest request,
-            Model model) {
+            Model model,
+            Locale locale) {
         User user = userAdminService.findByUsername(authentication.getName());
         if (!requiresPasswordChange(user)) {
             return "redirect:/profile";
         }
 
-        validatePasswordConfirmation(form, bindingResult);
+        validatePasswordConfirmation(form, bindingResult, locale);
         if (bindingResult.hasErrors()) {
-            prepareRequiredPasswordChangeModel(model, form);
+            prepareRequiredPasswordChangeModel(model, form, locale);
             return "auth/change-password-required";
         }
 
@@ -92,7 +102,7 @@ public class ProfileWebController {
             return "redirect:/";
         } catch (PasswordPolicyException e) {
             model.addAttribute("flashError", e.getMessage());
-            prepareRequiredPasswordChangeModel(model, form);
+            prepareRequiredPasswordChangeModel(model, form, locale);
             return "auth/change-password-required";
         }
     }
@@ -103,11 +113,12 @@ public class ProfileWebController {
                                  Authentication authentication,
                                  HttpServletRequest request,
                                  Model model,
-                                 RedirectAttributes flash) {
-        validatePasswordConfirmation(form, bindingResult);
+                                 RedirectAttributes flash,
+                                 Locale locale) {
+        validatePasswordConfirmation(form, bindingResult, locale);
 
         if (bindingResult.hasErrors()) {
-            prepareProfileModel(authentication, model, form);
+            prepareProfileModel(authentication, model, form, locale);
             return "profile";
         }
 
@@ -122,17 +133,17 @@ public class ProfileWebController {
                     ipAddress,
                     userAgent);
 
-            flash.addFlashAttribute("flashSuccess", "Mot de passe mis a jour.");
+            flash.addFlashAttribute("flashSuccess", msg("flash.profile.passwordUpdated", locale));
             return "redirect:/profile";
         } catch (PasswordPolicyException e) {
             model.addAttribute("flashError", e.getMessage());
-            prepareProfileModel(authentication, model, form);
+            prepareProfileModel(authentication, model, form, locale);
             return "profile";
         }
     }
 
     @GetMapping("/mfa/setup")
-    public String beginMfaSetup(Authentication authentication, HttpSession session, Model model) {
+    public String beginMfaSetup(Authentication authentication, HttpSession session, Model model, Locale locale) {
         User user = userAdminService.findByUsername(authentication.getName());
         if (user.isMfaEnabled()) {
             return "redirect:/profile";
@@ -140,7 +151,7 @@ public class ProfileWebController {
 
         MfaService.MfaSetup setup = userAdminService.beginMfaSetup(authentication.getName());
         session.setAttribute(SESSION_PENDING_MFA_SECRET, setup.secret());
-        prepareMfaSetupModel(model, setup.secret(), setup.qrCodeDataUri(), new MfaConfirmForm());
+        prepareMfaSetupModel(model, setup.secret(), setup.qrCodeDataUri(), new MfaConfirmForm(), locale);
         return "profile-mfa-setup";
     }
 
@@ -150,14 +161,15 @@ public class ProfileWebController {
                                   Authentication authentication,
                                   HttpSession session,
                                   HttpServletRequest request,
-                                  Model model) {
+                                  Model model,
+                                  Locale locale) {
         String secret = (String) session.getAttribute(SESSION_PENDING_MFA_SECRET);
         if (secret == null) {
             return "redirect:/profile/mfa/setup";
         }
 
         if (bindingResult.hasErrors()) {
-            prepareMfaSetupModel(model, secret, userAdminService.buildMfaQrCode(authentication.getName(), secret), form);
+            prepareMfaSetupModel(model, secret, userAdminService.buildMfaQrCode(authentication.getName(), secret), form, locale);
             return "profile-mfa-setup";
         }
 
@@ -169,11 +181,11 @@ public class ProfileWebController {
                     clientIpResolver.resolve(request),
                     request.getHeader("User-Agent"));
             session.removeAttribute(SESSION_PENDING_MFA_SECRET);
-            prepareMfaRecoveryCodesModel(model, recoveryCodes, "MFA active. Notez ces codes de recuperation des maintenant.");
+            prepareMfaRecoveryCodesModel(model, recoveryCodes, msg("flash.profile.mfaEnabled", locale), locale);
             return "profile-mfa-recovery-codes";
         } catch (InvalidMfaCodeException e) {
-            model.addAttribute("flashError", "Code invalide. Reessayez.");
-            prepareMfaSetupModel(model, secret, userAdminService.buildMfaQrCode(authentication.getName(), secret), form);
+            model.addAttribute("flashError", msg("flash.profile.mfaInvalidCode", locale));
+            prepareMfaSetupModel(model, secret, userAdminService.buildMfaQrCode(authentication.getName(), secret), form, locale);
             return "profile-mfa-setup";
         }
     }
@@ -183,9 +195,10 @@ public class ProfileWebController {
                              BindingResult bindingResult,
                              Authentication authentication,
                              HttpServletRequest request,
-                             RedirectAttributes flash) {
+                             RedirectAttributes flash,
+                             Locale locale) {
         if (bindingResult.hasErrors()) {
-            flash.addFlashAttribute("flashError", "Mot de passe actuel et code obligatoires.");
+            flash.addFlashAttribute("flashError", msg("flash.profile.mfaDisableRequiredFields", locale));
             return "redirect:/profile";
         }
 
@@ -196,7 +209,7 @@ public class ProfileWebController {
                     form.getCode(),
                     clientIpResolver.resolve(request),
                     request.getHeader("User-Agent"));
-            flash.addFlashAttribute("flashSuccess", "MFA desactive.");
+            flash.addFlashAttribute("flashSuccess", msg("flash.profile.mfaDisabled", locale));
         } catch (PasswordPolicyException | InvalidMfaCodeException e) {
             flash.addFlashAttribute("flashError", e.getMessage());
         }
@@ -209,9 +222,10 @@ public class ProfileWebController {
                                              Authentication authentication,
                                              HttpServletRequest request,
                                              Model model,
-                                             RedirectAttributes flash) {
+                                             RedirectAttributes flash,
+                                             Locale locale) {
         if (bindingResult.hasErrors()) {
-            flash.addFlashAttribute("flashError", "Le code est obligatoire.");
+            flash.addFlashAttribute("flashError", msg("flash.profile.mfaCodeRequired", locale));
             return "redirect:/profile";
         }
 
@@ -221,7 +235,7 @@ public class ProfileWebController {
                     form.getCode(),
                     clientIpResolver.resolve(request),
                     request.getHeader("User-Agent"));
-            prepareMfaRecoveryCodesModel(model, codes, "Codes de recuperation regeneres. Les anciens codes ne sont plus valides.");
+            prepareMfaRecoveryCodesModel(model, codes, msg("flash.profile.mfaCodesRegenerated", locale), locale);
             // Piege POST/redirect (audit du 31/07/2026) : cette vue est rendue
             // directement sur POST /profile/mfa/recovery-codes/regenerate, qui
             // n'a aucun @GetMapping jumeau. Sans cette surcharge, un
@@ -236,30 +250,31 @@ public class ProfileWebController {
         }
     }
 
-    private void prepareMfaSetupModel(Model model, String secret, String qrCodeDataUri, MfaConfirmForm form) {
+    private void prepareMfaSetupModel(Model model, String secret, String qrCodeDataUri, MfaConfirmForm form, Locale locale) {
         model.addAttribute("secret", secret);
         model.addAttribute("qrCodeDataUri", qrCodeDataUri);
         model.addAttribute("form", form);
         model.addAttribute("activeSection", "profile");
-        model.addAttribute("pageTitle", "Activer le MFA");
+        model.addAttribute("pageTitle", msg("pageTitle.mfaSetup", locale));
     }
 
-    private void prepareMfaRecoveryCodesModel(Model model, List<String> recoveryCodes, String message) {
+    private void prepareMfaRecoveryCodesModel(Model model, List<String> recoveryCodes, String message, Locale locale) {
         model.addAttribute("recoveryCodes", recoveryCodes);
         model.addAttribute("flashSuccess", message);
         model.addAttribute("activeSection", "profile");
-        model.addAttribute("pageTitle", "Codes de recuperation MFA");
+        model.addAttribute("pageTitle", msg("pageTitle.mfaRecoveryCodes", locale));
     }
 
     private void validatePasswordConfirmation(
             PasswordChangeForm form,
-            BindingResult bindingResult) {
+            BindingResult bindingResult,
+            Locale locale) {
         if (!bindingResult.hasErrors()
                 && !form.getNewPassword().equals(form.getConfirmPassword())) {
             bindingResult.rejectValue(
                     "confirmPassword",
                     "password.confirmation.mismatch",
-                    "La confirmation ne correspond pas au nouveau mot de passe.");
+                    msg("validation.password.confirmationMismatch", locale));
         }
     }
 
@@ -270,21 +285,23 @@ public class ProfileWebController {
 
     private void prepareRequiredPasswordChangeModel(
             Model model,
-            PasswordChangeForm form) {
+            PasswordChangeForm form,
+            Locale locale) {
         model.addAttribute("form", form);
         model.addAttribute(
                 "pageTitle",
-                "Changement de mot de passe obligatoire");
+                msg("pageTitle.passwordChangeRequired", locale));
     }
 
     private void prepareProfileModel(Authentication authentication,
                                      Model model,
-                                     PasswordChangeForm form) {
+                                     PasswordChangeForm form,
+                                     Locale locale) {
         model.addAttribute("user", userAdminService.findByUsername(authentication.getName()));
         model.addAttribute("form", form);
         model.addAttribute("mfaDisableForm", new MfaDisableForm());
         model.addAttribute("mfaRegenerateForm", new MfaConfirmForm());
         model.addAttribute("activeSection", "profile");
-        model.addAttribute("pageTitle", "Mon profil");
+        model.addAttribute("pageTitle", msg("pageTitle.profile", locale));
     }
 }

@@ -10,23 +10,23 @@ public class AddressForm {
 
     private Long id;
 
-    @NotBlank(message = "L'adresse IP est obligatoire")
+    @NotBlank(message = "{validation.address.required}")
     @Pattern(
         regexp = "^((25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.){3}(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)$",
-        message = "Format IPv4 invalide (ex : 192.168.1.10)"
+        message = "{validation.address.ipv4Format}"
     )
     private String address;
 
-    @Size(max = 17, message = "17 caractères maximum")
+    @Size(max = 17, message = "{validation.size.max}")
     private String mac;
 
-    @Size(max = 100, message = "100 caractères maximum")
+    @Size(max = 100, message = "{validation.size.max}")
     private String hostname;
 
-    @Size(max = 500, message = "500 caractères maximum")
+    @Size(max = 500, message = "{validation.size.max}")
     private String description;
 
-    @NotNull(message = "Le sous-réseau est obligatoire")
+    @NotNull(message = "{validation.field.subnetRequired}")
     private Long subnetId;
 
     /** Primitive boolean : false par défaut, géré correctement par la checkbox Thymeleaf. */

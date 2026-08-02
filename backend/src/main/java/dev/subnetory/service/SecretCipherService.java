@@ -1,5 +1,7 @@
 package dev.subnetory.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -14,6 +16,8 @@ import java.util.Base64;
 @Service
 public class SecretCipherService {
 
+    private static final Logger log = LoggerFactory.getLogger(SecretCipherService.class);
+
     private static final String PREFIX = "v1";
     private static final int IV_BYTES = 12;
     private static final int GCM_TAG_BITS = 128;
@@ -21,7 +25,32 @@ public class SecretCipherService {
     private final SecureRandom secureRandom = new SecureRandom();
     private final SecretKeySpec key;
 
-    public SecretCipherService(@Value("${subnetory.jwt.secret}") String secret) {
+    // Cle dediee (audit 02/08/2026, correctif ELEVEE) : jusqu'ici cette cle
+    // etait derivee du secret JWT (subnetory.jwt.secret), utilise par
+    // ailleurs pour signer/verifier les jetons d'authentification. Reutiliser
+    // le meme secret pour deux usages distincts (signature JWT vs chiffrement
+    // au repos du mot de passe de bind LDAP et du secret TOTP MFA) melange
+    // deux domaines de securite : la compromission de l'un compromet l'autre,
+    // et une rotation legitime du secret JWT (ex. suite a un incident) rend
+    // alors illisibles les secrets deja chiffres en base, sans lien logique
+    // avec l'incident JWT. subnetory.security.encryption-key est desormais
+    // la source recommandee. Repli sur subnetory.jwt.secret si absente, pour
+    // ne pas casser une instance existante qui n'a pas encore ce secret
+    // (voir scripts/init-compose.sh/.ps1 et charts/subnetory pour la
+    // procedure de migration) — avec avertissement au demarrage.
+    public SecretCipherService(
+            @Value("${subnetory.security.encryption-key:}") String encryptionKey,
+            @Value("${subnetory.jwt.secret}") String jwtSecret) {
+        String secret;
+        if (encryptionKey != null && !encryptionKey.isBlank()) {
+            secret = encryptionKey;
+        } else {
+            secret = jwtSecret;
+            log.warn("subnetory.security.encryption-key n'est pas configuree : repli sur "
+                    + "subnetory.jwt.secret pour chiffrer les secrets stockes (mot de passe LDAP, "
+                    + "secret MFA). Ce repli reste fonctionnel mais n'est pas recommande : "
+                    + "configurer une cle dediee (voir backend/docs/ADMIN_GUIDE.md).");
+        }
         this.key = new SecretKeySpec(sha256(secret), "AES");
     }
 

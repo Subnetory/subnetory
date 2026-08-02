@@ -5,10 +5,10 @@ import jakarta.validation.constraints.NotBlank;
 /** Formulaire de desactivation MFA self-service : mot de passe + code. */
 public class MfaDisableForm {
 
-    @NotBlank(message = "Le mot de passe actuel est obligatoire.")
+    @NotBlank(message = "{validation.mfa.currentPasswordRequired}")
     private String currentPassword;
 
-    @NotBlank(message = "Le code est obligatoire.")
+    @NotBlank(message = "{validation.mfa.codeRequired}")
     private String code;
 
     public String getCurrentPassword() {

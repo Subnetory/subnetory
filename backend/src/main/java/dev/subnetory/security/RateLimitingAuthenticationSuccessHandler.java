@@ -51,7 +51,7 @@ public class RateLimitingAuthenticationSuccessHandler extends SimpleUrlAuthentic
         String userAgent = request.getHeader("User-Agent");
         String username = authentication.getName();
 
-        loginRateLimiter.recordSuccess(ipAddress);
+        loginRateLimiter.recordSuccess(ipAddress, username);
         authAuditService.recordLoginSuccess(username, ipAddress, userAgent);
 
         if (passwordChangeService.isRequired(username)) {

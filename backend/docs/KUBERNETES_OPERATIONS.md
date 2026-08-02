@@ -193,7 +193,7 @@ La restauration est destructive. Elle :
 1. vérifie le SHA256 du dump ;
 2. crée par défaut une sauvegarde de sécurité ;
 3. arrête l'unique réplique applicative ;
-4. restaure avec `pg_restore --clean --if-exists --exit-on-error` ;
+4. restaure avec `pg_restore --clean --if-exists --exit-on-error --single-transaction` (l'ensemble de la restauration est annulé d'un bloc en cas d'échec, sans état intermédiaire incohérent) ;
 5. contrôle l'état Flyway attendu ;
 6. redémarre l'application et exige une readiness `UP`.
 

@@ -50,7 +50,7 @@ public class RateLimitingAuthenticationFailureHandler extends SimpleUrlAuthentic
         String username = request.getParameter("username");
         String userAgent = request.getHeader("User-Agent");
 
-        LoginRateLimiter.RateLimitDecision decision = loginRateLimiter.recordFailure(ipAddress);
+        LoginRateLimiter.RateLimitDecision decision = loginRateLimiter.recordFailure(ipAddress, username);
 
         if (decision.locked()) {
             authAuditService.recordLoginLocked(

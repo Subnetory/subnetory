@@ -14,15 +14,15 @@ public class BulkReservationRow {
 
     private String address;
 
-    @Size(max = 100, message = "100 caractères maximum")
+    @Size(max = 100, message = "{validation.size.max}")
     private String hostname;
 
-    @Size(max = 500, message = "500 caractères maximum")
+    @Size(max = 500, message = "{validation.size.max}")
     private String description;
 
     @Pattern(
         regexp = "^$|^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$",
-        message = "Format MAC invalide (ex : aa:bb:cc:dd:ee:ff)"
+        message = "{validation.mac.format}"
     )
     private String mac;
 

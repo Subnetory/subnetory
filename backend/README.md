@@ -23,7 +23,7 @@ Le dépôt et ses packages GHCR sont privés : le pull nécessite une authentifi
 docker login ghcr.io
 docker pull ghcr.io/subnetory/subnetory:latest
 # ou une version spécifique
-docker pull ghcr.io/subnetory/subnetory:v0.5.0
+docker pull ghcr.io/subnetory/subnetory:v0.7.0
 ```
 
 Pour utiliser l'image publiée avec `docker-compose.prod.yml`, remplacer `image: subnetory:latest` par `image: ghcr.io/subnetory/subnetory:latest` dans le fichier.
@@ -50,7 +50,7 @@ pwsh.exe -File .\scripts\make-jpackage.ps1
 L'artefact principal est :
 
 ```text
-dist\windows\subnetory-0.5.0-windows-x64\Subnetory.exe
+dist\windows\subnetory-0.7.0-windows-x64\Subnetory.exe
 ```
 
 PostgreSQL 17 reste externe. Avant le démarrage, définir :
@@ -61,7 +61,7 @@ $env:SPRING_DATASOURCE_USERNAME="subnetory"
 $env:SPRING_DATASOURCE_PASSWORD="<mot-de-passe-postgresql>"
 $env:SUBNETORY_JWT_SECRET="<secret-aleatoire-de-32-caracteres-minimum>"
 $env:SUBNETORY_ADMIN_DEFAULT_PASSWORD="<mot-de-passe-bootstrap-temporaire>"
-.\dist\windows\subnetory-0.5.0-windows-x64\Subnetory.exe
+.\dist\windows\subnetory-0.7.0-windows-x64\Subnetory.exe
 ```
 
 Le compte local `admin` est redirigé vers `/profile/change-password-required` au premier login.

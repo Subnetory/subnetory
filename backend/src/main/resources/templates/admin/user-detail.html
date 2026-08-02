@@ -2,24 +2,24 @@
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity6"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
-<head><title>Detail utilisateur - Subnetory</title></head>
 <body>
 <div id="main-content">
 <div class="sn-page">
 
     <div class="sn-page__header">
         <div>
-            <a th:href="@{/admin/users}" class="sn-btn sn-btn--ghost sn-btn--sm sn-mb-2">Retour utilisateurs</a>
+            <a th:href="@{/admin/users}" class="sn-btn sn-btn--ghost sn-btn--sm sn-mb-2" th:text="#{admin.userForm.back}">Retour utilisateurs</a>
             <h1 class="sn-page__title" th:text="${user.username}">admin</h1>
             <p class="sn-page__subtitle"
-               th:text="${user.authType == 'LDAP' ? 'Compte LDAP' : 'Compte local'}">Compte local</p>
+               th:with="lblLdap=#{admin.userDetail.accountType.ldap},lblLocal=#{admin.userDetail.accountType.local}"
+               th:text="${user.authType == 'LDAP' ? lblLdap : lblLocal}">Compte local</p>
         </div>
-        <nav class="sn-admin-subnav" aria-label="Navigation administration">
-            <a th:href="@{/admin/users}" class="sn-admin-subnav__item active">Comptes</a>
-            <a th:href="@{/admin/ldap}" class="sn-admin-subnav__item">LDAP</a>
-            <a th:href="@{/admin/audit-log}" class="sn-admin-subnav__item">Audit</a>
-            <a th:href="@{/admin/backup}" class="sn-admin-subnav__item">Sauvegardes</a>
-            <a th:href="@{/admin/help}" class="sn-admin-subnav__item">Aide</a>
+        <nav class="sn-admin-subnav" th:aria-label="#{profile.nav.aria}">
+            <a th:href="@{/admin/users}" class="sn-admin-subnav__item active" th:text="#{admin.subnav.accounts}">Comptes</a>
+            <a th:href="@{/admin/ldap}" class="sn-admin-subnav__item" th:text="#{admin.subnav.ldap}">LDAP</a>
+            <a th:href="@{/admin/audit-log}" class="sn-admin-subnav__item" th:text="#{admin.subnav.audit}">Audit</a>
+            <a th:href="@{/admin/backup}" class="sn-admin-subnav__item" th:text="#{admin.subnav.backup}">Sauvegardes</a>
+            <a th:href="@{/admin/help}" class="sn-admin-subnav__item" th:text="#{admin.subnav.help}">Aide</a>
         </nav>
     </div>
 
@@ -29,42 +29,42 @@
     <div class="sn-admin-grid">
 
         <div class="sn-card">
-            <div class="sn-card__header"><h2 class="sn-card__title">Informations</h2></div>
-            <div class="sn-detail">
+            <div class="sn-card__header"><h2 class="sn-card__title" th:text="#{admin.userDetail.info.title}">Informations</h2></div>
+            <div class="sn-detail" th:with="lblLocal=#{profile.account.type.local},lblActive=#{profile.account.status.active},lblInactive=#{profile.account.status.inactive}">
                 <div class="sn-detail__field">
-                    <div class="sn-detail__label">Identifiant</div>
+                    <div class="sn-detail__label" th:text="#{profile.account.username}">Identifiant</div>
                     <div class="sn-detail__value" th:text="${user.username}">admin</div>
                 </div>
                 <div class="sn-detail__field">
-                    <div class="sn-detail__label">Type d'authentification</div>
+                    <div class="sn-detail__label" th:text="#{admin.userDetail.info.authType}">Type d'authentification</div>
                     <div class="sn-detail__value">
-                        <span th:text="${user.authType == 'LDAP' ? 'LDAP' : 'Local'}"
+                        <span th:text="${user.authType == 'LDAP' ? 'LDAP' : lblLocal}"
                               th:classappend="${user.authType == 'LDAP' ? 'sn-badge sn-badge--blue' : 'sn-badge sn-badge--neutral'}">Local</span>
                     </div>
                 </div>
                 <div class="sn-detail__field">
-                    <div class="sn-detail__label">Statut</div>
+                    <div class="sn-detail__label" th:text="#{profile.account.status}">Statut</div>
                     <div class="sn-detail__value">
-                        <span th:if="${user.enabled}"     class="sn-badge sn-badge--green">Actif</span>
-                        <span th:unless="${user.enabled}" class="sn-badge sn-badge--neutral">Inactif</span>
+                        <span th:if="${user.enabled}"     class="sn-badge sn-badge--green" th:text="${lblActive}">Actif</span>
+                        <span th:unless="${user.enabled}" class="sn-badge sn-badge--neutral" th:text="${lblInactive}">Inactif</span>
                     </div>
                 </div>
                 <div class="sn-detail__field">
-                    <div class="sn-detail__label">Email</div>
+                    <div class="sn-detail__label" th:text="#{profile.account.email}">Email</div>
                     <div class="sn-detail__value"
                          th:classappend="${user.email == null ? 'sn-detail__value--empty' : ''}"
                          th:text="${user.email ?: '-'}">admin@example.com</div>
                 </div>
                 <div class="sn-detail__field">
-                    <div class="sn-detail__label">Cree le</div>
+                    <div class="sn-detail__label" th:text="#{table.created}">Cree le</div>
                     <div class="sn-detail__value sn-text-muted"
-                         th:text="${#temporals.format(user.createdAt, 'dd/MM/yyyy HH:mm')}">01/01/2026</div>
+                         th:text="${#temporals.format(user.createdAt)}">01/01/2026</div>
                 </div>
             </div>
         </div>
 
         <div class="sn-card">
-            <div class="sn-card__header"><h2 class="sn-card__title">Rôles</h2></div>
+            <div class="sn-card__header"><h2 class="sn-card__title" th:text="#{admin.users.table.roles}">Rôles</h2></div>
             <form th:action="@{/admin/users/{id}/roles(id=${user.id})}"
                   th:object="${form}"
                   method="post">
@@ -83,15 +83,15 @@
                 </div>
 
                 <div class="sn-form__actions">
-                    <button type="submit" class="sn-btn sn-btn--primary">Enregistrer les roles</button>
+                    <button type="submit" class="sn-btn sn-btn--primary" th:text="#{admin.userDetail.roles.submit}">Enregistrer les roles</button>
                 </div>
 
             </form>
         </div>
 
         <div class="sn-card">
-            <div class="sn-card__header"><h2 class="sn-card__title">Contextes autorisés</h2></div>
-            <p class="sn-text-secondary sn-mb-2">
+            <div class="sn-card__header"><h2 class="sn-card__title" th:text="#{admin.userForm.contexts.title}">Contextes autorisés</h2></div>
+            <p class="sn-text-secondary sn-mb-2" th:text="#{admin.userDetail.contexts.hint}">
                 Les roles definissent les actions. Cette selection limite les donnees visibles.
                 Un compte ADMIN conserve un acces global.
             </p>
@@ -101,12 +101,12 @@
                 <div class="sn-table-actions sn-mb-2" th:if="${!allContexts.empty}">
                     <button type="button"
                             class="sn-btn sn-btn--secondary sn-btn--sm"
-                            data-check-all="#user-detail-contexts">
+                            data-check-all="#user-detail-contexts" th:text="#{admin.contexts.checkAll}">
                         Tout sélectionner
                     </button>
                     <button type="button"
                             class="sn-btn sn-btn--ghost sn-btn--sm"
-                            data-uncheck-all="#user-detail-contexts">
+                            data-uncheck-all="#user-detail-contexts" th:text="#{admin.contexts.uncheckAll}">
                         Tout désélectionner
                     </button>
                 </div>
@@ -121,11 +121,11 @@
                         <span class="sn-chip-checkbox__pill" th:text="${ctx.name}">PRODUCTION</span>
                     </label>
                 </div>
-                <p class="sn-alert sn-alert--info" th:if="${allContexts.empty}">
+                <p class="sn-alert sn-alert--info" th:if="${allContexts.empty}" th:text="#{admin.contexts.empty}">
                     Aucun contexte disponible.
                 </p>
                 <div class="sn-form__actions">
-                    <button type="submit" class="sn-btn sn-btn--primary">
+                    <button type="submit" class="sn-btn sn-btn--primary" th:text="#{admin.userDetail.contexts.submit}">
                         Enregistrer les contextes
                     </button>
                 </div>
@@ -133,33 +133,33 @@
         </div>
 
         <div class="sn-card">
-            <div class="sn-card__header"><h2 class="sn-card__title">Accès au compte</h2></div>
+            <div class="sn-card__header"><h2 class="sn-card__title" th:text="#{admin.userDetail.access.title}">Accès au compte</h2></div>
             <p class="sn-text-secondary sn-mb-2"
-               th:if="${user.enabled}">Le compte est actif. Vous pouvez le desactiver.</p>
+               th:if="${user.enabled}" th:text="#{admin.userDetail.access.activeHint}">Le compte est actif. Vous pouvez le desactiver.</p>
             <p class="sn-text-secondary sn-mb-2"
-               th:unless="${user.enabled}">Le compte est inactif. Vous pouvez le reactiver.</p>
+               th:unless="${user.enabled}" th:text="#{admin.userDetail.access.inactiveHint}">Le compte est inactif. Vous pouvez le reactiver.</p>
 
             <div class="sn-table-actions">
                 <form th:if="${!user.enabled}"
                       th:action="@{/admin/users/{id}/enable(id=${user.id})}"
                       method="post"
                       class="sn-inline-form">
-                    <button type="submit" class="sn-btn sn-btn--primary">Activer</button>
+                    <button type="submit" class="sn-btn sn-btn--primary" th:text="#{admin.userDetail.access.enable}">Activer</button>
                 </form>
 
                 <form th:if="${user.enabled}"
                       th:action="@{/admin/users/{id}/disable(id=${user.id})}"
                       method="post"
                       class="sn-inline-form"
-                      th:attr="data-confirm=|Desactiver le compte ${user.username} ?|">
-                    <button type="submit" class="sn-btn sn-btn--danger">Desactiver</button>
+                      th:attr="data-confirm=#{admin.userDetail.access.disable.confirm(${user.username})}">
+                    <button type="submit" class="sn-btn sn-btn--danger" th:text="#{admin.userDetail.access.disable}">Desactiver</button>
                 </form>
             </div>
 
             <hr class="sn-mt-3 sn-mb-3">
 
-            <h3 class="sn-card__subtitle">Tokens API</h3>
-            <p class="sn-text-secondary sn-mb-2">
+            <h3 class="sn-card__subtitle" th:text="#{admin.userDetail.apiTokens.title}">Tokens API</h3>
+            <p class="sn-text-secondary sn-mb-2" th:text="#{admin.userDetail.apiTokens.hint}">
                 Cette action invalide immediatement tous les tokens JWT API deja emis pour ce compte.
             </p>
 
@@ -167,28 +167,28 @@
                   th:action="@{/admin/users/{id}/invalidate-tokens(id=${user.id})}"
                   method="post"
                   class="sn-inline-form"
-                  th:attr="data-confirm=|Revoquer tous les tokens API du compte ${user.username} ?|">
+                  th:attr="data-confirm=#{admin.userDetail.apiTokens.revoke.confirm(${user.username})}">
 
                 <input type="hidden"
                        th:if="${_csrf != null}"
                        th:name="${_csrf.parameterName}"
                        th:value="${_csrf.token}">
 
-                <button type="submit" class="sn-btn sn-btn--danger">
+                <button type="submit" class="sn-btn sn-btn--danger" th:text="#{admin.userDetail.apiTokens.revoke}">
                     Revoquer les tokens API
                 </button>
             </form>
 
             <hr class="sn-mt-3 sn-mb-3">
 
-            <h3 class="sn-card__subtitle">Authentification à deux facteurs (MFA)</h3>
+            <h3 class="sn-card__subtitle" th:text="#{profile.mfa.title}">Authentification à deux facteurs (MFA)</h3>
 
-            <div th:unless="${user.mfaEnabled}" class="sn-alert sn-alert--info">
+            <div th:unless="${user.mfaEnabled}" class="sn-alert sn-alert--info" th:text="#{profile.mfa.disabled.hint}">
                 Le MFA n'est pas active sur ce compte.
             </div>
 
             <div th:if="${user.mfaEnabled}">
-                <p class="sn-text-secondary sn-mb-2">
+                <p class="sn-text-secondary sn-mb-2" th:text="#{admin.userDetail.mfa.antiLockoutHint}">
                     Action anti-lockout : a utiliser si l'utilisateur a perdu l'acces a son
                     application d'authentification et a ses codes de recuperation.
                     Le mot de passe n'est pas affecte.
@@ -196,14 +196,14 @@
                 <form th:action="@{/admin/users/{id}/disable-mfa(id=${user.id})}"
                       method="post"
                       class="sn-inline-form"
-                      th:attr="data-confirm=|Desactiver le MFA du compte ${user.username} ?|">
+                      th:attr="data-confirm=#{admin.userDetail.mfa.disable.confirm(${user.username})}">
 
                     <input type="hidden"
                            th:if="${_csrf != null}"
                            th:name="${_csrf.parameterName}"
                            th:value="${_csrf.token}">
 
-                    <button type="submit" class="sn-btn sn-btn--danger">
+                    <button type="submit" class="sn-btn sn-btn--danger" th:text="#{profile.mfa.disable.submit}">
                         Desactiver le MFA
                     </button>
                 </form>
@@ -211,9 +211,9 @@
 
             <hr class="sn-mt-3 sn-mb-3">
 
-            <h3 class="sn-card__subtitle">Réinitialisation du mot de passe</h3>
+            <h3 class="sn-card__subtitle" th:text="#{admin.userDetail.pwdReset.title}">Réinitialisation du mot de passe</h3>
 
-            <div th:if="${user.authType == 'LDAP'}" class="sn-alert sn-alert--info">
+            <div th:if="${user.authType == 'LDAP'}" class="sn-alert sn-alert--info" th:text="#{admin.userDetail.pwdReset.ldapNotice}">
                 Ce compte est gere par LDAP. Le mot de passe doit etre change depuis l'annuaire d'entreprise.
             </div>
 
@@ -228,13 +228,13 @@
                        th:value="${_csrf.token}">
 
                 <div class="sn-form__group">
-                    <label for="newPassword" class="sn-form__label">Nouveau mot de passe</label>
+                    <label for="newPassword" class="sn-form__label" th:text="#{profile.password.new.label}">Nouveau mot de passe</label>
                     <input id="newPassword"
                            name="newPassword"
                            type="password"
                            class="sn-input"
                            autocomplete="new-password">
-                    <p class="sn-text-muted">
+                    <p class="sn-text-muted" th:text="#{profile.password.new.hint}">
                         Minimum 12 caracteres, au moins 1 majuscule, 1 minuscule,
                         1 chiffre et 1 caractere special.
                     </p>
@@ -243,7 +243,7 @@
                 <div class="sn-form__actions">
                     <button type="submit"
                             class="sn-btn sn-btn--secondary"
-                            th:attr="data-confirm=|Reinitialiser le mot de passe du compte ${user.username} ?|">
+                            th:attr="data-confirm=#{admin.userDetail.pwdReset.confirm(${user.username})}" th:text="#{admin.userDetail.pwdReset.submit}">
                         Reinitialiser le mot de passe
                     </button>
                 </div>

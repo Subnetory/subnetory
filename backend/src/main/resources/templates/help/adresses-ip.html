@@ -1,30 +1,30 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
-<head><title>Adresses IP - Aide - Subnetory</title></head>
 <body>
 <div id="main-content">
 <div class="sn-page">
 
-    <p class="sn-help-crumb"><a th:href="@{/help}">Aide</a> / Adresses IP</p>
+    <p class="sn-help-crumb"><a th:href="@{/help}" th:text="#{help.crumbPrefix}">Aide</a> / <span th:text="#{help.card.addresses.title}">Adresses IP</span></p>
 
     <div class="sn-help-layout">
         <div th:replace="~{help/fragments :: sidebar-user('adresses-ip')}"></div>
 
         <div class="sn-help-article">
             <div class="sn-help-article__header">
-                <h1 class="sn-page__title">Adresses IP</h1>
-                <p>Créer, rechercher, réserver en masse et modifier des adresses IP.</p>
+                <h1 class="sn-page__title" th:text="#{help.card.addresses.title}">Adresses IP</h1>
+                <p th:text="#{help.addresses.subtitle}">Créer, rechercher, réserver en masse et modifier des adresses IP.</p>
             </div>
 
             <section class="sn-help-section">
-                <h2>Créer une adresse</h2>
-                <p>
+                <h2 th:text="#{help.addresses.create.title}">Créer une adresse</h2>
+                <p th:utext="#{help.addresses.create.body}">
                     Menu <em>Adresses IP → Nouvelle adresse</em>. Une adresse appartient toujours à un
                     sous-réseau ; les champs nom d'hôte, adresse MAC et description sont optionnels.
                 </p>
-                <h3>Assistant IP disponible</h3>
-                <p>
+                <p class="sn-text-muted sn-help-permission" th:utext="#{help.addresses.create.permission}">Permissions requises : <code>ROLE_ADMIN</code> ou <code>ROLE_IP</code>.</p>
+                <h3 th:text="#{help.addresses.wizard.title}">Assistant IP disponible</h3>
+                <p th:utext="#{help.addresses.wizard.body}">
                     Une fois un sous-réseau sélectionné dans le formulaire, le bouton
                     <strong>Suggérer une IP disponible</strong> s'active. Cliquer sur une IP proposée remplit
                     automatiquement le champ adresse — évite de calculer manuellement quelles adresses du bloc
@@ -33,26 +33,27 @@
             </section>
 
             <section class="sn-help-section">
-                <h2>Réservation multiple</h2>
-                <p>
-                    Menu <em>Adresses IP → Réservation multiple</em>. Cet outil génère jusqu'à 50 adresses
+                <h2 th:text="#{help.addresses.bulkReserve.title}">Réservation multiple</h2>
+                <p th:utext="#{help.addresses.bulkReserve.body}">
+                    Menu <em>Adresses IP → ⊞ Réserver plusieurs IP</em>. Cet outil génère jusqu'à 50 adresses
                     disponibles d'un sous-réseau choisi, sous forme de tableau éditable : complétez les
                     descriptions ou noms d'hôte ligne par ligne, puis réservez toutes les lignes en un seul
                     clic. Pratique pour préparer un lot d'adresses avant un déploiement.
                 </p>
+                <p class="sn-text-muted sn-help-permission" th:utext="#{help.addresses.bulkReserve.permission}">Permissions requises : <code>ROLE_ADMIN</code> ou <code>ROLE_IP</code>.</p>
             </section>
 
             <section class="sn-help-section">
-                <h2>Rechercher une adresse</h2>
-                <p>
+                <h2 th:text="#{help.addresses.search.title}">Rechercher une adresse</h2>
+                <p th:utext="#{help.addresses.search.body}">
                     Menu <em>Adresses IP</em>. Filtres disponibles : recherche libre, nom d'hôte, adresse MAC.
                     La liste est paginée (25 adresses par page).
                 </p>
             </section>
 
             <section class="sn-help-section">
-                <h2>Export</h2>
-                <p>
+                <h2 th:text="#{help.addresses.export.title}">Export</h2>
+                <p th:utext="#{help.addresses.export.body}">
                     Boutons <strong>↓ CSV</strong> et <strong>↓ Excel</strong> disponibles sur les pages
                     <em>Adresses IP</em> et <em>Sous-réseaux</em>. Les filtres actifs au moment de l'export
                     sont appliqués au fichier généré.
@@ -60,10 +61,10 @@
             </section>
 
             <section class="sn-help-section">
-                <h2>Pour aller plus loin</h2>
+                <h2 th:text="#{help.addresses.further.title}">Pour aller plus loin</h2>
                 <p>
-                    <a th:href="@{/help/import-export}">Import &amp; export</a> — reprendre un inventaire
-                    existant en CSV ou Excel.
+                    <a th:href="@{/help/import-export}" th:text="#{help.card.importExport.title}">Import &amp; export</a> — <span th:text="#{help.addresses.further.importExport}">reprendre un inventaire
+                    existant en CSV ou Excel.</span>
                 </p>
             </section>
         </div>

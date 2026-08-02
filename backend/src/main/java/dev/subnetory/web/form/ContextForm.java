@@ -12,11 +12,11 @@ public class ContextForm {
 
     private Long id;
 
-    @NotBlank(message = "Le nom est obligatoire")
-    @Size(max = 100, message = "100 caractères maximum")
+    @NotBlank(message = "{validation.field.nameRequired}")
+    @Size(max = 100, message = "{validation.size.max}")
     private String name;
 
-    @Size(max = 500, message = "500 caractères maximum")
+    @Size(max = 500, message = "{validation.size.max}")
     private String description;
 
     public ContextForm() {}

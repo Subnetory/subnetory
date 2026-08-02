@@ -2,19 +2,18 @@
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity6"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
-<head><title>Mon profil - Subnetory</title></head>
 <body>
 <div id="main-content">
 <div class="sn-page">
 
     <div class="sn-page__header sn-profile-header">
         <div>
-            <h1 class="sn-page__title">Mon profil</h1>
-            <p class="sn-page__subtitle">Vos informations de connexion, votre mot de passe et l'authentification à deux facteurs.</p>
+            <h1 class="sn-page__title" th:text="#{profile.heading}">Mon profil</h1>
+            <p class="sn-page__subtitle" th:text="#{profile.subtitle}">Vos informations de connexion, votre mot de passe et l'authentification à deux facteurs.</p>
         </div>
-        <nav class="sn-section-tabs" aria-label="Navigation administration">
-            <a sec:authorize="hasRole('ADMIN')" th:href="@{/admin/users}" class="sn-section-tabs__item">Administration</a>
-            <a th:href="@{/profile}" class="sn-section-tabs__item active">Profil</a>
+        <nav class="sn-section-tabs" th:aria-label="#{profile.nav.aria}">
+            <a sec:authorize="hasRole('ADMIN')" th:href="@{/admin/users}" class="sn-section-tabs__item" th:text="#{nav.admin}">Administration</a>
+            <a th:href="@{/profile}" class="sn-section-tabs__item active" th:text="#{nav.profile}">Profil</a>
         </nav>
     </div>
 
@@ -24,30 +23,30 @@
     <div class="sn-profile-grid">
     <div class="sn-card sn-profile-card">
         <div class="sn-card__header">
-            <h2 class="sn-card__title">Informations du compte</h2>
+            <h2 class="sn-card__title" th:text="#{profile.account.title}">Informations du compte</h2>
         </div>
 
-        <dl class="sn-detail-list">
+        <dl class="sn-detail-list" th:with="lblLocal=#{profile.account.type.local}">
             <div>
-                <dt>Identifiant</dt>
+                <dt th:text="#{profile.account.username}">Identifiant</dt>
                 <dd th:text="${user.username}">admin</dd>
             </div>
             <div>
-                <dt>Email</dt>
+                <dt th:text="#{profile.account.email}">Email</dt>
                 <dd th:text="${user.email != null && !#strings.isEmpty(user.email) ? user.email : '-'}">-</dd>
             </div>
             <div>
-                <dt>Type de compte</dt>
+                <dt th:text="#{profile.account.type}">Type de compte</dt>
                 <dd>
-                    <span th:text="${user.authType == 'LDAP' ? 'LDAP' : 'Local'}"
+                    <span th:text="${user.authType == 'LDAP' ? 'LDAP' : lblLocal}"
                           th:classappend="${user.authType == 'LDAP' ? 'sn-badge sn-badge--blue' : 'sn-badge sn-badge--neutral'}">Local</span>
                 </dd>
             </div>
             <div>
-                <dt>Statut</dt>
+                <dt th:text="#{profile.account.status}">Statut</dt>
                 <dd>
-                    <span th:if="${user.enabled}" class="sn-badge sn-badge--green">Actif</span>
-                    <span th:unless="${user.enabled}" class="sn-badge sn-badge--neutral">Inactif</span>
+                    <span th:if="${user.enabled}" class="sn-badge sn-badge--green" th:text="#{profile.account.status.active}">Actif</span>
+                    <span th:unless="${user.enabled}" class="sn-badge sn-badge--neutral" th:text="#{profile.account.status.inactive}">Inactif</span>
                 </dd>
             </div>
         </dl>
@@ -55,53 +54,53 @@
 
     <div class="sn-card sn-card--padded" th:if="${user.authType != 'LDAP'}">
         <div class="sn-card__header">
-            <h2 class="sn-card__title">Authentification a deux facteurs (MFA)</h2>
+            <h2 class="sn-card__title" th:text="#{profile.mfa.title}">Authentification a deux facteurs (MFA)</h2>
         </div>
 
         <div class="sn-mfa-card__body" th:unless="${user.mfaEnabled}">
-            <p class="sn-text-muted">Le MFA n'est pas active sur ce compte.</p>
+            <p class="sn-text-muted" th:text="#{profile.mfa.disabled.hint}">Le MFA n'est pas active sur ce compte.</p>
             <div class="sn-form__actions">
-                <a th:href="@{/profile/mfa/setup}" class="sn-btn sn-btn--primary">Activer le MFA</a>
+                <a th:href="@{/profile/mfa/setup}" class="sn-btn sn-btn--primary" th:text="#{profile.mfa.enable}">Activer le MFA</a>
             </div>
         </div>
 
         <div class="sn-mfa-card__body" th:if="${user.mfaEnabled}">
-            <p><span class="sn-badge sn-badge--green">MFA actif</span></p>
+            <p><span class="sn-badge sn-badge--green" th:text="#{profile.mfa.active.badge}">MFA actif</span></p>
 
             <details class="sn-mfa-disclosure">
-                <summary>Regenerer mes codes de recuperation</summary>
+                <summary th:text="#{profile.mfa.regenerate.summary}">Regenerer mes codes de recuperation</summary>
                 <form th:action="@{/profile/mfa/recovery-codes/regenerate}" th:object="${mfaRegenerateForm}" method="post" class="sn-form">
                     <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                     <div class="sn-form__group">
-                        <label for="regenCode" class="sn-form__label">Code MFA actuel</label>
+                        <label for="regenCode" class="sn-form__label" th:text="#{profile.mfa.regenerate.code.label}">Code MFA actuel</label>
                         <input id="regenCode" type="text" inputmode="numeric" autocomplete="one-time-code"
                                th:field="*{code}" class="sn-input">
                         <div th:if="${#fields.hasErrors('code')}" th:errors="*{code}" class="sn-form__error"></div>
                     </div>
                     <div class="sn-form__actions">
-                        <button type="submit" class="sn-btn sn-btn--secondary">Regenerer les codes</button>
+                        <button type="submit" class="sn-btn sn-btn--secondary" th:text="#{profile.mfa.regenerate.submit}">Regenerer les codes</button>
                     </div>
                 </form>
             </details>
 
             <details class="sn-mfa-disclosure">
-                <summary>Desactiver le MFA</summary>
+                <summary th:text="#{profile.mfa.disable.summary}">Desactiver le MFA</summary>
                 <form th:action="@{/profile/mfa/disable}" th:object="${mfaDisableForm}" method="post" class="sn-form">
                     <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                     <div class="sn-form__group">
-                        <label for="disableCurrentPassword" class="sn-form__label">Mot de passe actuel</label>
+                        <label for="disableCurrentPassword" class="sn-form__label" th:text="#{profile.mfa.disable.currentPassword.label}">Mot de passe actuel</label>
                         <input id="disableCurrentPassword" type="password" autocomplete="current-password"
                                th:field="*{currentPassword}" class="sn-input">
                         <div th:if="${#fields.hasErrors('currentPassword')}" th:errors="*{currentPassword}" class="sn-form__error"></div>
                     </div>
                     <div class="sn-form__group">
-                        <label for="disableCode" class="sn-form__label">Code MFA ou code de recuperation</label>
+                        <label for="disableCode" class="sn-form__label" th:text="#{profile.mfa.disable.code.label}">Code MFA ou code de recuperation</label>
                         <input id="disableCode" type="text" autocomplete="one-time-code"
                                th:field="*{code}" class="sn-input">
                         <div th:if="${#fields.hasErrors('code')}" th:errors="*{code}" class="sn-form__error"></div>
                     </div>
                     <div class="sn-form__actions">
-                        <button type="submit" class="sn-btn sn-btn--danger">Desactiver le MFA</button>
+                        <button type="submit" class="sn-btn sn-btn--danger" th:text="#{profile.mfa.disable.submit}">Desactiver le MFA</button>
                     </div>
                 </form>
             </details>
@@ -110,10 +109,10 @@
 
     <div class="sn-card sn-profile-card">
         <div class="sn-card__header">
-            <h2 class="sn-card__title">Changer mon mot de passe</h2>
+            <h2 class="sn-card__title" th:text="#{profile.password.title}">Changer mon mot de passe</h2>
         </div>
 
-        <div th:if="${user.authType == 'LDAP'}" class="sn-alert sn-alert--info">
+        <div th:if="${user.authType == 'LDAP'}" class="sn-alert sn-alert--info" th:text="#{profile.password.ldapNotice}">
             Ce compte est gere par LDAP. Le mot de passe doit etre change depuis votre annuaire d'entreprise.
         </div>
 
@@ -129,7 +128,7 @@
                    th:value="${_csrf.token}">
 
             <div class="sn-form__group">
-                <label for="currentPassword" class="sn-form__label">Mot de passe actuel</label>
+                <label for="currentPassword" class="sn-form__label" th:text="#{profile.password.current.label}">Mot de passe actuel</label>
                 <input id="currentPassword"
                        type="password"
                        th:field="*{currentPassword}"
@@ -141,7 +140,7 @@
             </div>
 
             <div class="sn-form__group">
-                <label for="newPassword" class="sn-form__label">Nouveau mot de passe</label>
+                <label for="newPassword" class="sn-form__label" th:text="#{profile.password.new.label}">Nouveau mot de passe</label>
                 <input id="newPassword"
                        type="password"
                        th:field="*{newPassword}"
@@ -150,14 +149,14 @@
                 <div th:if="${#fields.hasErrors('newPassword')}"
                      th:errors="*{newPassword}"
                      class="sn-form__error"></div>
-                <p class="sn-text-muted">
+                <p class="sn-text-muted" th:text="#{profile.password.new.hint}">
                     Minimum 12 caracteres, au moins 1 majuscule, 1 minuscule,
                     1 chiffre et 1 caractere special.
                 </p>
             </div>
 
             <div class="sn-form__group">
-                <label for="confirmPassword" class="sn-form__label">Confirmer le nouveau mot de passe</label>
+                <label for="confirmPassword" class="sn-form__label" th:text="#{profile.password.confirm.label}">Confirmer le nouveau mot de passe</label>
                 <input id="confirmPassword"
                        type="password"
                        th:field="*{confirmPassword}"
@@ -169,7 +168,7 @@
             </div>
 
             <div class="sn-form__actions">
-                <button type="submit" class="sn-btn sn-btn--primary">
+                <button type="submit" class="sn-btn sn-btn--primary" th:text="#{profile.password.submit}">
                     Mettre a jour le mot de passe
                 </button>
             </div>

@@ -8,10 +8,13 @@ Usage: scripts/init-compose.sh [--force] [--without-backup-encryption] [--with-b
 Initialise les secrets locaux Docker Compose dans backend/secrets.
 Aucun secret n'est affiche. --force autorise une rotation volontaire.
 
-Par defaut, les 4 secrets sont generes, y compris
-subnetory_backup_encryption_key (chiffrement des sauvegardes au repos,
-backlog #13, voir backend/docs/BACKUP_ENCRYPTION.md), active par defaut
-dans docker-compose.yml/docker-compose.prod.yml.
+Par defaut, les 5 secrets sont generes, y compris :
+- subnetory_encryption_key (chiffrement des secrets stockes en base — mot
+  de passe de bind LDAP, secret TOTP MFA — audit du 02/08/2026, separee du
+  secret JWT) ;
+- subnetory_backup_encryption_key (chiffrement des sauvegardes au repos,
+  backlog #13, voir backend/docs/BACKUP_ENCRYPTION.md), active par defaut
+  dans docker-compose.yml/docker-compose.prod.yml.
 
 --without-backup-encryption exclut explicitement
 subnetory_backup_encryption_key de la generation, pour un deploiement qui
@@ -66,6 +69,7 @@ fi
 
 secret_names=(
     subnetory_jwt_secret
+    subnetory_encryption_key
     subnetory_admin_default_password
     postgres_password
 )
@@ -98,8 +102,9 @@ done
 # Sans --force : on ne (re)cree que les secrets demandes qui n'existent pas
 # encore. Un secret deja present reste strictement inchange, meme si
 # d'autres secrets sont crees dans le meme appel (ex. relancer ce script
-# apres une mise a jour sur une instance qui a deja ses 3 secrets de base :
-# seul subnetory_backup_encryption_key sera cree). Avec --force, tous les
+# apres une mise a jour sur une instance qui a deja ses secrets historiques :
+# seul un secret nouvellement introduit, comme subnetory_encryption_key ou
+# subnetory_backup_encryption_key, sera cree). Avec --force, tous les
 # secrets demandes sont regeneres (rotation volontaire explicite).
 names_to_write=()
 if ((force == 1)); then
@@ -213,6 +218,9 @@ assert_secret() {
         jwt)
             ((${#value} >= 128)) && [[ "$value" =~ ^[0-9a-f]+$ ]]
             ;;
+        encryption_key)
+            ((${#value} >= 64)) && [[ "$value" =~ ^[0-9a-f]+$ ]]
+            ;;
         postgres)
             ((${#value} >= 64)) && [[ "$value" =~ ^[0-9a-f]+$ ]]
             ;;
@@ -273,6 +281,13 @@ if contains_name subnetory_jwt_secret "${names_to_write[@]}"; then
     generated_values[subnetory_jwt_secret]="$jwt_secret"
 fi
 
+if contains_name subnetory_encryption_key "${names_to_write[@]}"; then
+    encryption_key="$(random_hex 32)"
+    assert_secret encryption_key "$encryption_key"
+    printf '%s' "$encryption_key" >"$staging_root/subnetory_encryption_key"
+    generated_values[subnetory_encryption_key]="$encryption_key"
+fi
+
 if contains_name subnetory_admin_default_password "${names_to_write[@]}"; then
     admin_password="$(new_admin_password)"
     assert_secret admin "$admin_password"
@@ -328,6 +343,7 @@ completed=1
 
 declare -A secret_labels=(
     [subnetory_jwt_secret]="Secret JWT"
+    [subnetory_encryption_key]="Cle de chiffrement des secrets stockes (LDAP/MFA)"
     [subnetory_admin_default_password]="Mot de passe admin temporaire"
     [postgres_password]="Mot de passe DB"
     [subnetory_backup_encryption_key]="Cle de chiffrement des sauvegardes"

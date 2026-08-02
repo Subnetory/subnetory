@@ -277,7 +277,8 @@ class AdminWebControllerIT {
                 .andExpect(status().isOk())
                 .andExpect(view().name("admin/audit-log"))
                 .andExpect(content().string(containsString("sn-audit-filters__grid")))
-                .andExpect(content().string(containsString("Type d'événement")))
+                // Thymeleaf th:text échappe l'apostrophe en entité HTML (&#39;).
+                .andExpect(content().string(containsString("Type d&#39;événement")))
                 .andExpect(content().string(containsString("Réinitialiser")));
     }
 

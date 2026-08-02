@@ -1,15 +1,14 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
-<head><title>Importer des adresses — Subnetory</title></head>
 <body>
 <div id="main-content">
 <div class="sn-page sn-import-page">
     <div class="sn-page__header">
         <div>
-            <a th:href="@{/network/addresses}" class="sn-import-back">← Retour aux adresses IP</a>
-            <h1 class="sn-page__title">Importer des adresses</h1>
-            <p class="sn-page__subtitle">Format détecté automatiquement, chaque ligne contrôlée avant écriture.</p>
+            <a th:href="@{/network/addresses}" class="sn-import-back" th:text="#{import.back}">← Retour aux adresses IP</a>
+            <h1 class="sn-page__title" th:text="#{import.title}">Importer des adresses</h1>
+            <p class="sn-page__subtitle" th:text="#{import.subtitle}">Format détecté automatiquement, chaque ligne contrôlée avant écriture.</p>
         </div>
     </div>
 
@@ -18,15 +17,18 @@
     <section class="sn-import-hero">
         <div class="sn-import-hero__intro">
             <span class="sn-import-hero__icon">⇧</span>
-            <div><h2>Import automatique</h2><p>CSV UTF-8 ou classeur Excel XLSX, jusqu’à 5 Mo.</p></div>
+            <div><h2 th:text="#{import.hero.title}">Import automatique</h2><p th:text="#{import.hero.desc}">CSV UTF-8 ou classeur Excel XLSX, jusqu’à 5 Mo.</p></div>
         </div>
-        <div class="sn-import-safety" th:classappend="${activeContextId == null} ? ' sn-import-safety--blocked'">
-            <strong th:text="${activeContextId != null} ? 'Import sécurisé' : 'Import bloqué'">Import sécurisé</strong>
-            <span th:if="${activeContextId != null}">
+        <div class="sn-import-safety" th:classappend="${activeContextId == null} ? ' sn-import-safety--blocked'"
+             th:with="lblSecure=#{import.safety.secure},lblBlocked=#{import.safety.blocked}">
+            <strong th:text="${activeContextId != null} ? lblSecure : lblBlocked">Import sécurisé</strong>
+            <span th:if="${activeContextId != null}" th:text="#{import.safety.secure.desc}">
                 Le fichier sera importé uniquement dans le contexte actif.
             </span>
             <span th:if="${activeContextId == null}">
-                Aucun contexte actif : <a href="#globalContext">choisissez-en un</a> pour activer l'import.
+                <span th:text="#{import.safety.blocked.prefix}">Aucun contexte actif :</span>
+                <a href="#globalContext" th:text="#{import.safety.blocked.link}">choisissez-en un</a>
+                <span th:text="#{import.safety.blocked.suffix}">pour activer l'import.</span>
             </span>
         </div>
     </section>
@@ -38,59 +40,60 @@
                 <span class="sn-import-card__format sn-import-card__format--csv">CSV</span>
                 <span class="sn-import-card__format sn-import-card__format--xlsx">XLSX</span>
             </div>
-            <h2>Fichier d'import</h2>
-            <p>Le format est détecté automatiquement depuis l'extension du fichier, puis contrôlé avant import.</p>
+            <h2 th:text="#{import.file.title}">Fichier d'import</h2>
+            <p th:text="#{import.file.desc}">Le format est détecté automatiquement depuis l'extension du fichier, puis contrôlé avant import.</p>
 
             <p class="sn-alert sn-alert--warning" th:if="${activeContextId == null}">
-                Aucun contexte actif. <a href="#globalContext">Sélectionnez un contexte</a> en haut de page pour
-                pouvoir déposer un fichier — chaque import est rattaché à un contexte précis.
+                <span th:text="#{import.warning.noContext.prefix}">Aucun contexte actif.</span>
+                <a href="#globalContext" th:text="#{import.warning.noContext.link}">Sélectionnez un contexte</a>
+                <span th:text="#{import.warning.noContext.suffix}">en haut de page pour pouvoir déposer un fichier — chaque import est rattaché à un contexte précis.</span>
             </p>
 
             <fieldset class="sn-import-fieldset" th:disabled="${activeContextId == null}">
                 <label class="sn-file-drop" data-file-drop>
                     <span class="sn-file-drop__icon">＋</span>
-                    <strong>Sélectionner ou déposer un fichier</strong>
-                    <small>Extensions .csv ou .xlsx · 5 Mo maximum</small>
+                    <strong th:text="#{import.filedrop.select}">Sélectionner ou déposer un fichier</strong>
+                    <small th:text="#{import.filedrop.hint}">Extensions .csv ou .xlsx · 5 Mo maximum</small>
                     <input type="file" name="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required data-file-input>
-                    <span class="sn-file-drop__name" data-file-name>Aucun fichier sélectionné</span>
+                    <span class="sn-file-drop__name" data-file-name th:text="#{import.filedrop.noneSelected}">Aucun fichier sélectionné</span>
                 </label>
                 <label class="sn-import-option">
                     <input type="checkbox" name="override" value="true">
-                    <span><strong>Mettre à jour les entrées existantes</strong><small>Les valeurs du fichier remplaceront les données déjà enregistrées.</small></span>
+                    <span><strong th:text="#{import.override.label}">Mettre à jour les entrées existantes</strong><small th:text="#{import.override.hint}">Les valeurs du fichier remplaceront les données déjà enregistrées.</small></span>
                 </label>
-                <button type="submit" class="sn-btn sn-btn--primary sn-import-submit">Vérifier et importer</button>
+                <button type="submit" class="sn-btn sn-btn--primary sn-import-submit" th:text="#{import.submit}">Vérifier et importer</button>
             </fieldset>
         </form>
     </div>
 
-    <aside class="sn-import-schema" aria-label="Structure du fichier d'import">
+    <aside class="sn-import-schema" th:aria-label="#{import.schema.title}">
         <div class="sn-import-schema__header">
             <div>
-                <strong>Structure du fichier</strong>
-                <span>Les en-têtes doivent figurer sur la première ligne.</span>
+                <strong th:text="#{import.schema.title}">Structure du fichier</strong>
+                <span th:text="#{import.schema.subtitle}">Les en-têtes doivent figurer sur la première ligne.</span>
             </div>
             <span class="sn-import-schema__format">CSV / XLSX</span>
         </div>
 
         <div class="sn-import-schema__grid">
             <section class="sn-import-schema__group sn-import-schema__group--required">
-                <h3>Colonnes obligatoires</h3>
+                <h3 th:text="#{import.schema.required.title}">Colonnes obligatoires</h3>
                 <div class="sn-import-fields">
-                    <span class="sn-import-field sn-import-field--required"><code>address</code><small>Adresse IP</small></span>
-                    <span class="sn-import-field sn-import-field--required"><code>subnet_id</code><small>ID du sous-réseau</small></span>
-                    <span class="sn-import-field sn-import-field--required"><code>subnet_network</code><small>Alternative à subnet_id</small></span>
+                    <span class="sn-import-field sn-import-field--required"><code>address</code><small th:text="#{import.schema.field.address}">Adresse IP</small></span>
+                    <span class="sn-import-field sn-import-field--required"><code>subnet_id</code><small th:text="#{import.schema.field.subnetId}">ID du sous-réseau</small></span>
+                    <span class="sn-import-field sn-import-field--required"><code>subnet_network</code><small th:text="#{import.schema.field.subnetNetwork}">Alternative à subnet_id</small></span>
                 </div>
-                <p class="sn-form-hint">Renseignez <code>subnet_id</code> ou <code>subnet_network</code> pour rattacher l’adresse au bon sous-réseau.</p>
+                <p class="sn-form-hint" th:utext="#{import.schema.required.hint}">Renseignez <code>subnet_id</code> ou <code>subnet_network</code> pour rattacher l’adresse au bon sous-réseau.</p>
             </section>
 
             <section class="sn-import-schema__group sn-import-schema__group--optional">
-                <h3>Colonnes optionnelles</h3>
+                <h3 th:text="#{import.schema.optional.title}">Colonnes optionnelles</h3>
                 <div class="sn-import-fields">
-                    <span class="sn-import-field"><code>mac</code><small>Adresse MAC</small></span>
-                    <span class="sn-import-field"><code>hostname</code><small>Nom d’hôte</small></span>
-                    <span class="sn-import-field"><code>description</code><small>Description</small></span>
-                    <span class="sn-import-field"><code>temporary</code><small>Temporaire</small></span>
-                    <span class="sn-import-field"><code>discovery_source</code><small>Source</small></span>
+                    <span class="sn-import-field"><code>mac</code><small th:text="#{address.form.mac.label}">Adresse MAC</small></span>
+                    <span class="sn-import-field"><code>hostname</code><small th:text="#{import.schema.field.hostname}">Nom d’hôte</small></span>
+                    <span class="sn-import-field"><code>description</code><small th:text="#{common.description}">Description</small></span>
+                    <span class="sn-import-field"><code>temporary</code><small th:text="#{import.schema.field.temporary}">Temporaire</small></span>
+                    <span class="sn-import-field"><code>discovery_source</code><small th:text="#{table.source}">Source</small></span>
                 </div>
             </section>
         </div>

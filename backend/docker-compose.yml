@@ -25,14 +25,22 @@ services:
     secrets:
       - source: subnetory_jwt_secret
         target: subnetory.jwt.secret
+      - source: subnetory_encryption_key
+        target: subnetory.security.encryption-key
       - source: subnetory_admin_default_password
         target: subnetory.admin.default-password
       - source: postgres_password
         target: spring.datasource.password
-      # Chiffrement des sauvegardes (audit 01/08/2026, backlog #13) : optionnel,
-      # desactive par defaut (aucun fichier ./secrets/subnetory_backup_encryption_key
-      # n'existe tant qu'il n'est pas genere explicitement). Pour l'activer, voir
-      # backend/docs/BACKUP_ENCRYPTION.md puis decommenter ici et dans "secrets:" plus bas.
+      # Chiffrement des sauvegardes (audit 01/08/2026, backlog #13) : active
+      # par defaut depuis le 01/08/2026. Le secret ./secrets/subnetory_backup_encryption_key
+      # (contenu = passphrase, jamais commite) est genere automatiquement par
+      # scripts/init-compose.ps1 / .sh. Voir backend/docs/BACKUP_ENCRYPTION.md
+      # avant toute rotation manuelle — changer cette valeur plus tard rend
+      # illisibles toutes les sauvegardes deja chiffrees, ce n'est pas une
+      # rotation. Pour desactiver explicitement cette fonctionnalite,
+      # regenerer les secrets avec -WithoutBackupEncryption / --without-backup-encryption
+      # et recommenter les deux lignes suivantes ET l'entree correspondante
+      # dans "secrets:" plus bas.
       - source: subnetory_backup_encryption_key
         target: subnetory.backup.encryption.key
     depends_on:
@@ -82,6 +90,15 @@ volumes:
 secrets:
   subnetory_jwt_secret:
     file: ./secrets/subnetory_jwt_secret
+  # Cle de chiffrement dediee (audit 02/08/2026) pour les secrets stockes en
+  # base (mot de passe de bind LDAP, secret TOTP MFA), separee du secret
+  # JWT ci-dessus. Generee automatiquement par scripts/init-compose.ps1/.sh
+  # au meme titre que subnetory_jwt_secret. Sur une instance existante mise
+  # a jour depuis une version anterieure a cet audit, relancer
+  # scripts/init-compose.sh (sans --force) : seul ce nouveau secret manquant
+  # sera cree, les 3 autres restent strictement inchanges.
+  subnetory_encryption_key:
+    file: ./secrets/subnetory_encryption_key
   subnetory_admin_default_password:
     file: ./secrets/subnetory_admin_default_password
   postgres_password:

@@ -10,23 +10,23 @@ public class SubnetForm {
 
     private Long id;
 
-    @NotBlank(message = "Le réseau est obligatoire")
+    @NotBlank(message = "{validation.network.required}")
     @Pattern(
         regexp = "^(\\d{1,3}\\.){3}\\d{1,3}/\\d{1,2}$",
-        message = "Format CIDR invalide (ex : 192.168.1.0/24)"
+        message = "{validation.network.cidrFormat}"
     )
     private String network;
 
-    @Size(max = 500, message = "500 caractères maximum")
+    @Size(max = 500, message = "{validation.size.max}")
     private String description;
 
     /** Vide ou blank => null géré par SubnetService.buildSubnet. */
     private String gateway;
 
-    @NotNull(message = "Le contexte est obligatoire")
+    @NotNull(message = "{validation.field.contextRequired}")
     private Long contextId;
 
-    @NotNull(message = "Le site est obligatoire")
+    @NotNull(message = "{validation.field.siteRequired}")
     private Long siteId;
 
     private Long vlanId;    // optionnel

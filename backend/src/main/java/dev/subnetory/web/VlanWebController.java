@@ -12,7 +12,9 @@ import dev.subnetory.web.form.VlanForm;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
+import java.util.Locale;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.context.MessageSource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -40,15 +42,22 @@ public class VlanWebController {
     private final SiteService siteService;
     private final ActiveContextService activeContextService;
     private final AuthAuditService authAuditService;
+    private final MessageSource messageSource;
 
     public VlanWebController(VlanService vlanService,
                              SiteService siteService,
                              ObjectProvider<ActiveContextService> activeContextServiceProvider,
-                             AuthAuditService authAuditService) {
+                             AuthAuditService authAuditService,
+                             MessageSource messageSource) {
         this.vlanService = vlanService;
         this.siteService = siteService;
         this.activeContextService = activeContextServiceProvider.getIfAvailable();
         this.authAuditService = authAuditService;
+        this.messageSource = messageSource;
+    }
+
+    private String msg(String key, Locale locale, Object... args) {
+        return messageSource.getMessage(key, args, locale);
     }
 
     // ── Liste ──────────────────────────────────────────────────────────────
@@ -58,7 +67,8 @@ public class VlanWebController {
                        @RequestParam(required = false) Long siteId,
                        Model model,
                        Authentication authentication,
-                       HttpSession session) {
+                       HttpSession session,
+                       Locale locale) {
         var pageable = PageRequest.of(page, PAGE_SIZE, Sort.by("vid"));
         Long activeContextId = activeContextService == null ? null : activeContextService.get(session);
         if (siteId != null) {
@@ -78,7 +88,7 @@ public class VlanWebController {
         model.addAttribute("selectedSiteId", siteId);
         model.addAttribute("canManage", canManage(authentication));
         model.addAttribute("activeSection", "vlans");
-        model.addAttribute("pageTitle", "VLANs");
+        model.addAttribute("pageTitle", msg("pageTitle.vlans", locale));
         return "network/vlans";
     }
 
@@ -86,8 +96,8 @@ public class VlanWebController {
 
     @GetMapping("/new")
     @PreAuthorize("hasAnyRole('ADMIN', 'NETWORK')")
-    public String newForm(Model model) {
-        prepareFormModel(model, new VlanForm(), "Nouveau VLAN",
+    public String newForm(Model model, Locale locale) {
+        prepareFormModel(model, new VlanForm(), msg("pageTitle.vlanNew", locale),
                 "/network/vlans", "/network/vlans");
         return "network/vlan-form";
     }
@@ -100,9 +110,10 @@ public class VlanWebController {
                          BindingResult errors,
                          Model model,
                          Authentication auth,
-                         RedirectAttributes flash) {
+                         RedirectAttributes flash,
+                         Locale locale) {
         if (errors.hasErrors()) {
-            prepareFormModel(model, form, "Nouveau VLAN",
+            prepareFormModel(model, form, msg("pageTitle.vlanNew", locale),
                     "/network/vlans", "/network/vlans");
             return "network/vlan-form";
         }
@@ -111,11 +122,11 @@ public class VlanWebController {
             authAuditService.recordVlanCreated(auth.getName(), created.id(),
                     "VLAN " + created.vid() + " (" + created.name() + ")");
             flash.addFlashAttribute("flashSuccess",
-                    "VLAN " + form.getVid() + " créé avec succès.");
+                    msg("flash.vlan.createSuccess", locale, form.getVid()));
         } catch (ConflictException e) {
             model.addAttribute("formError",
-                    "Le VLAN " + form.getVid() + " existe déjà sur ce site.");
-            prepareFormModel(model, form, "Nouveau VLAN",
+                    msg("flash.vlan.conflict", locale, form.getVid()));
+            prepareFormModel(model, form, msg("pageTitle.vlanNew", locale),
                     "/network/vlans", "/network/vlans");
             return "network/vlan-form";
         }
@@ -128,10 +139,11 @@ public class VlanWebController {
     @PreAuthorize("hasAnyRole('ADMIN', 'NETWORK')")
     public String editForm(@PathVariable Long id,
                            Model model,
-                           HttpServletResponse response) {
+                           HttpServletResponse response,
+                           Locale locale) {
         try {
             prepareFormModel(model, VlanForm.from(vlanService.findById(id)),
-                    "Modifier le VLAN",
+                    msg("pageTitle.vlanEdit", locale),
                     "/network/vlans/" + id,
                     "/network/vlans");
         } catch (ResourceNotFoundException e) {
@@ -150,9 +162,10 @@ public class VlanWebController {
                          BindingResult errors,
                          Model model,
                          RedirectAttributes flash,
-                         HttpServletResponse response) {
+                         HttpServletResponse response,
+                         Locale locale) {
         if (errors.hasErrors()) {
-            prepareFormModel(model, form, "Modifier le VLAN",
+            prepareFormModel(model, form, msg("pageTitle.vlanEdit", locale),
                     "/network/vlans/" + id, "/network/vlans");
             // Piege POST/redirect (audit du 31/07/2026), meme pattern que
             // AddressWebController.prepareReserveModel().
@@ -161,14 +174,14 @@ public class VlanWebController {
         }
         try {
             vlanService.update(id, new VlanRequest(form.getName(), form.getVid(), form.getSiteId()));
-            flash.addFlashAttribute("flashSuccess", "VLAN mis à jour.");
+            flash.addFlashAttribute("flashSuccess", msg("flash.vlan.updateSuccess", locale));
         } catch (ResourceNotFoundException e) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
             return "error/404";
         } catch (ConflictException e) {
             model.addAttribute("formError",
-                    "Le VLAN " + form.getVid() + " existe déjà sur ce site.");
-            prepareFormModel(model, form, "Modifier le VLAN",
+                    msg("flash.vlan.conflict", locale, form.getVid()));
+            prepareFormModel(model, form, msg("pageTitle.vlanEdit", locale),
                     "/network/vlans/" + id, "/network/vlans");
             model.addAttribute("currentRequestPath", "/network/vlans/" + id + "/edit");
             return "network/vlan-form";
@@ -180,18 +193,17 @@ public class VlanWebController {
 
     @PostMapping("/{id}/delete")
     @PreAuthorize("hasRole('ADMIN')")
-    public String delete(@PathVariable Long id, Authentication auth, RedirectAttributes flash) {
+    public String delete(@PathVariable Long id, Authentication auth, RedirectAttributes flash, Locale locale) {
         try {
             VlanResponse vlan = vlanService.findById(id);
             vlanService.delete(id);
             authAuditService.recordVlanDeleted(auth.getName(), id,
                     "VLAN " + vlan.vid() + " (" + vlan.name() + ")");
-            flash.addFlashAttribute("flashSuccess", "VLAN supprimé.");
+            flash.addFlashAttribute("flashSuccess", msg("flash.vlan.deleteSuccess", locale));
         } catch (ResourceNotFoundException e) {
-            flash.addFlashAttribute("flashError", "VLAN introuvable.");
+            flash.addFlashAttribute("flashError", msg("flash.vlan.notFound", locale));
         } catch (DataIntegrityViolationException e) {
-            flash.addFlashAttribute("flashError",
-                    "Impossible de supprimer : des sous-réseaux sont rattachés à ce VLAN.");
+            flash.addFlashAttribute("flashError", msg("flash.vlan.deleteConflict", locale));
         }
         return "redirect:/network/vlans";
     }

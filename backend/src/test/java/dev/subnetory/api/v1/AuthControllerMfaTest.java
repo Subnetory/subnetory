@@ -76,7 +76,7 @@ class AuthControllerMfaTest {
         when(clientIpResolver.resolve(request)).thenReturn("127.0.0.1");
         when(authenticationManager.authenticate(any())).thenReturn(authentication());
         when(mfaLoginChallengeService.isRequired("jdoe")).thenReturn(true);
-        when(loginRateLimiter.recordFailure("127.0.0.1"))
+        when(loginRateLimiter.recordFailure("127.0.0.1", "jdoe"))
                 .thenReturn(new LoginRateLimiter.RateLimitDecision(false, false, Duration.ZERO));
 
         assertThatThrownBy(() -> controller.token(
@@ -87,7 +87,7 @@ class AuthControllerMfaTest {
         verify(mfaLoginChallengeService, never()).verify(any(), any());
         verify(authAuditService).recordMfaChallengeFailed("jdoe", "127.0.0.1", null);
         verify(jwtTokenService, never()).generateToken(any());
-        verify(loginRateLimiter, never()).recordSuccess(any());
+        verify(loginRateLimiter, never()).recordSuccess(any(), any());
     }
 
     @Test
@@ -97,7 +97,7 @@ class AuthControllerMfaTest {
         when(authenticationManager.authenticate(any())).thenReturn(authentication());
         when(mfaLoginChallengeService.isRequired("jdoe")).thenReturn(true);
         when(mfaLoginChallengeService.verify("jdoe", "000000")).thenReturn(false);
-        when(loginRateLimiter.recordFailure("127.0.0.1"))
+        when(loginRateLimiter.recordFailure("127.0.0.1", "jdoe"))
                 .thenReturn(new LoginRateLimiter.RateLimitDecision(false, false, Duration.ZERO));
 
         assertThatThrownBy(() -> controller.token(
@@ -116,7 +116,7 @@ class AuthControllerMfaTest {
         when(authenticationManager.authenticate(any())).thenReturn(authentication());
         when(mfaLoginChallengeService.isRequired("jdoe")).thenReturn(true);
         when(mfaLoginChallengeService.verify("jdoe", "000000")).thenReturn(false);
-        when(loginRateLimiter.recordFailure("127.0.0.1"))
+        when(loginRateLimiter.recordFailure("127.0.0.1", "jdoe"))
                 .thenReturn(new LoginRateLimiter.RateLimitDecision(false, true, Duration.ofMinutes(15)));
 
         assertThatThrownBy(() -> controller.token(
@@ -152,7 +152,7 @@ class AuthControllerMfaTest {
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().accessToken()).isEqualTo("jwt-token");
-        verify(loginRateLimiter).recordSuccess("127.0.0.1");
+        verify(loginRateLimiter).recordSuccess("127.0.0.1", "jdoe");
         verify(authAuditService).recordLoginSuccess("jdoe", "127.0.0.1", null);
         verify(authAuditService, never()).recordMfaChallengeFailed(any(), any(), any());
     }

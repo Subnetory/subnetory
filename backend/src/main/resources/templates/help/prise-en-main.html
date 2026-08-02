@@ -1,25 +1,24 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
-<head><title>Prise en main - Aide - Subnetory</title></head>
 <body>
 <div id="main-content">
 <div class="sn-page">
 
-    <p class="sn-help-crumb"><a th:href="@{/help}">Aide</a> / Prise en main</p>
+    <p class="sn-help-crumb"><a th:href="@{/help}" th:text="#{help.crumbPrefix}">Aide</a> / <span th:text="#{help.card.gettingStarted.title}">Prise en main</span></p>
 
     <div class="sn-help-layout">
         <div th:replace="~{help/fragments :: sidebar-user('prise-en-main')}"></div>
 
         <div class="sn-help-article">
             <div class="sn-help-article__header">
-                <h1 class="sn-page__title">Prise en main</h1>
-                <p>Ce que fait Subnetory, comment est organisé votre réseau, et les toutes premières étapes.</p>
+                <h1 class="sn-page__title" th:text="#{help.card.gettingStarted.title}">Prise en main</h1>
+                <p th:text="#{help.gettingStarted.subtitle}">Ce que fait Subnetory, comment est organisé votre réseau, et les toutes premières étapes.</p>
             </div>
 
             <section class="sn-help-section">
-                <h2>Qu'est-ce que Subnetory ?</h2>
-                <p>
+                <h2 th:text="#{help.gettingStarted.what.title}">Qu'est-ce que Subnetory ?</h2>
+                <p th:text="#{help.gettingStarted.what.body}">
                     Subnetory est un outil de gestion d'adresses IP (IPAM) léger et auto-hébergé. Il permet de
                     tenir l'inventaire de vos sous-réseaux IPv4, d'enregistrer et rechercher des adresses IP
                     avec leurs métadonnées (nom d'hôte, MAC, description), de trouver rapidement les adresses
@@ -29,13 +28,13 @@
             </section>
 
             <section class="sn-help-section">
-                <h2>Comment est organisé votre réseau</h2>
-                <p>Subnetory range les données selon une hiérarchie à quatre niveaux :</p>
+                <h2 th:text="#{help.gettingStarted.hierarchy.title}">Comment est organisé votre réseau</h2>
+                <p th:text="#{help.gettingStarted.hierarchy.intro}">Subnetory range les données selon une hiérarchie à quatre niveaux :</p>
                 <div class="sn-command-preview">
-                    <span>Hiérarchie</span>
-                    <code>Contexte (VRF) → Site → VLAN (optionnel) et Sous-réseau → Adresse IP</code>
+                    <span th:text="#{help.gettingStarted.hierarchy.label}">Hiérarchie</span>
+                    <code th:text="#{help.gettingStarted.hierarchy.diagram}">Contexte (VRF) → Site → VLAN (optionnel) et Sous-réseau → Adresse IP</code>
                 </div>
-                <p>
+                <p th:utext="#{help.gettingStarted.hierarchy.body}">
                     Un <strong>contexte</strong> représente un espace de routage (VRF, table de routage) — utile
                     si vous gérez plusieurs clients ou environnements cloisonnés. Un <strong>site</strong> est un
                     emplacement physique ou logique rattaché à un contexte. Un <strong>VLAN</strong> est
@@ -46,45 +45,50 @@
             </section>
 
             <section class="sn-help-section">
-                <h2>Les toutes premières étapes</h2>
+                <h2 th:text="#{help.gettingStarted.steps.title}">Les toutes premières étapes</h2>
                 <div class="sn-help-step-list">
                     <div class="sn-help-step">
-                        <span class="sn-help-step-text">
+                        <span class="sn-help-step-text" th:utext="#{help.gettingStarted.step1}">
                             <strong>Créer un contexte</strong> — menu <em>Contextes → Nouveau contexte</em>.
-                            Un seul suffit si vous ne gérez qu'un environnement.
+                            Un seul suffit si vous ne gérez qu'un environnement.<br>
+                            <span class="sn-text-muted sn-help-permission">Permissions requises : <code>ROLE_ADMIN</code> uniquement.</span>
                         </span>
                     </div>
                     <div class="sn-help-step">
-                        <span class="sn-help-step-text">
+                        <span class="sn-help-step-text" th:utext="#{help.gettingStarted.step2}">
                             <strong>Créer un site</strong> — menu <em>Sites → Nouveau site</em>, rattaché au
-                            contexte créé à l'étape précédente.
+                            contexte créé à l'étape précédente.<br>
+                            <span class="sn-text-muted sn-help-permission">Permissions requises : <code>ROLE_ADMIN</code> ou <code>ROLE_NETWORK</code>.</span>
                         </span>
                     </div>
                     <div class="sn-help-step">
-                        <span class="sn-help-step-text">
-                            <strong>Créer un VLAN</strong> (optionnel) — menu <em>VLANs → Nouveau VLAN</em>.
+                        <span class="sn-help-step-text" th:utext="#{help.gettingStarted.step3}">
+                            <strong>Créer un VLAN</strong> (optionnel) — menu <em>VLAN → Nouveau VLAN</em>.<br>
+                            <span class="sn-text-muted sn-help-permission">Permissions requises : <code>ROLE_ADMIN</code> ou <code>ROLE_NETWORK</code>.</span>
                         </span>
                     </div>
                     <div class="sn-help-step">
-                        <span class="sn-help-step-text">
+                        <span class="sn-help-step-text" th:utext="#{help.gettingStarted.step4}">
                             <strong>Créer un sous-réseau</strong> — menu <em>Sous-réseaux → Nouveau
                             sous-réseau</em>, par exemple <code>192.168.1.0/24</code> avec la passerelle
-                            <code>192.168.1.1</code>.
+                            <code>192.168.1.1</code>.<br>
+                            <span class="sn-text-muted sn-help-permission">Permissions requises : <code>ROLE_ADMIN</code> ou <code>ROLE_NETWORK</code>.</span>
                         </span>
                     </div>
                     <div class="sn-help-step">
                         <span class="sn-help-step-text">
-                            <strong>Créer une adresse IP</strong> — menu <em>Adresses IP → Nouvelle adresse</em>.
-                            Voir <a th:href="@{/help/adresses-ip}">le guide dédié</a> pour l'assistant de
-                            suggestion d'IP disponible.
+                            <span th:utext="#{help.gettingStarted.step5.prefix}"><strong>Créer une adresse IP</strong> — menu <em>Adresses IP → Nouvelle adresse</em>.
+                            Voir</span> <a th:href="@{/help/adresses-ip}" th:text="#{help.gettingStarted.step5.linkText}">le guide dédié</a> <span th:text="#{help.gettingStarted.step5.suffix}">pour l'assistant de
+                            suggestion d'IP disponible.</span><br>
+                            <span class="sn-text-muted sn-help-permission" th:utext="#{help.gettingStarted.step5.permission}">Permissions requises : <code>ROLE_ADMIN</code> ou <code>ROLE_IP</code>.</span>
                         </span>
                     </div>
                 </div>
             </section>
 
             <section class="sn-help-section">
-                <h2>Le sélecteur de contexte actif</h2>
-                <p>
+                <h2 th:text="#{help.gettingStarted.activeContext.title}">Le sélecteur de contexte actif</h2>
+                <p th:utext="#{help.gettingStarted.activeContext.body}">
                     En haut de chaque page se trouve un sélecteur de <strong>contexte actif</strong>. Une fois un
                     contexte sélectionné, toutes les listes (sites, VLAN, sous-réseaux, adresses) sont filtrées
                     à ce contexte, et les nouvelles ressources créées y sont automatiquement rattachées. Un
@@ -94,14 +98,14 @@
             </section>
 
             <section class="sn-help-section">
-                <h2>Pour aller plus loin</h2>
+                <h2 th:text="#{help.gettingStarted.further.title}">Pour aller plus loin</h2>
                 <p>
-                    <a th:href="@{/help/reseau}">Contextes, sites, VLAN &amp; sous-réseaux</a> — organiser la
-                    hiérarchie de votre réseau.<br>
-                    <a th:href="@{/help/adresses-ip}">Adresses IP</a> — créer, rechercher et réserver des
-                    adresses.<br>
-                    <a th:href="@{/help/import-export}">Import &amp; export</a> — reprendre un inventaire
-                    existant.
+                    <a th:href="@{/help/reseau}" th:text="#{help.card.network.title}">Contextes, sites, VLAN &amp; sous-réseaux</a> — <span th:text="#{help.gettingStarted.further.network}">organiser la
+                    hiérarchie de votre réseau.</span><br>
+                    <a th:href="@{/help/adresses-ip}" th:text="#{help.card.addresses.title}">Adresses IP</a> — <span th:text="#{help.gettingStarted.further.addresses}">créer, rechercher et réserver des
+                    adresses.</span><br>
+                    <a th:href="@{/help/import-export}" th:text="#{help.card.importExport.title}">Import &amp; export</a> — <span th:text="#{help.gettingStarted.further.importExport}">reprendre un inventaire
+                    existant.</span>
                 </p>
             </section>
         </div>

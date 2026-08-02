@@ -2,18 +2,17 @@
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity6"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
-<head><title>Contextes — Subnetory</title></head>
 <body>
 <div id="main-content">
 <div class="sn-page">
 
     <div class="sn-page__header">
         <div>
-            <h1 class="sn-page__title">Contextes</h1>
-            <p class="sn-page__subtitle">Isolez les sites, VLAN et sous-réseaux de chaque client ou environnement.</p>
+            <h1 class="sn-page__title" th:text="#{nav.contexts}">Contextes</h1>
+            <p class="sn-page__subtitle" th:text="#{context.subtitle}">Isolez les sites, VLAN et sous-réseaux de chaque client ou environnement.</p>
         </div>
         <div th:if="${canManage}">
-            <a href="/network/contexts/new" class="sn-btn sn-btn--primary">+ Nouveau contexte</a>
+            <a href="/network/contexts/new" class="sn-btn sn-btn--primary" th:text="#{context.button.new}">+ Nouveau contexte</a>
         </div>
     </div>
 
@@ -25,10 +24,10 @@
             <table class="sn-table">
                 <thead>
                     <tr>
-                        <th>Nom</th>
-                        <th>Description</th>
-                        <th>Créé le</th>
-                        <th th:if="${canManage}" class="sn-table-col-actions">Actions</th>
+                        <th th:text="#{common.name}">Nom</th>
+                        <th th:text="#{common.description}">Description</th>
+                        <th th:text="#{table.created}">Créé le</th>
+                        <th th:if="${canManage}" class="sn-table-col-actions" th:text="#{common.actions}">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -37,21 +36,21 @@
                         <td><strong th:text="${ctx.name}">Default</strong></td>
                         <td class="sn-text-secondary" th:text="${ctx.description ?: '—'}">—</td>
                         <td class="sn-text-muted"
-                            th:text="${#temporals.format(ctx.createdAt, 'dd/MM/yyyy')}">01/01/2026</td>
+                            th:text="${#temporals.format(ctx.createdAt.toLocalDate())}">01/01/2026</td>
                         <td th:if="${canManage}" class="sn-table-actions">
                             <a th:href="@{/network/contexts/{id}/edit(id=${ctx.id})}"
-                               class="sn-btn sn-btn--secondary sn-btn--sm">Modifier</a>
+                               class="sn-btn sn-btn--secondary sn-btn--sm" th:text="#{common.edit}">Modifier</a>
                             <form th:action="@{/network/contexts/{id}/delete(id=${ctx.id})}"
                                   method="post"
                                   class="sn-inline-form"
-                                  th:attr="data-confirm=|Supprimer le contexte « ${ctx.name} » ?|"
+                                  th:attr="data-confirm=#{context.confirm.delete(${ctx.name})}"
                                   sec:authorize="hasRole('ADMIN')">
-                                <button type="submit" class="sn-btn sn-btn--danger sn-btn--sm">Supprimer</button>
+                                <button type="submit" class="sn-btn sn-btn--danger sn-btn--sm" th:text="#{common.delete}">Supprimer</button>
                             </form>
                         </td>
                     </tr>
                     <tr th:if="${contexts.empty}" class="sn-table--empty">
-                        <td th:colspan="${canManage ? 4 : 3}">Aucun contexte enregistré.</td>
+                        <td th:colspan="${canManage ? 4 : 3}" th:text="#{context.empty}">Aucun contexte enregistré.</td>
                     </tr>
                 </tbody>
             </table>
@@ -59,7 +58,8 @@
 
         <div class="sn-pagination" th:if="${!contexts.empty}">
             <span class="sn-pagination__info"
-                  th:text="${contexts.totalElements} + ' contexte(s)'">N contextes</span>
+                  th:with="suffix=#{pagination.contexts.suffix}"
+                  th:text="${contexts.totalElements} + ' ' + suffix">N contextes</span>
             <nav class="sn-pagination__nav" th:if="${contexts.totalPages > 1}">
                 <a th:href="@{/network/contexts(page=${contexts.number - 1})}"
                    th:classappend="${contexts.first ? 'sn-pagination__btn--disabled' : ''}"

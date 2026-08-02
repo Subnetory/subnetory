@@ -1,16 +1,15 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
-<head><title>Scan sous-réseau - Subnetory</title></head>
 <body>
 <div id="main-content">
 <div class="sn-page sn-scan-page">
 
     <div class="sn-page__header">
         <div>
-            <a th:href="@{/network/subnets}" class="sn-import-back">← Retour aux sous-réseaux</a>
-            <h1 class="sn-page__title">Scan du sous-réseau</h1>
-            <p class="sn-page__subtitle">
+            <a th:href="@{/network/subnets}" class="sn-import-back" th:text="#{scan.back}">← Retour aux sous-réseaux</a>
+            <h1 class="sn-page__title" th:text="#{scan.title}">Scan du sous-réseau</h1>
+            <p class="sn-page__subtitle" th:text="#{scan.subtitle}">
                 Lancez une découverte réseau et comparez le résultat à votre inventaire.
             </p>
         </div>
@@ -21,137 +20,137 @@
     <div class="sn-scan-grid">
         <section class="sn-card sn-scan-panel">
             <div class="sn-card__header">
-                <h2 class="sn-card__title">Commande de scan</h2>
+                <h2 class="sn-card__title" th:text="#{scan.command.title}">Commande de scan</h2>
             </div>
             <form th:action="@{/network/subnets/{id}/scan(id=${subnet.id()})}" method="post" class="sn-form sn-scan-form" data-scan-form>
                 <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
 
                 <div class="sn-scan-target">
-                    <span>Réseau ciblé</span>
+                    <span th:text="#{scan.target.label}">Réseau ciblé</span>
                     <strong th:text="${subnet.network()}">10.0.0.0/24</strong>
                     <small th:text="|${subnet.siteName()} · ${subnet.contextName()}|">Site · Contexte</small>
                 </div>
 
                 <label class="sn-import-option">
                     <input type="checkbox" name="override" value="true" th:checked="${override}">
-                    <span>Écraser les informations existantes <small>Sinon, seul le dernier passage du scan est mis à jour.</small></span>
+                    <span th:text="#{scan.override.label}">Écraser les informations existantes</span> <small th:text="#{scan.override.hint}">Sinon, seul le dernier passage du scan est mis à jour.</small>
                 </label>
 
                 <label class="sn-import-option">
                     <input type="checkbox" name="resolveDns" value="true" th:checked="${resolveDns}" data-scan-option>
-                    <span>Résolution DNS inverse <small>Ajoute les hostnames quand ils sont disponibles.</small></span>
+                    <span th:text="#{scan.dns.label}">Résolution DNS inverse</span> <small th:text="#{scan.dns.hint}">Ajoute les hostnames quand ils sont disponibles.</small>
                 </label>
 
                 <div class="sn-form__group">
-                    <label for="dnsServers" class="sn-form__label">DNS de résolution</label>
+                    <label for="dnsServers" class="sn-form__label" th:text="#{scan.dnsServers.label}">DNS de résolution</label>
                     <textarea id="dnsServers"
                               name="dnsServers"
                               class="sn-input sn-scan-dns"
                               rows="3"
-                              placeholder="Ex. 10.10.0.10, 10.10.0.11"
+                              th:placeholder="#{scan.dnsServers.placeholder}"
                               data-scan-option
                               th:text="${dnsServers}"></textarea>
-                    <div class="sn-form-hint">Plusieurs DNS peuvent être séparés par virgule, espace ou retour ligne.</div>
+                    <div class="sn-form-hint" th:text="#{scan.dnsServers.hint}">Plusieurs DNS peuvent être séparés par virgule, espace ou retour ligne.</div>
                 </div>
 
                 <label class="sn-import-option">
                     <input type="checkbox" name="arpPing" value="true" th:checked="${arpPing}" data-scan-option>
-                    <span>Ping ARP sur le segment local <small>Permet souvent de remonter les adresses MAC.</small></span>
+                    <span th:text="#{scan.arp.label}">Ping ARP sur le segment local</span> <small th:text="#{scan.arp.hint}">Permet souvent de remonter les adresses MAC.</small>
                 </label>
 
                 <div class="sn-form__group">
-                    <label for="timing" class="sn-form__label">Rythme du scan</label>
+                    <label for="timing" class="sn-form__label" th:text="#{scan.timing.label}">Rythme du scan</label>
                     <select id="timing" name="timing" class="sn-search__select" data-scan-option>
-                        <option value="normal" th:selected="${timing == 'normal'}">Normal</option>
-                        <option value="fast" th:selected="${timing == 'fast'}">Rapide</option>
-                        <option value="gentle" th:selected="${timing == 'gentle'}">Prudent</option>
+                        <option value="normal" th:selected="${timing == 'normal'}" th:text="#{scan.timing.normal}">Normal</option>
+                        <option value="fast" th:selected="${timing == 'fast'}" th:text="#{scan.timing.fast}">Rapide</option>
+                        <option value="gentle" th:selected="${timing == 'gentle'}" th:text="#{scan.timing.gentle}">Prudent</option>
                     </select>
                 </div>
 
                 <div class="sn-command-preview">
-                    <span>Commande générée</span>
+                    <span th:text="#{scan.commandPreview.label}">Commande générée</span>
                     <code th:text="${commandPreview}"
                           th:attr="data-command-preview=${subnet.network()}">nmap -sn -R -oX - 10.0.0.0/24</code>
                 </div>
 
                 <aside class="sn-scan-allowed">
-                    <strong>Arguments autorisés</strong>
+                    <strong th:text="#{scan.allowedArgs.title}">Arguments autorisés</strong>
                     <div class="sn-scan-allowed__grid">
-                        <button type="button" class="sn-scan-arg is-fixed" disabled title="Argument obligatoire">
-                            <code>-sn</code><small>Obligatoire</small>
+                        <button type="button" class="sn-scan-arg is-fixed" disabled th:title="#{scan.arg.required}">
+                            <code>-sn</code><small th:text="#{scan.arg.required}">Obligatoire</small>
                         </button>
                         <button type="button" class="sn-scan-arg" data-scan-arg="dns-on">
-                            <code>-R</code><small>Résolution DNS</small>
+                            <code>-R</code><small th:text="#{scan.arg.dnsOn}">Résolution DNS</small>
                         </button>
                         <button type="button" class="sn-scan-arg" data-scan-arg="dns-off">
-                            <code>-n</code><small>Sans DNS</small>
+                            <code>-n</code><small th:text="#{scan.arg.dnsOff}">Sans DNS</small>
                         </button>
-                        <button type="button" class="sn-scan-arg is-fixed" disabled title="Utilisé si des DNS sont renseignés">
-                            <code>--dns-servers</code><small>Liste DNS</small>
+                        <button type="button" class="sn-scan-arg is-fixed" disabled th:title="#{scan.arg.dnsServersList.title}">
+                            <code>--dns-servers</code><small th:text="#{scan.arg.dnsServersList}">Liste DNS</small>
                         </button>
                         <button type="button" class="sn-scan-arg" data-scan-arg="arp-off">
-                            <code>--disable-arp-ping</code><small>Sans ARP</small>
+                            <code>--disable-arp-ping</code><small th:text="#{scan.arg.arpOff}">Sans ARP</small>
                         </button>
                         <button type="button" class="sn-scan-arg" data-scan-arg="timing-gentle">
-                            <code>-T2</code><small>Rythme prudent</small>
+                            <code>-T2</code><small th:text="#{scan.arg.timingGentle}">Rythme prudent</small>
                         </button>
                         <button type="button" class="sn-scan-arg" data-scan-arg="timing-fast">
-                            <code>-T4</code><small>Rythme rapide</small>
+                            <code>-T4</code><small th:text="#{scan.arg.timingFast}">Rythme rapide</small>
                         </button>
-                        <button type="button" class="sn-scan-arg is-fixed" disabled title="Argument obligatoire">
-                            <code>-oX -</code><small>Obligatoire</small>
+                        <button type="button" class="sn-scan-arg is-fixed" disabled th:title="#{scan.arg.required}">
+                            <code>-oX -</code><small th:text="#{scan.arg.required}">Obligatoire</small>
                         </button>
                     </div>
                 </aside>
 
                 <div class="sn-form__actions">
-                    <button type="submit" class="sn-btn sn-btn--primary" data-scan-submit>Lancer le scan</button>
-                    <a th:href="@{/network/subnets}" class="sn-btn sn-btn--ghost">Annuler</a>
+                    <button type="submit" class="sn-btn sn-btn--primary" data-scan-submit th:text="#{scan.submit}">Lancer le scan</button>
+                    <a th:href="@{/network/subnets}" class="sn-btn sn-btn--ghost" th:text="#{common.cancel}">Annuler</a>
                 </div>
             </form>
         </section>
 
         <section class="sn-card sn-terminal-card" data-scan-followup>
             <div class="sn-card__header">
-                <h2 class="sn-card__title">Suivi d'exécution</h2>
+                <h2 class="sn-card__title" th:text="#{scan.followup.title}">Suivi d'exécution</h2>
                 <div class="sn-card__actions">
                     <button th:if="${scanResult != null && scanResult.hostsFound() > 0}"
                             type="button"
                             class="sn-btn sn-btn--ghost sn-btn--sm"
                             data-copy-target="#scan-positive-results"
-                            data-copy-label="Copier les résultats"
-                            data-copy-done="Résultats copiés">
+                            th:attr="data-copy-label=#{scan.copyResults},data-copy-done=#{scan.copyResults.done}"
+                            th:text="#{scan.copyResults}">
                         Copier les résultats
                     </button>
-                    <span th:if="${scanResult != null}" class="sn-badge sn-badge--green" data-scan-status>Terminé</span>
-                    <span th:if="${scanResult == null && scanError == null}" class="sn-badge sn-badge--neutral" data-scan-status>En attente</span>
-                    <span th:if="${scanError != null}" class="sn-badge sn-badge--orange" data-scan-status>Erreur</span>
+                    <span th:if="${scanResult != null}" class="sn-badge sn-badge--green" data-scan-status th:text="#{scan.status.done}">Terminé</span>
+                    <span th:if="${scanResult == null && scanError == null}" class="sn-badge sn-badge--neutral" data-scan-status th:text="#{scan.status.pending}">En attente</span>
+                    <span th:if="${scanError != null}" class="sn-badge sn-badge--orange" data-scan-status th:text="#{scan.status.error}">Erreur</span>
                 </div>
             </div>
             <div class="sn-terminal" data-scan-terminal>
                 <div th:if="${scanResult == null && scanError == null}" data-scan-idle>
-                    <p>$ prêt</p>
-                    <p>Options chargées.</p>
+                    <p th:text="#{scan.idle.ready}">$ prêt</p>
+                    <p th:text="#{scan.idle.optionsLoaded}">Options chargées.</p>
                 </div>
                 <div th:if="${scanError != null}">
-                    <p>$ scan interrompu</p>
+                    <p th:text="#{scan.aborted}">$ scan interrompu</p>
                     <p th:text="${scanError}">Erreur</p>
                 </div>
                 <div th:if="${scanResult != null}">
                     <p th:text="|$ ${scanResult.commandPreview()}|">$ nmap</p>
                     <p th:each="line : ${scanResult.logLines()}" th:text="${line}">log</p>
                     <div th:if="${scanResult.hostsFound() > 0}" class="sn-terminal-results">
-                        <p>$ résultats positifs</p>
+                        <p th:text="#{scan.positiveResults}">$ résultats positifs</p>
                         <pre id="scan-positive-results" class="sn-terminal-copy"><code><th:block th:each="host, iter : ${scanResult.hosts()}"><span th:text="${host.ip()}">10.0.0.10</span><span>    </span><span th:text="${host.hostname() ?: '-'}">srv-web-01</span><span>    </span><span th:text="${host.mac() ?: '-'}">AA:BB:CC:DD:EE:FF</span><br th:unless="${iter.last}"></th:block></code></pre>
                     </div>
-                    <p th:if="${scanResult.hostsFound() == 0}">Aucun hôte détecté.</p>
+                    <p th:if="${scanResult.hostsFound() == 0}" th:text="#{scan.noHosts}">Aucun hôte détecté.</p>
                 </div>
             </div>
             <div th:if="${scanResult != null}" class="sn-scan-summary">
-                <div><strong th:text="${scanResult.hostsFound()}">0</strong><span>hôtes</span></div>
-                <div><strong th:text="${scanResult.created()}">0</strong><span>créés</span></div>
-                <div><strong th:text="${scanResult.updatedLastSeen()}">0</strong><span>vus</span></div>
-                <div><strong th:text="${scanResult.errors()}">0</strong><span>erreurs</span></div>
+                <div><strong th:text="${scanResult.hostsFound()}">0</strong><span th:text="#{scan.summary.hosts}">hôtes</span></div>
+                <div><strong th:text="${scanResult.created()}">0</strong><span th:text="#{scan.summary.created}">créés</span></div>
+                <div><strong th:text="${scanResult.updatedLastSeen()}">0</strong><span th:text="#{scan.summary.seen}">vus</span></div>
+                <div><strong th:text="${scanResult.errors()}">0</strong><span th:text="#{scan.summary.errors}">erreurs</span></div>
             </div>
         </section>
     </div>

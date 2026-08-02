@@ -252,7 +252,8 @@ class NetworkWebPagesIT {
         mvc.perform(post("/network/subnets/" + subnetSmallId + "/scan")
                 .with(csrf()))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Suivi d'exécution")));
+                // Thymeleaf th:text échappe l'apostrophe en entité HTML (&#39;).
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Suivi d&#39;exécution")));
     }
 
     @Test @Order(19) @WithMockUser(username = "admin", roles = {"ADMIN", "NETWORK"})

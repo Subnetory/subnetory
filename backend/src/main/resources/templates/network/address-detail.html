@@ -2,26 +2,27 @@
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity6"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
-<head><title>Adresses IP — Subnetory</title></head>
 <body>
 <div id="main-content">
 <div class="sn-page">
 
     <div class="sn-page__header">
         <div>
-            <a th:href="@{/network/addresses}" class="sn-btn sn-btn--ghost sn-btn--sm sn-mb-2">← Retour</a>
+            <a th:href="@{/network/addresses}" class="sn-btn sn-btn--ghost sn-btn--sm sn-mb-2" th:text="#{address.detail.back}">← Retour</a>
             <h1 class="sn-page__title" th:text="${address.address}">192.168.1.10</h1>
-            <p class="sn-page__subtitle" th:text="${address.hostname ?: 'Aucun hostname'}">srv-web-01</p>
+            <p class="sn-page__subtitle"
+               th:with="noHostname=#{address.detail.noHostname}"
+               th:text="${address.hostname ?: noHostname}">srv-web-01</p>
         </div>
         <div th:if="${canManage}" class="sn-table-actions">
             <a th:href="@{/network/addresses/{id}/edit(id=${address.id})}"
-               class="sn-btn sn-btn--secondary">Modifier</a>
+               class="sn-btn sn-btn--secondary" th:text="#{common.edit}">Modifier</a>
             <form th:action="@{/network/addresses/{id}/delete(id=${address.id})}"
                   method="post"
                   class="sn-inline-form"
-                  th:attr="data-confirm=|Supprimer l'adresse ${address.address} ?|"
+                  th:attr="data-confirm=#{address.confirm.delete(${address.address})}"
                   sec:authorize="hasRole('ADMIN')">
-                <button type="submit" class="sn-btn sn-btn--danger">Supprimer</button>
+                <button type="submit" class="sn-btn sn-btn--danger" th:text="#{common.delete}">Supprimer</button>
             </form>
         </div>
     </div>
@@ -29,78 +30,82 @@
     <div class="sn-card">
         <div class="sn-detail">
             <div class="sn-detail__field">
-                <div class="sn-detail__label">Adresse IP</div>
+                <div class="sn-detail__label" th:text="#{address.form.ip.label}">Adresse IP</div>
                 <div class="sn-detail__value sn-detail__value--mono" th:text="${address.address}">192.168.1.10</div>
             </div>
             <div class="sn-detail__field">
-                <div class="sn-detail__label">Hostname</div>
+                <div class="sn-detail__label" th:text="#{table.hostname}">Hostname</div>
                 <div class="sn-detail__value"
+                     th:with="empty=#{address.detail.hostnameEmpty}"
                      th:classappend="${address.hostname == null ? 'sn-detail__value--empty' : ''}"
-                     th:text="${address.hostname ?: 'Non défini'}">srv-web-01</div>
+                     th:text="${address.hostname ?: empty}">srv-web-01</div>
             </div>
             <div class="sn-detail__field">
-                <div class="sn-detail__label">Adresse MAC</div>
+                <div class="sn-detail__label" th:text="#{address.form.mac.label}">Adresse MAC</div>
                 <div class="sn-detail__value sn-detail__value--mono"
+                     th:with="empty=#{address.detail.macEmpty}"
                      th:classappend="${address.mac == null ? 'sn-detail__value--empty' : ''}"
-                     th:text="${address.mac ?: 'Non définie'}">aa:bb:cc:dd:ee:ff</div>
+                     th:text="${address.mac ?: empty}">aa:bb:cc:dd:ee:ff</div>
             </div>
             <div class="sn-detail__field">
-                <div class="sn-detail__label">Description</div>
+                <div class="sn-detail__label" th:text="#{common.description}">Description</div>
                 <div class="sn-detail__value"
+                     th:with="empty=#{address.detail.descriptionEmpty}"
                      th:classappend="${address.description == null ? 'sn-detail__value--empty' : ''}"
-                     th:text="${address.description ?: 'Aucune description'}">Serveur web</div>
+                     th:text="${address.description ?: empty}">Serveur web</div>
             </div>
             <div class="sn-detail__field">
-                <div class="sn-detail__label">Sous-réseau</div>
+                <div class="sn-detail__label" th:text="#{address.form.subnet.label}">Sous-réseau</div>
                 <div class="sn-detail__value sn-detail__value--mono" th:text="${address.subnetNetwork}">10.0.0.0/24</div>
             </div>
             <div class="sn-detail__field">
-                <div class="sn-detail__label">Site</div>
+                <div class="sn-detail__label" th:text="#{common.site}">Site</div>
                 <div class="sn-detail__value" th:text="${address.siteName}">Site</div>
             </div>
             <div class="sn-detail__field">
-                <div class="sn-detail__label">Contexte</div>
+                <div class="sn-detail__label" th:text="#{common.context}">Contexte</div>
                 <div class="sn-detail__value" th:text="${address.contextName}">Default</div>
             </div>
             <div class="sn-detail__field">
-                <div class="sn-detail__label">Source</div>
-                <div class="sn-detail__value">
+                <div class="sn-detail__label" th:text="#{table.source}">Source</div>
+                <div class="sn-detail__value"
+                     th:with="lblScan=#{source.scan},lblManual=#{source.manual},lblImport=#{source.import},lblApi=#{source.api},lblDns=#{source.dns}">
                     <span class="sn-badge sn-badge--neutral"
-                     th:text="${address.discoverySource == 'nmap' or address.discoverySource == 'arp-scan' ? 'Scan' :
-                               address.discoverySource == 'manual' ? 'Manuel' :
-                               address.discoverySource == 'csv' ? 'Import' :
-                               address.discoverySource == 'api' ? 'API' :
-                               address.discoverySource == 'dns' ? 'DNS' :
+                     th:text="${address.discoverySource == 'nmap' or address.discoverySource == 'arp-scan' ? lblScan :
+                               address.discoverySource == 'manual' ? lblManual :
+                               address.discoverySource == 'csv' ? lblImport :
+                               address.discoverySource == 'api' ? lblApi :
+                               address.discoverySource == 'dns' ? lblDns :
                                '—'}">Manuel</span>
                 </div>
             </div>
             <div class="sn-detail__field">
-                <div class="sn-detail__label">IP temporaire</div>
+                <div class="sn-detail__label" th:text="#{address.form.temporary.label}">IP temporaire</div>
                 <div class="sn-detail__value">
-                    <span th:if="${address.temporary}" class="sn-badge sn-badge--orange">Oui</span>
-                    <span th:unless="${address.temporary}" class="sn-badge sn-badge--neutral">Non</span>
+                    <span th:if="${address.temporary}" class="sn-badge sn-badge--orange" th:text="#{detail.temporary.yes}">Oui</span>
+                    <span th:unless="${address.temporary}" class="sn-badge sn-badge--neutral" th:text="#{detail.temporary.no}">Non</span>
                 </div>
             </div>
             <div class="sn-detail__field">
-                <div class="sn-detail__label">Dernière détection</div>
+                <div class="sn-detail__label" th:text="#{table.lastSeen}">Dernière détection</div>
                 <div class="sn-detail__value"
-                     th:text="${address.lastSeenAt != null ? #temporals.format(address.lastSeenAt, 'dd/MM/yyyy HH:mm') : '—'}">—</div>
+                     th:text="${address.lastSeenAt != null ? #temporals.format(address.lastSeenAt) : '—'}">—</div>
             </div>
             <div class="sn-detail__field">
-                <div class="sn-detail__label">Modifié par</div>
+                <div class="sn-detail__label" th:text="#{detail.label.modifiedBy}">Modifié par</div>
                 <div class="sn-detail__value"
                      th:classappend="${address.modifiedBy == null ? 'sn-detail__value--empty' : ''}"
                      th:text="${address.modifiedBy ?: '—'}">admin</div>
             </div>
             <div class="sn-detail__field">
-                <div class="sn-detail__label">Créé le</div>
+                <div class="sn-detail__label" th:text="#{table.created}">Créé le</div>
                 <div class="sn-detail__value sn-text-muted"
-                     th:text="${#temporals.format(address.createdAt, 'dd/MM/yyyy HH:mm')}">01/01/2026</div>
+                     th:text="${#temporals.format(address.createdAt)}">01/01/2026</div>
             </div>
             <div class="sn-detail__field">
-                <div class="sn-detail__label">Mis à jour le</div>
+                <div class="sn-detail__label" th:text="#{detail.label.updatedAt}">Mis à jour le</div>
                 <div class="sn-detail__value sn-text-muted"
-                     th:text="${#temporals.format(address.updatedAt, 'dd/MM/yyyy HH:mm')}">01/01/2026</div>
+                     th:text="${#temporals.format(address.updatedAt)}">01/01/2026</div>
             </div>
         </div>
     </div>

@@ -10,7 +10,7 @@ Le mode autonome utilise :
 - une image Subnetory construite localement ;
 - PostgreSQL 17 dans le service `db` ;
 - un volume Docker nommé pour les données ;
-- quatre secrets dans `backend/secrets/` (dont un pour le chiffrement des sauvegardes, activé par défaut) ;
+- cinq secrets dans `backend/secrets/` (dont un pour le chiffrement des secrets stockés en base — LDAP/MFA — et un pour le chiffrement des sauvegardes, tous deux activés par défaut) ;
 - les probes Actuator de liveness et readiness.
 
 PostgreSQL n'est pas publié sur un port de l'hôte.
@@ -69,6 +69,7 @@ Les fichiers suivants sont créés sans afficher leurs valeurs :
 
 ```text
 backend/secrets/subnetory_jwt_secret
+backend/secrets/subnetory_encryption_key
 backend/secrets/subnetory_admin_default_password
 backend/secrets/postgres_password
 backend/secrets/subnetory_backup_encryption_key
@@ -77,6 +78,7 @@ backend/secrets/subnetory_backup_encryption_key
 Propriétés :
 
 - secret JWT : au moins 64 octets aléatoires, encodés en hexadécimal ;
+- clé de chiffrement des secrets stockés en base : au moins 32 octets aléatoires, encodés en hexadécimal ;
 - mot de passe PostgreSQL : au moins 32 octets aléatoires, encodés en hexadécimal ;
 - mot de passe administrateur temporaire : 32 caractères et politique Subnetory respectée ;
 - clé de chiffrement des sauvegardes : au moins 32 octets aléatoires, encodés en hexadécimal ;
@@ -84,6 +86,12 @@ Propriétés :
 - permissions restrictives lorsque le système le permet.
 
 Le script refuse d'écraser un secret existant. L'option `-Force` ou `--force` est réservée à une rotation volontaire et coordonnée. Elle ne doit pas être utilisée comme commande de réparation générique sur une installation existante.
+
+### Secret généré par défaut : chiffrement des secrets stockés en base (LDAP/MFA)
+
+`subnetory_encryption_key` chiffre le mot de passe de bind LDAP et le secret TOTP MFA stockés en base — auparavant, ces deux valeurs étaient chiffrées avec le secret JWT lui-même (`subnetory_jwt_secret`), ce qui mélangeait deux usages distincts (signature des jetons d'authentification vs chiffrement au repos). Ce nouveau secret est généré automatiquement avec les autres, sans option de désactivation (contrairement au chiffrement des sauvegardes ci-dessous).
+
+**Instance existante mise à jour** : relancer le script d'initialisation sans `-Force`/`--force` ; seul le secret manquant `subnetory_encryption_key` est créé, les autres secrets restent strictement inchangés. Tant que ce fichier est absent, l'application continue de fonctionner en repli sur `subnetory_jwt_secret` (avec un avertissement au démarrage dans les logs) : ce n'est pas bloquant, mais il est recommandé de régénérer ce secret rapidement après une mise à jour.
 
 ### Secret généré par défaut : chiffrement des sauvegardes
 
@@ -109,13 +117,14 @@ Le flag historique `-WithBackupEncryption` / `--with-backup-encryption` reste ac
 
 ### ⚠️ Point de vigilance — sauvegarder ces secrets avant d'aller plus loin
 
-Les quatre fichiers de `backend/secrets/` ne sont générés qu'une seule fois, sur ce poste, et ne sont jamais commités (`.gitignore`). Si ce dossier est perdu — disque défaillant, réinstallation, migration vers une nouvelle machine sans l'avoir copié — **il n'existe aucun autre moyen de les récupérer**. Avant de poursuivre l'installation, lire chaque valeur et la ranger dans un coffre personnel ou d'équipe (gestionnaire de mots de passe : KeePassXC, Bitwarden, 1Password, ou équivalent).
+Les cinq fichiers de `backend/secrets/` ne sont générés qu'une seule fois, sur ce poste, et ne sont jamais commités (`.gitignore`). Si ce dossier est perdu — disque défaillant, réinstallation, migration vers une nouvelle machine sans l'avoir copié — **il n'existe aucun autre moyen de les récupérer**. Avant de poursuivre l'installation, lire chaque valeur et la ranger dans un coffre personnel ou d'équipe (gestionnaire de mots de passe : KeePassXC, Bitwarden, 1Password, ou équivalent).
 
-Lire les quatre valeurs (PowerShell, depuis `backend/`) :
+Lire les cinq valeurs (PowerShell, depuis `backend/`) :
 
 ```powershell
 Get-Content -LiteralPath .\secrets\postgres_password -Raw
 Get-Content -LiteralPath .\secrets\subnetory_backup_encryption_key -Raw
+Get-Content -LiteralPath .\secrets\subnetory_encryption_key -Raw
 Get-Content -LiteralPath .\secrets\subnetory_jwt_secret -Raw
 Get-Content -LiteralPath .\secrets\subnetory_admin_default_password -Raw
 ```
@@ -125,13 +134,15 @@ Linux/Bash (depuis `backend/`) :
 ```sh
 cat secrets/postgres_password
 cat secrets/subnetory_backup_encryption_key
+cat secrets/subnetory_encryption_key
 cat secrets/subnetory_jwt_secret
 cat secrets/subnetory_admin_default_password
 ```
 
 Ce que chacun coûte réellement si on ne le garde pas ailleurs :
 
-- **Clé de chiffrement des sauvegardes** (`subnetory_backup_encryption_key`) — la plus critique des quatre. Si elle est perdue, **toutes les sauvegardes déjà chiffrées deviennent définitivement illisibles**, sans aucun recours (ni support, ni contournement — voir `BACKUP_ENCRYPTION.md`). C'est aussi la valeur à transporter volontairement lors d'une migration vers une nouvelle instance qui doit continuer à lire d'anciennes sauvegardes chiffrées.
+- **Clé de chiffrement des sauvegardes** (`subnetory_backup_encryption_key`) — la plus critique des cinq. Si elle est perdue, **toutes les sauvegardes déjà chiffrées deviennent définitivement illisibles**, sans aucun recours (ni support, ni contournement — voir `BACKUP_ENCRYPTION.md`). C'est aussi la valeur à transporter volontairement lors d'une migration vers une nouvelle instance qui doit continuer à lire d'anciennes sauvegardes chiffrées.
+- **Clé de chiffrement des secrets stockés en base** (`subnetory_encryption_key`) — si elle est perdue, le mot de passe de bind LDAP et le secret TOTP MFA déjà stockés en base deviennent illisibles ; il faut alors reconfigurer LDAP et refaire activer le MFA pour les comptes concernés. Impact réel mais rattrapable (contrairement à la clé de sauvegarde ci-dessus).
 - **Mot de passe PostgreSQL** (`postgres_password`) — si ce fichier disparaît, l'application ne peut plus se connecter à la base au prochain redémarrage du conteneur, même si le volume de données `pgdata` est intact et sain.
 - **Secret JWT** (`subnetory_jwt_secret`) — impact le plus faible : sa perte ou sa rotation ne fait que déconnecter tous les utilisateurs au prochain redémarrage. Peut être régénéré sans risque pour les données.
 - **Mot de passe administrateur temporaire** (`subnetory_admin_default_password`) — à lire dès l'étape 7 ci-dessous pour la première connexion. Il devient inerte après le changement de mot de passe imposé au premier login (voir étape 8) : inutile de le conserver après coup. En revanche, **le nouveau mot de passe personnel choisi à ce moment-là doit, lui, être enregistré dans le même coffre.**

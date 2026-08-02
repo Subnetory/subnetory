@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: subnetory
-  tag: "0.6.0"
+  tag: "0.7.0"
   pullPolicy: IfNotPresent
   imagePullSecrets: []
 
@@ -12,6 +12,15 @@ fullnameOverride: ""
 secrets:
   existingSecretRuntime: subnetory-runtime-secrets
   existingSecretBootstrap: subnetory-bootstrap-secrets
+  # Cle de chiffrement dediee (audit 02/08/2026) pour les secrets stockes en
+  # base (mot de passe de bind LDAP, secret TOTP MFA), separee du secret JWT.
+  # false par defaut pour ne pas casser un Secret Kubernetes existant qui ne
+  # porte pas encore la cle "encryption-key" : tant que ce flag reste a
+  # false, l'application retombe sur le secret JWT comme cle de chiffrement
+  # (comportement historique, avec avertissement au demarrage). Pour migrer :
+  # ajouter la cle "encryption-key" au Secret existingSecretRuntime ci-dessus
+  # (meme longueur/format que jwt-secret), puis passer ce flag a true.
+  encryptionKeyEnabled: false
 
 serviceAccount:
   create: true

@@ -52,13 +52,24 @@ public class SiteService {
 
     @Transactional
     public SiteResponse create(SiteRequest request) {
-        if (siteRepository.existsByCode(request.code())) {
-            throw new ConflictException("Site with code '" + request.code() + "' already exists");
+        // Normalisation avant verification d'unicite (audit 02/08/2026,
+        // correctif ELEVEE) : le code est toujours stocke en majuscules
+        // (site.setCode(...toUpperCase()) plus bas), mais existsByCode()
+        // comparait jusqu'ici le code BRUT non normalise. Un code saisi en
+        // minuscules/casse mixte (le formulaire web, contrairement a l'API,
+        // n'imposait aucun format) pouvait donc passer ce pre-controle sans
+        // collision detectee, puis echouer plus loin sur la contrainte
+        // d'unicite reelle en base (DataIntegrityViolationException, 500 non
+        // gere cote controleur). Normaliser ici rend le pre-controle fiable
+        // dans tous les cas, en plus du filtrage de format ajoute a SiteForm.
+        String normalizedCode = request.code().toUpperCase();
+        if (siteRepository.existsByCode(normalizedCode)) {
+            throw new ConflictException("Site with code '" + normalizedCode + "' already exists");
         }
         NetworkContext context = contextService.getEntityById(request.contextId());
         Site site = new Site();
         site.setName(request.name());
-        site.setCode(request.code().toUpperCase());
+        site.setCode(normalizedCode);
         site.setContext(context);
         return toResponse(siteRepository.save(site));
     }
@@ -66,13 +77,19 @@ public class SiteService {
     @Transactional
     public SiteResponse update(Long id, SiteRequest request) {
         Site site = getEntityById(id);
-        // Vérifier unicité du code uniquement si changement
-        if (!site.getCode().equals(request.code()) && siteRepository.existsByCode(request.code())) {
-            throw new ConflictException("Site with code '" + request.code() + "' already exists");
+        // Meme normalisation que create() ci-dessus, y compris pour la
+        // comparaison "changement reel ?" : sans elle, un code resoumis avec
+        // une casse differente de celle deja stockee (toujours majuscules)
+        // etait a tort considere comme un changement, declenchant une
+        // verification d'unicite inutile (sans consequence ici puisque
+        // c'est le meme site, mais incohérent avec la normalisation).
+        String normalizedCode = request.code().toUpperCase();
+        if (!site.getCode().equals(normalizedCode) && siteRepository.existsByCode(normalizedCode)) {
+            throw new ConflictException("Site with code '" + normalizedCode + "' already exists");
         }
         NetworkContext context = contextService.getEntityById(request.contextId());
         site.setName(request.name());
-        site.setCode(request.code().toUpperCase());
+        site.setCode(normalizedCode);
         site.setContext(context);
         return toResponse(siteRepository.save(site));
     }

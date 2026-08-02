@@ -176,11 +176,30 @@ class BackupExecutionServiceTest {
                 "--clean",
                 "--if-exists",
                 "--no-owner",
+                "--single-transaction",
                 "--host=db",
                 "--port=5432",
                 "--username=subnetory",
                 "--dbname=subnetory",
                 source.toString());
+    }
+
+    @Test
+    void buildPgRestoreCommand_isAtomicOnFailure() {
+        // Regression (audit 02/08/2026) : --exit-on-error arrete l'execution
+        // au premier echec mais, sans --single-transaction, n'annule pas les
+        // instructions deja executees avant cet echec (chacune est committee
+        // individuellement). Une restauration qui echoue a mi-parcours
+        // pouvait laisser la base dans un etat partiellement restaure —
+        // certaines tables deja droppees/recreees, d'autres non. Avec
+        // --single-transaction, tout echec provoque un ROLLBACK complet :
+        // la base reste dans son etat d'avant la tentative de restauration.
+        var conn = new BackupExecutionService.DbConnectionInfo("db", 5432, "subnetory");
+        Path source = Path.of("/var/subnetory/backups/subnetory-20260731-232830.dump");
+
+        List<String> command = service.buildPgRestoreCommand(conn, source);
+
+        assertThat(command).contains("--single-transaction");
     }
 
     // -------------------------------------------------------

@@ -118,7 +118,7 @@ class AddressWebImportIT {
                 .andExpect(redirectedUrl("/network/addresses/import-result"))
                 .andExpect(flash().attribute("importResult", response))
                 .andExpect(flash().attribute("importFormat", "CSV"))
-                .andExpect(flash().attribute("flashSuccess", "Import CSV termine."));
+                .andExpect(flash().attribute("flashSuccess", "Import CSV terminé."));
 
         verify(addressService).importCsv(any(InputStream.class), eq(false), eq("ipuser"), eq(1L));
     }
@@ -139,7 +139,7 @@ class AddressWebImportIT {
                 .andExpect(redirectedUrl("/network/addresses/import-result"))
                 .andExpect(flash().attribute("importResult", response))
                 .andExpect(flash().attribute("importFormat", "XLSX"))
-                .andExpect(flash().attribute("flashSuccess", "Import XLSX termine."));
+                .andExpect(flash().attribute("flashSuccess", "Import XLSX terminé."));
 
         verify(addressService).importXlsx(any(InputStream.class), eq(true), eq("admin"), eq(1L));
     }

@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+* Corrections issues d'un audit complet sécurité/fonctionnel/i18n/UI (02/08/2026), 33 constats répartis en 6 critiques, 4 élevés, 15 moyens, 8 faibles :
+  * **Critiques** : transaction `bulkUpsert` (adresses) non atomique corrigée ; aide admin MFA et `ADMIN_GUIDE.md` resynchronisés avec le comportement réel ; aide utilisateur `reseau.html` corrigée ; internationalisation de `app.js` (chaînes codées en dur) ; langue figée sur `fr` indépendamment de la préférence utilisateur corrigée ; format de date figé corrigé.
+  * **Élevés** : clé de chiffrement du secret MFA séparée du secret JWT (`SecretCipherService`) ; `pg_restore` exécuté sous `--single-transaction` ; validation de `SiteForm` complétée et capture de `DataIntegrityViolationException` sur les contraintes d'unicité ; validation du CIDR parent/enfant et détection de cycle sur les sous-réseaux.
+  * **Moyens** : rate limiting de connexion par couple (IP, nom d'utilisateur) plutôt que par IP seule (`LoginRateLimiter`) ; couverture d'audit et cookies de session (`HttpOnly`, `SameSite=Lax`) étendus ; `server.forward-headers-strategy` documenté et activé derrière un reverse proxy (Caddy) ; validation `@Valid`/`BindingResult` sur `reserveGenerate` et capture du conflit d'adresse concurrente ; libellés et permissions de l'aide corrigés, tag d'image Kubernetes mis à jour ; qualité de l'anglais (pluriels) et query string préservée lors du changement de langue (`NavigationModelAdvice`) ; doublons CSS (`.sn-badge--green`, `.sn-btn--danger`) supprimés et libellés d'accessibilité ajoutés ; versions obsolètes 0.6.0 → 0.7.0 dans README/Helm/Kubernetes.
+  * **Faibles** : nettoyage de la feuille de style CSS morte, des balises `<head><title>` orphelines dans les templates Thymeleaf (41 fichiers) et de libellés incohérents (VLANs → VLAN au singulier).
+  * `mvn test` : 873 tests, 0 échec, 0 erreur.
+
 ## [0.7.0] - 2026-08-01
 
 ### Added

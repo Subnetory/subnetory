@@ -17,6 +17,13 @@
   --color-accent-hover:   #2378cf;
   --color-accent-light:   #eef6ff;
   --color-accent-border:  #d7e8fb;
+  /* Correctif FAIBLE (audit du 02/08/2026) : --color-accent-dark n'etait
+     jamais definie ici, seulement referencee via var(--color-accent-dark,
+     #1c5fc9) a 3 endroits (etats actifs/survol necessitant un contraste plus
+     fort que --color-accent sur fond clair). La valeur de repli resolvait
+     donc toujours vers cette couleur codee en dur plutot qu'un vrai token.
+     Definie ici avec la meme valeur : aucun changement visuel. */
+  --color-accent-dark:    #1c5fc9;
 
   --color-success:        #16a34a;
   --color-success-light:  #f0fdf4;
@@ -670,11 +677,9 @@ a:hover { text-decoration: underline; }
   border-radius: var(--radius-sm);
 }
 
-.sn-btn--danger {
-  background: var(--color-danger-light);
-  color: var(--color-danger);
-  border-color: #fecdca;
-}
+/* .sn-btn--danger : doublon supprime (audit du 02/08/2026, correctif FAIBLE) —
+   redefini plus bas (~ligne 1241) avec les memes proprietes plus l'etat
+   :hover ; cette premiere definition etait inoffensive mais morte. */
 
 /* Search */
 .sn-search {
@@ -898,8 +903,14 @@ a:hover { text-decoration: underline; }
 }
 .sn-copyable:hover,
 .sn-copyable:focus-visible {
-  background: var(--color-accent-bg, #eef2ff);
-  color: var(--color-accent, #4338ca);
+  /* Correctif FAIBLE (audit du 02/08/2026) : --color-accent-bg n'a jamais
+     ete definie dans :root (repli #eef2ff toujours resolu en pratique) ;
+     remplacee par le token existant --color-accent-light (#eef6ff, teinte
+     visuellement equivalente) plutot que d'ajouter un nouveau token quasi
+     redondant. Repli sur --color-accent egalement retire : la variable est
+     bien definie plus haut, le repli #4338ca etait du code mort. */
+  background: var(--color-accent-light);
+  color: var(--color-accent);
   outline: none;
 }
 .sn-copyable--copied {
@@ -1305,11 +1316,12 @@ textarea.sn-form-control {
     margin-bottom: 1rem;
 }
 
-.sn-badge--green {
-    background: #f0fdf4;
-    color: #166534;
-    border: 1px solid #bbf7d0;
-}
+/* Ancien doublon de .sn-badge--green (defini une premiere fois ligne ~579,
+   sur les tokens --color-success/--color-success-light) : cette seconde
+   definition en couleurs codees en dur, plus une bordure absente de la
+   premiere, l'emportait par ordre de cascade et modifiait silencieusement
+   l'apparence du badge (audit du 02/08/2026, correctif MOYENNE). Supprimee ;
+   la premiere definition basee sur les tokens fait foi. */
 
 /* Ancien doublon de .sn-mb-2 (defini une premiere fois ligne ~872) qui
    ajoutait "display: inline-block", cassant silencieusement les boutons
@@ -1596,7 +1608,7 @@ textarea.sn-form-control {
 .sn-chip-checkbox__input:checked ~ .sn-chip-checkbox__pill {
     background: var(--color-accent-light);
     border-color: var(--color-accent);
-    color: var(--color-accent-dark, #1c5fc9);
+    color: var(--color-accent-dark);
 }
 .sn-chip-checkbox__input:checked ~ .sn-chip-checkbox__pill::before {
     border-color: var(--color-accent);
@@ -1803,6 +1815,40 @@ textarea.sn-form-control {
 .sn-profile-chip.active {
   border-color: var(--color-accent-border);
   background: var(--color-accent-light);
+}
+
+.sn-lang-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid #e2e8f2;
+  border-radius: 999px;
+  background: #f8fafc;
+  box-shadow: 0 6px 18px rgba(30,48,82,.05);
+}
+.sn-lang-link {
+  min-width: 30px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 8px;
+  border-radius: 999px;
+  color: #607087;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-decoration: none;
+}
+.sn-lang-link:hover {
+  color: var(--color-accent-hover);
+  background: #eef2f7;
+  text-decoration: none;
+}
+.sn-lang-link.active {
+  color: var(--color-accent);
+  background: var(--color-accent-light);
+  border: 1px solid var(--color-accent-border);
 }
 
 .sn-section-tabs {
@@ -2346,7 +2392,7 @@ textarea.sn-input {
 .sn-cron-builder__mode.is-active {
   background: var(--color-accent-light);
   border-color: var(--color-accent);
-  color: var(--color-accent-dark, #1c5fc9);
+  color: var(--color-accent-dark);
 }
 .sn-cron-builder__panel {
   display: flex;
@@ -2366,7 +2412,7 @@ textarea.sn-input {
   padding: 8px 12px;
   border-radius: 10px;
   background: var(--color-accent-light);
-  color: var(--color-accent-dark, #1c5fc9);
+  color: var(--color-accent-dark);
   font-size: var(--text-sm);
   font-weight: 500;
 }
@@ -2707,6 +2753,11 @@ textarea.sn-input {
 }
 .sn-help-step-text strong {
   color: var(--color-text-primary);
+}
+.sn-help-permission {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: var(--text-xs);
 }
 
 .sn-help-crumb {

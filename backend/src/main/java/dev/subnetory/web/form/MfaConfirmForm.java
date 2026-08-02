@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 /** Formulaire d'un unique code MFA (TOTP ou recuperation) : activation, regeneration. */
 public class MfaConfirmForm {
 
-    @NotBlank(message = "Le code est obligatoire.")
+    @NotBlank(message = "{validation.mfa.codeRequired}")
     private String code;
 
     public String getCode() {

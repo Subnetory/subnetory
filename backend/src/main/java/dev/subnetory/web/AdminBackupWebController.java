@@ -12,6 +12,8 @@ import dev.subnetory.web.form.BackupSettingsForm;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Locale;
+import org.springframework.context.MessageSource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.PageRequest;
@@ -51,31 +53,39 @@ public class AdminBackupWebController {
     private final BackupExecutionService executionService;
     private final BackupRunRepository backupRunRepository;
     private final BackupRestoreRepository backupRestoreRepository;
+    private final MessageSource messageSource;
 
     public AdminBackupWebController(BackupConfigurationService configurationService,
                                     BackupExecutionService executionService,
                                     BackupRunRepository backupRunRepository,
-                                    BackupRestoreRepository backupRestoreRepository) {
+                                    BackupRestoreRepository backupRestoreRepository,
+                                    MessageSource messageSource) {
         this.configurationService = configurationService;
         this.executionService = executionService;
         this.backupRunRepository = backupRunRepository;
         this.backupRestoreRepository = backupRestoreRepository;
+        this.messageSource = messageSource;
+    }
+
+    private String msg(String key, Locale locale, Object... args) {
+        return messageSource.getMessage(key, args, locale);
     }
 
     // ── Tableau de bord ──────────────────────────────────────────────────
 
     @GetMapping
-    public String dashboard(@RequestParam(defaultValue = "0") int page, Model model) {
-        prepareDashboardModel(model, page, configurationService.form());
+    public String dashboard(@RequestParam(defaultValue = "0") int page, Model model, Locale locale) {
+        prepareDashboardModel(model, page, configurationService.form(), locale);
         return "admin/backup";
     }
 
     @PostMapping("/settings")
     public String updateSettings(@ModelAttribute("backupForm") BackupSettingsForm form,
-                                 RedirectAttributes flash) {
+                                 RedirectAttributes flash,
+                                 Locale locale) {
         try {
             configurationService.save(form);
-            flash.addFlashAttribute("flashSuccess", "Configuration de sauvegarde enregistrée.");
+            flash.addFlashAttribute("flashSuccess", msg("flash.backup.settingsSaved", locale));
         } catch (IllegalArgumentException e) {
             flash.addFlashAttribute("flashError", e.getMessage());
         }
@@ -86,14 +96,13 @@ public class AdminBackupWebController {
 
     @PostMapping("/trigger")
     public String trigger(@RequestParam(required = false) String label,
-                          Authentication auth, RedirectAttributes flash) {
+                          Authentication auth, RedirectAttributes flash, Locale locale) {
         try {
             BackupRun run = executionService.triggerManualBackup(auth.getName(), label);
             flash.addFlashAttribute("flashSuccess",
-                    "Sauvegarde terminée : " + run.getFileName()
-                            + " (" + formatBytes(run.getFileSizeBytes()) + ").");
+                    msg("flash.backup.completed", locale, run.getFileName(), formatBytes(run.getFileSizeBytes(), locale)));
         } catch (BackupException e) {
-            flash.addFlashAttribute("flashError", "Sauvegarde échouée : " + e.getMessage());
+            flash.addFlashAttribute("flashError", msg("flash.backup.failed", locale, e.getMessage()));
         }
         return "redirect:/admin/backup";
     }
@@ -102,15 +111,13 @@ public class AdminBackupWebController {
 
     @PostMapping("/import")
     public String importBackup(@RequestParam("file") MultipartFile file,
-                               Authentication auth, RedirectAttributes flash) {
+                               Authentication auth, RedirectAttributes flash, Locale locale) {
         try {
             BackupRun run = executionService.importBackup(file, auth.getName());
             flash.addFlashAttribute("flashSuccess",
-                    "Sauvegarde importée : " + run.getFileName()
-                            + " (" + formatBytes(run.getFileSizeBytes()) + "). Elle apparaît dans l'historique "
-                            + "et peut être restaurée comme n'importe quelle autre sauvegarde.");
+                    msg("flash.backup.imported", locale, run.getFileName(), formatBytes(run.getFileSizeBytes(), locale)));
         } catch (BackupException e) {
-            flash.addFlashAttribute("flashError", "Import échoué : " + e.getMessage());
+            flash.addFlashAttribute("flashError", msg("flash.backup.importFailed", locale, e.getMessage()));
         }
         return "redirect:/admin/backup";
     }
@@ -118,12 +125,11 @@ public class AdminBackupWebController {
     // ── Purge manuelle explicite de l'historique ─────────────────────────
 
     @PostMapping("/purge")
-    public String purge(@RequestParam("beforeDate") LocalDate beforeDate, RedirectAttributes flash) {
+    public String purge(@RequestParam("beforeDate") LocalDate beforeDate, RedirectAttributes flash, Locale locale) {
         OffsetDateTime cutoff = beforeDate.atStartOfDay().atOffset(ZoneOffset.UTC);
         var result = executionService.purgeHistoryBefore(cutoff);
         flash.addFlashAttribute("flashSuccess",
-                "Historique purgé avant le " + beforeDate + " : " + result.runsDeleted()
-                        + " sauvegarde(s) et " + result.restoresDeleted() + " restauration(s) supprimées.");
+                msg("flash.backup.historyPurged", locale, beforeDate, result.runsDeleted(), result.restoresDeleted()));
         return "redirect:/admin/backup";
     }
 
@@ -136,34 +142,34 @@ public class AdminBackupWebController {
     // plus tot le meme jour).
 
     @GetMapping("/runs/{id}/delete-confirm")
-    public String deleteConfirm(@PathVariable Long id, Model model) {
+    public String deleteConfirm(@PathVariable Long id, Model model, Locale locale) {
         BackupRun run = backupRunRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("BackupRun", id));
         var linkedRestores = executionService.findLinkedRestores(id).stream()
-                .map(this::toRestoreView)
+                .map(r -> toRestoreView(r, locale))
                 .toList();
-        model.addAttribute("run", toRunView(run));
+        model.addAttribute("run", toRunView(run, locale));
         model.addAttribute("linkedRestores", linkedRestores);
         model.addAttribute("activeSection", "admin");
-        model.addAttribute("pageTitle", "Confirmer la suppression");
+        model.addAttribute("pageTitle", msg("pageTitle.adminBackupDeleteConfirm", locale));
         return "admin/backup-delete-confirm";
     }
 
     @PostMapping("/runs/{id}/delete")
     public String deleteRun(@PathVariable Long id,
                             @RequestParam(defaultValue = "false") boolean cascade,
-                            RedirectAttributes flash) {
+                            RedirectAttributes flash,
+                            Locale locale) {
         try {
             if (cascade) {
                 executionService.deleteRunCascade(id);
-                flash.addFlashAttribute("flashSuccess",
-                        "Sauvegarde supprimée de l'historique, avec la ou les restauration(s) liée(s).");
+                flash.addFlashAttribute("flashSuccess", msg("flash.backup.deletedCascade", locale));
             } else {
                 executionService.deleteRun(id);
-                flash.addFlashAttribute("flashSuccess", "Sauvegarde supprimée de l'historique.");
+                flash.addFlashAttribute("flashSuccess", msg("flash.backup.deleted", locale));
             }
         } catch (BackupException e) {
-            flash.addFlashAttribute("flashError", "Suppression impossible : " + e.getMessage());
+            flash.addFlashAttribute("flashError", msg("flash.backup.deleteFailed", locale, e.getMessage()));
         }
         return "redirect:/admin/backup";
     }
@@ -188,17 +194,17 @@ public class AdminBackupWebController {
     // ── Restauration — jamais un simple clic ────────────────────────────
 
     @GetMapping("/runs/{id}/restore-confirm")
-    public String restoreConfirm(@PathVariable Long id, Model model) {
-        return restoreConfirmPage(id, model);
+    public String restoreConfirm(@PathVariable Long id, Model model, Locale locale) {
+        return restoreConfirmPage(id, model, locale);
     }
 
-    private String restoreConfirmPage(Long id, Model model) {
+    private String restoreConfirmPage(Long id, Model model, Locale locale) {
         BackupRun run = backupRunRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("BackupRun", id));
-        model.addAttribute("run", toRunView(run));
+        model.addAttribute("run", toRunView(run, locale));
         model.addAttribute("fileAvailable", executionService.isFileAvailable(run));
         model.addAttribute("activeSection", "admin");
-        model.addAttribute("pageTitle", "Confirmer la restauration");
+        model.addAttribute("pageTitle", msg("pageTitle.adminBackupRestoreConfirm", locale));
         return "admin/backup-restore-confirm";
     }
 
@@ -207,37 +213,37 @@ public class AdminBackupWebController {
                           @RequestParam String confirmationText,
                           Authentication auth,
                           Model model,
-                          RedirectAttributes flash) {
+                          RedirectAttributes flash,
+                          Locale locale) {
         try {
             executionService.restore(id, confirmationText, auth.getName());
-            flash.addFlashAttribute("flashSuccess",
-                    "Restauration terminée avec succès. Vérifiez le bon fonctionnement de l'application.");
+            flash.addFlashAttribute("flashSuccess", msg("flash.backup.restoreSuccess", locale));
             return "redirect:/admin/backup";
         } catch (BackupException e) {
             if (e.getReason() == BackupException.Reason.CONFIRMATION_MISMATCH) {
-                model.addAttribute("confirmError", "Le texte saisi ne correspond pas au nom du fichier.");
-                return restoreConfirmPage(id, model);
+                model.addAttribute("confirmError", msg("flash.backup.confirmMismatch", locale));
+                return restoreConfirmPage(id, model, locale);
             }
-            flash.addFlashAttribute("flashError", "Restauration échouée : " + e.getMessage());
+            flash.addFlashAttribute("flashError", msg("flash.backup.restoreFailed", locale, e.getMessage()));
             return "redirect:/admin/backup";
         }
     }
 
     // ── Modèle du tableau de bord ────────────────────────────────────────
 
-    private void prepareDashboardModel(Model model, int page, BackupSettingsForm form) {
+    private void prepareDashboardModel(Model model, int page, BackupSettingsForm form, Locale locale) {
         var settings = configurationService.effectiveSettings();
         var history = backupRunRepository.findAllByOrderByStartedAtDesc(
                         PageRequest.of(page, HISTORY_PAGE_SIZE, Sort.by("startedAt").descending()))
-                .map(this::toRunView);
+                .map(run -> toRunView(run, locale));
         var restoreHistory = backupRestoreRepository.findAllByOrderByStartedAtDesc(
                         PageRequest.of(0, 10))
-                .map(this::toRestoreView);
+                .map(restore -> toRestoreView(restore, locale));
 
         var lastRun = backupRunRepository.findFirstByStatusOrderByStartedAtDesc(BackupRun.STATUS_SUCCESS)
-                .map(this::toRunView).orElse(null);
+                .map(run -> toRunView(run, locale)).orElse(null);
         var lastFailedRun = backupRunRepository.findFirstByStatusOrderByStartedAtDesc(BackupRun.STATUS_FAILED)
-                .map(this::toRunView).orElse(null);
+                .map(run -> toRunView(run, locale)).orElse(null);
         OffsetDateTime nextRunAt = configurationService.nextRunAt(OffsetDateTime.now());
 
         model.addAttribute("backupForm", form);
@@ -249,17 +255,17 @@ public class AdminBackupWebController {
         model.addAttribute("lastFailedRun", lastFailedRun);
         model.addAttribute("totalBackupCount", backupRunRepository.countByStatus(BackupRun.STATUS_SUCCESS));
         model.addAttribute("totalStorageBytes", executionService.totalStorageBytes());
-        model.addAttribute("totalStorageFormatted", formatBytes(executionService.totalStorageBytes()));
+        model.addAttribute("totalStorageFormatted", formatBytes(executionService.totalStorageBytes(), locale));
         model.addAttribute("storagePath", executionService.storagePath());
         model.addAttribute("encryptionEnabled", executionService.isEncryptionEnabled());
         model.addAttribute("operationInProgress", executionService.isOperationInProgress());
         model.addAttribute("history", history);
         model.addAttribute("restoreHistory", restoreHistory);
         model.addAttribute("activeSection", "admin");
-        model.addAttribute("pageTitle", "Sauvegardes");
+        model.addAttribute("pageTitle", msg("pageTitle.adminBackup", locale));
     }
 
-    private BackupRunView toRunView(BackupRun run) {
+    private BackupRunView toRunView(BackupRun run, Locale locale) {
         return new BackupRunView(
                 run.getId(),
                 run.getTriggerSource(),
@@ -273,10 +279,13 @@ public class AdminBackupWebController {
                 run.getTriggeredBy(),
                 run.getLabel(),
                 executionService.isFileAvailable(run),
-                run.isEncrypted());
+                run.isEncrypted(),
+                formatDuration(durationSeconds(run.getStartedAt(), run.getFinishedAt())),
+                formatBytes(run.getFileSizeBytes(), locale),
+                shortenChecksum(run.getChecksumSha256()));
     }
 
-    private BackupRestoreView toRestoreView(BackupRestore restore) {
+    private BackupRestoreView toRestoreView(BackupRestore restore, Locale locale) {
         String backupFileName = backupRunRepository.findById(restore.getBackupRunId())
                 .map(BackupRun::getFileName).orElse(null);
         return new BackupRestoreView(
@@ -289,12 +298,17 @@ public class AdminBackupWebController {
                 restore.getPerformedBy());
     }
 
-    private static String formatBytes(Long bytes) {
-        if (bytes == null) return "taille inconnue";
-        if (bytes < 1024) return bytes + " o";
-        if (bytes < 1024 * 1024) return String.format("%.1f Ko", bytes / 1024.0);
-        if (bytes < 1024L * 1024 * 1024) return String.format("%.1f Mo", bytes / (1024.0 * 1024));
-        return String.format("%.2f Go", bytes / (1024.0 * 1024 * 1024));
+    private String formatBytes(Long bytes, Locale locale) {
+        if (bytes == null) return msg("unit.size.unknown", locale);
+        if (bytes < 1024) return bytes + " " + msg("unit.size.byte", locale);
+        if (bytes < 1024 * 1024) return String.format("%.1f %s", bytes / 1024.0, msg("unit.size.kilo", locale));
+        if (bytes < 1024L * 1024 * 1024) return String.format("%.1f %s", bytes / (1024.0 * 1024), msg("unit.size.mega", locale));
+        return String.format("%.2f %s", bytes / (1024.0 * 1024 * 1024), msg("unit.size.giga", locale));
+    }
+
+    private static Long durationSeconds(OffsetDateTime startedAt, OffsetDateTime finishedAt) {
+        if (startedAt == null || finishedAt == null) return null;
+        return java.time.Duration.between(startedAt, finishedAt).getSeconds();
     }
 
     private static String formatDuration(Long seconds) {
@@ -303,6 +317,11 @@ public class AdminBackupWebController {
         long min = seconds / 60;
         long rem = seconds % 60;
         return min + " min " + rem + " s";
+    }
+
+    private static String shortenChecksum(String checksumSha256) {
+        if (checksumSha256 == null || checksumSha256.length() <= 12) return checksumSha256;
+        return checksumSha256.substring(0, 12) + "…";
     }
 
     /** Vue Thymeleaf d'une exécution de sauvegarde (évite d'exposer l'entité JPA à la vue). */
@@ -320,26 +339,14 @@ public class AdminBackupWebController {
             String label,
             boolean fileAvailable,
             /** {@code true} si le fichier est chiffré (AES-256-GCM + HMAC-SHA256, audit 01/08/2026). */
-            boolean encrypted
-    ) {
-        public Long durationSeconds() {
-            if (startedAt == null || finishedAt == null) return null;
-            return java.time.Duration.between(startedAt, finishedAt).getSeconds();
-        }
-
-        public String durationFormatted() {
-            return formatDuration(durationSeconds());
-        }
-
-        public String fileSizeFormatted() {
-            return formatBytes(fileSizeBytes);
-        }
-
-        public String checksumShort() {
-            if (checksumSha256 == null || checksumSha256.length() <= 12) return checksumSha256;
-            return checksumSha256.substring(0, 12) + "…";
-        }
-    }
+            boolean encrypted,
+            /** Durée formatée (locale-aware, calculée cote controleur — audit i18n 02/08/2026). */
+            String durationFormatted,
+            /** Taille formatée (locale-aware, calculée cote controleur — audit i18n 02/08/2026). */
+            String fileSizeFormatted,
+            /** Empreinte SHA-256 tronquée pour affichage. */
+            String checksumShort
+    ) {}
 
     /** Vue Thymeleaf d'une opération de restauration. */
     public record BackupRestoreView(

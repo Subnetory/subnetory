@@ -9,6 +9,8 @@ import dev.subnetory.web.form.MfaConfirmForm;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
+import java.util.Locale;
+import org.springframework.context.MessageSource;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -33,15 +35,22 @@ public class MfaChallengeWebController {
     private final LoginRateLimiter loginRateLimiter;
     private final ClientIpResolver clientIpResolver;
     private final AuthAuditService authAuditService;
+    private final MessageSource messageSource;
 
     public MfaChallengeWebController(MfaLoginChallengeService mfaLoginChallengeService,
                                      LoginRateLimiter loginRateLimiter,
                                      ClientIpResolver clientIpResolver,
-                                     AuthAuditService authAuditService) {
+                                     AuthAuditService authAuditService,
+                                     MessageSource messageSource) {
         this.mfaLoginChallengeService = mfaLoginChallengeService;
         this.loginRateLimiter = loginRateLimiter;
         this.clientIpResolver = clientIpResolver;
         this.authAuditService = authAuditService;
+        this.messageSource = messageSource;
+    }
+
+    private String msg(String key, Locale locale, Object... args) {
+        return messageSource.getMessage(key, args, locale);
     }
 
     @GetMapping
@@ -60,7 +69,8 @@ public class MfaChallengeWebController {
                          Authentication authentication,
                          HttpServletRequest request,
                          HttpSession session,
-                         Model model) {
+                         Model model,
+                         Locale locale) {
         if (!requiresChallenge(authentication, session)) {
             return "redirect:/";
         }
@@ -69,7 +79,7 @@ public class MfaChallengeWebController {
         String ipAddress = clientIpResolver.resolve(request);
         String userAgent = request.getHeader("User-Agent");
 
-        if (loginRateLimiter.isLocked(ipAddress)) {
+        if (loginRateLimiter.isLocked(ipAddress, username)) {
             return lockout(request);
         }
 
@@ -77,12 +87,12 @@ public class MfaChallengeWebController {
                 && mfaLoginChallengeService.verify(username, form.getCode());
 
         if (!valid) {
-            LoginRateLimiter.RateLimitDecision decision = loginRateLimiter.recordFailure(ipAddress);
+            LoginRateLimiter.RateLimitDecision decision = loginRateLimiter.recordFailure(ipAddress, username);
 
             if (decision.locked()) {
                 authAuditService.recordLoginLocked(
                         username, ipAddress, userAgent,
-                        "Trop de tentatives de code MFA. Compte temporairement bloque cote IP.");
+                        msg("audit.mfaChallenge.tooManyAttempts", locale));
                 return lockout(request);
             }
 
@@ -92,12 +102,12 @@ public class MfaChallengeWebController {
                 applyDelay(decision);
             }
 
-            model.addAttribute("flashError", "Code invalide. Reessayez.");
+            model.addAttribute("flashError", msg("flash.mfaChallenge.invalidCode", locale));
             model.addAttribute("form", form);
             return "auth/login-mfa";
         }
 
-        loginRateLimiter.recordSuccess(ipAddress);
+        loginRateLimiter.recordSuccess(ipAddress, username);
         session.setAttribute(MfaChallengeFilter.SESSION_MFA_VERIFIED, Boolean.TRUE);
         return "redirect:/";
     }

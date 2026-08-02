@@ -1,24 +1,23 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
-<head><title>Journal d'audit - Subnetory</title></head>
 <body>
 <div id="main-content">
 <div class="sn-page">
 
     <div class="sn-page__header">
         <div>
-            <h1 class="sn-page__title">Journal d'audit</h1>
-            <p class="sn-page__subtitle">
+            <h1 class="sn-page__title" th:text="#{audit.heading}">Journal d'audit</h1>
+            <p class="sn-page__subtitle" th:text="#{audit.subtitle}">
                 Qui a fait quoi et quand : connexions, sauvegardes et modifications de ressources réseau.
             </p>
         </div>
-        <nav class="sn-admin-subnav" aria-label="Navigation administration">
-            <a th:href="@{/admin/users}" class="sn-admin-subnav__item">Comptes</a>
-            <a th:href="@{/admin/ldap}" class="sn-admin-subnav__item">LDAP</a>
-            <a th:href="@{/admin/audit-log}" class="sn-admin-subnav__item active">Audit</a>
-            <a th:href="@{/admin/backup}" class="sn-admin-subnav__item">Sauvegardes</a>
-            <a th:href="@{/admin/help}" class="sn-admin-subnav__item">Aide</a>
+        <nav class="sn-admin-subnav" th:aria-label="#{profile.nav.aria}">
+            <a th:href="@{/admin/users}" class="sn-admin-subnav__item" th:text="#{admin.subnav.accounts}">Comptes</a>
+            <a th:href="@{/admin/ldap}" class="sn-admin-subnav__item" th:text="#{admin.subnav.ldap}">LDAP</a>
+            <a th:href="@{/admin/audit-log}" class="sn-admin-subnav__item active" th:text="#{admin.subnav.audit}">Audit</a>
+            <a th:href="@{/admin/backup}" class="sn-admin-subnav__item" th:text="#{admin.subnav.backup}">Sauvegardes</a>
+            <a th:href="@{/admin/help}" class="sn-admin-subnav__item" th:text="#{admin.subnav.help}">Aide</a>
         </nav>
     </div>
 
@@ -26,22 +25,23 @@
         <form th:action="@{/admin/audit-log}" method="get" class="sn-form sn-audit-filters__form">
             <div class="sn-audit-filters__grid">
                 <div class="sn-form__group">
-                    <label for="q" class="sn-form__label">Recherche utilisateur</label>
+                    <label for="q" class="sn-form__label" th:text="#{audit.filter.search.label}">Recherche utilisateur</label>
                     <input id="q"
                            name="q"
                            type="text"
                            class="sn-input"
                            th:value="${q}"
+                           th:placeholder="#{audit.filter.search.placeholder}"
                            placeholder="username ou utilisateur cible">
                 </div>
 
                 <div class="sn-form__group">
-                    <label for="eventType" class="sn-form__label">Type d'événement</label>
+                    <label for="eventType" class="sn-form__label" th:text="#{audit.filter.eventType.label}">Type d'événement</label>
                     <select id="eventType" name="eventType" class="sn-input">
-                        <option value="" th:selected="${eventType == null || eventType == ''}">
+                        <option value="" th:selected="${eventType == null || eventType == ''}" th:text="#{audit.filter.eventType.all}">
                             Tous les événements
                         </option>
-                        <optgroup label="Authentification / comptes">
+                        <optgroup th:label="#{audit.filter.optgroup.auth}" label="Authentification / comptes">
                             <option value="LOGIN_SUCCESS" th:selected="${eventType == 'LOGIN_SUCCESS'}">LOGIN_SUCCESS</option>
                             <option value="LOGIN_FAILURE" th:selected="${eventType == 'LOGIN_FAILURE'}">LOGIN_FAILURE</option>
                             <option value="LOGIN_LOCKED" th:selected="${eventType == 'LOGIN_LOCKED'}">LOGIN_LOCKED</option>
@@ -52,13 +52,17 @@
                             <option value="CONTEXT_ACCESS_DENIED" th:selected="${eventType == 'CONTEXT_ACCESS_DENIED'}">CONTEXT_ACCESS_DENIED</option>
                             <option value="USER_CREATED" th:selected="${eventType == 'USER_CREATED'}">USER_CREATED</option>
                             <option value="USER_CONTEXTS_UPDATED" th:selected="${eventType == 'USER_CONTEXTS_UPDATED'}">USER_CONTEXTS_UPDATED</option>
+                            <option value="USER_ROLES_UPDATED" th:selected="${eventType == 'USER_ROLES_UPDATED'}">USER_ROLES_UPDATED</option>
+                            <option value="USER_ENABLED" th:selected="${eventType == 'USER_ENABLED'}">USER_ENABLED</option>
+                            <option value="USER_DISABLED" th:selected="${eventType == 'USER_DISABLED'}">USER_DISABLED</option>
                             <option value="MFA_ENABLED" th:selected="${eventType == 'MFA_ENABLED'}">MFA_ENABLED</option>
                             <option value="MFA_DISABLED" th:selected="${eventType == 'MFA_DISABLED'}">MFA_DISABLED</option>
                             <option value="MFA_RECOVERY_CODES_REGENERATED" th:selected="${eventType == 'MFA_RECOVERY_CODES_REGENERATED'}">MFA_RECOVERY_CODES_REGENERATED</option>
                             <option value="MFA_CHALLENGE_FAILED" th:selected="${eventType == 'MFA_CHALLENGE_FAILED'}">MFA_CHALLENGE_FAILED</option>
                             <option value="MFA_DISABLED_BY_ADMIN" th:selected="${eventType == 'MFA_DISABLED_BY_ADMIN'}">MFA_DISABLED_BY_ADMIN</option>
+                            <option value="LDAP_CONFIGURATION_UPDATED" th:selected="${eventType == 'LDAP_CONFIGURATION_UPDATED'}">LDAP_CONFIGURATION_UPDATED</option>
                         </optgroup>
-                        <optgroup label="Sauvegardes">
+                        <optgroup th:label="#{admin.subnav.backup}" label="Sauvegardes">
                             <option value="BACKUP_TRIGGERED" th:selected="${eventType == 'BACKUP_TRIGGERED'}">BACKUP_TRIGGERED</option>
                             <option value="BACKUP_IMPORTED" th:selected="${eventType == 'BACKUP_IMPORTED'}">BACKUP_IMPORTED</option>
                             <option value="BACKUP_RESTORED" th:selected="${eventType == 'BACKUP_RESTORED'}">BACKUP_RESTORED</option>
@@ -66,7 +70,7 @@
                             <option value="BACKUP_PURGED" th:selected="${eventType == 'BACKUP_PURGED'}">BACKUP_PURGED</option>
                             <option value="BACKUP_SETTINGS_UPDATED" th:selected="${eventType == 'BACKUP_SETTINGS_UPDATED'}">BACKUP_SETTINGS_UPDATED</option>
                         </optgroup>
-                        <optgroup label="Ressources réseau">
+                        <optgroup th:label="#{audit.filter.optgroup.network}" label="Ressources réseau">
                             <option value="ADDRESS_CREATED" th:selected="${eventType == 'ADDRESS_CREATED'}">ADDRESS_CREATED</option>
                             <option value="ADDRESS_DELETED" th:selected="${eventType == 'ADDRESS_DELETED'}">ADDRESS_DELETED</option>
                             <option value="VLAN_CREATED" th:selected="${eventType == 'VLAN_CREATED'}">VLAN_CREATED</option>
@@ -83,10 +87,10 @@
             </div>
 
             <div class="sn-form__actions sn-audit-filters__actions">
-                <button type="submit" class="sn-btn sn-btn--primary">Filtrer</button>
-                <a th:href="@{/admin/audit-log}" class="sn-btn sn-btn--ghost">Réinitialiser</a>
+                <button type="submit" class="sn-btn sn-btn--primary" th:text="#{audit.filter.submit}">Filtrer</button>
+                <a th:href="@{/admin/audit-log}" class="sn-btn sn-btn--ghost" th:text="#{audit.filter.reset}">Réinitialiser</a>
                 <a th:href="@{/admin/audit-log/export.csv(q=${q}, eventType=${eventType})}"
-                   class="sn-btn sn-btn--ghost">
+                   class="sn-btn sn-btn--ghost" th:text="#{audit.filter.exportCsv}">
                     Exporter CSV
                 </a>
             </div>
@@ -95,28 +99,27 @@
 
     <div class="sn-card sn-card--padded sn-mb-3">
         <div class="sn-card__header">
-            <div><h2 class="sn-card__title">Rétention</h2></div>
+            <div><h2 class="sn-card__title" th:text="#{audit.retention.title}">Rétention</h2></div>
         </div>
-        <p class="sn-text-secondary sn-mb-2">
+        <p class="sn-text-secondary sn-mb-2" th:with="pfx=#{audit.retention.enabledPrefix},sfx=#{audit.retention.enabledSuffix}">
             <span th:if="${auditRetentionEnabled}">
-                Purge automatique planifiée chaque nuit : les entrées de plus de
-                <strong th:text="${auditRetentionDays}">90</strong> jours sont supprimées définitivement.
+                <th:block th:text="${pfx}">Purge automatique planifiée chaque nuit : les entrées de plus de</th:block>
+                <strong th:text="${auditRetentionDays}">90</strong> <th:block th:text="${sfx}">jours sont supprimées définitivement.</th:block>
             </span>
-            <span th:unless="${auditRetentionEnabled}" class="sn-text-muted">
+            <span th:unless="${auditRetentionEnabled}" class="sn-text-muted" th:text="#{audit.retention.disabled}">
                 Purge automatique désactivée sur cette instance (subnetory.audit.retention.enabled=false).
             </span>
-            Une purge manuelle immédiate reste possible ci-dessous, par exemple pour libérer de la place sans
-            attendre la prochaine exécution planifiée.
+            <th:block th:text="#{audit.retention.manualHint}">Une purge manuelle immédiate reste possible ci-dessous, par exemple pour libérer de la place sans
+            attendre la prochaine exécution planifiée.</th:block>
         </p>
-        <form th:action="@{/admin/audit-log/purge}" method="post" class="sn-form"
-              onsubmit="return confirm('Supprimer définitivement les entrées du journal d\'audit antérieures à cette date ? Cette action est irréversible.');">
+        <form th:action="@{/admin/audit-log/purge}" method="post" class="sn-form">
             <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
             <div class="sn-form__group">
-                <label for="auditPurgeDate" class="sn-form__label">Purger le journal avant le</label>
+                <label for="auditPurgeDate" class="sn-form__label" th:text="#{audit.purge.label}">Purger le journal avant le</label>
                 <input id="auditPurgeDate" name="beforeDate" type="date" class="sn-input sn-input--w200" required>
             </div>
             <div class="sn-form__actions">
-                <button type="submit" class="sn-btn sn-btn--danger">Purger définitivement</button>
+                <button type="submit" class="sn-btn sn-btn--danger" th:attr="data-confirm=#{audit.purge.confirm}" th:text="#{audit.purge.submit}">Purger définitivement</button>
             </div>
         </form>
     </div>
@@ -126,25 +129,25 @@
             <table class="sn-table">
                 <thead>
                 <tr>
-                    <th>Date</th>
-                    <th>Événement</th>
-                    <th>Utilisateur</th>
-                    <th>Cible</th>
-                    <th>IP</th>
-                    <th>Succes</th>
-                    <th>Message</th>
+                    <th th:text="#{audit.table.date}">Date</th>
+                    <th th:text="#{audit.table.event}">Événement</th>
+                    <th th:text="#{audit.table.user}">Utilisateur</th>
+                    <th th:text="#{audit.table.target}">Cible</th>
+                    <th th:text="#{audit.table.ip}">IP</th>
+                    <th th:text="#{audit.table.success}">Succes</th>
+                    <th th:text="#{audit.table.message}">Message</th>
                 </tr>
                 </thead>
                 <tbody>
                 <tr th:if="${logs == null || logs.empty}">
-                    <td colspan="7" class="sn-text-muted">
+                    <td colspan="7" class="sn-text-muted" th:text="#{audit.table.empty}">
                         Aucun événement d'audit disponible.
                     </td>
                 </tr>
 
                 <tr th:each="log : ${logs.content}">
                     <td class="sn-text-muted"
-                        th:text="${log.createdAt != null ? #temporals.format(log.createdAt, 'dd/MM/yyyy HH:mm:ss') : '-'}">
+                        th:text="${log.createdAt != null ? #temporals.format(log.createdAt) : '-'}">
                         01/06/2026 22:00:00
                     </td>
 
@@ -160,8 +163,8 @@
                     <td th:text="${log.ipAddress != null ? log.ipAddress : '-'}">127.0.0.1</td>
 
                     <td>
-                        <span th:if="${log.success}" class="sn-badge sn-badge--green">Oui</span>
-                        <span th:unless="${log.success}" class="sn-badge sn-badge--danger">Non</span>
+                        <span th:if="${log.success}" class="sn-badge sn-badge--green" th:text="#{audit.success.yes}">Oui</span>
+                        <span th:unless="${log.success}" class="sn-badge sn-badge--danger" th:text="#{audit.success.no}">Non</span>
                     </td>
 
                     <td th:text="${log.message != null ? log.message : '-'}">Connexion reussie.</td>
@@ -173,19 +176,21 @@
         <div class="sn-pagination" th:if="${logs != null && logs.totalPages > 1}">
             <a class="sn-btn sn-btn--ghost sn-btn--sm"
                th:if="${logs.hasPrevious()}"
-               th:href="@{/admin/audit-log(page=${logs.number - 1}, q=${q}, eventType=${eventType})}">
+               th:href="@{/admin/audit-log(page=${logs.number - 1}, q=${q}, eventType=${eventType})}"
+               th:text="#{audit.pagination.previous}">
                 Precedent
             </a>
 
-            <span class="sn-text-muted">
-                Page <span th:text="${logs.number + 1}">1</span>
+            <span class="sn-text-muted" th:with="lblPage=#{audit.pagination.page}">
+                <th:block th:text="${lblPage}">Page</th:block> <span th:text="${logs.number + 1}">1</span>
                 /
                 <span th:text="${logs.totalPages}">1</span>
             </span>
 
             <a class="sn-btn sn-btn--ghost sn-btn--sm"
                th:if="${logs.hasNext()}"
-               th:href="@{/admin/audit-log(page=${logs.number + 1}, q=${q}, eventType=${eventType})}">
+               th:href="@{/admin/audit-log(page=${logs.number + 1}, q=${q}, eventType=${eventType})}"
+               th:text="#{audit.pagination.next}">
                 Suivant
             </a>
         </div>

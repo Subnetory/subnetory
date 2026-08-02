@@ -5,8 +5,11 @@
 
 .DESCRIPTION
   Genere dans backend/secrets les secrets cryptographiquement aleatoires
-  demandes, par defaut les 4 :
+  demandes, par defaut les 5 :
   - subnetory_jwt_secret
+  - subnetory_encryption_key (chiffrement des secrets stockes en base — mot
+    de passe de bind LDAP, secret TOTP MFA — audit du 02/08/2026, separee
+    du secret JWT)
   - subnetory_admin_default_password
   - postgres_password
   - subnetory_backup_encryption_key (chiffrement des sauvegardes au repos,
@@ -35,7 +38,8 @@
   volontaire) - y compris ceux deja presents.
 
 .EXAMPLE
-  # Genere les 4 secrets par defaut, y compris subnetory_backup_encryption_key.
+  # Genere les 5 secrets par defaut, y compris subnetory_encryption_key et
+  # subnetory_backup_encryption_key.
   pwsh.exe -File scripts/init-compose.ps1
 
 .EXAMPLE
@@ -117,7 +121,7 @@ function New-TemporaryAdminPassword {
 function Assert-SecretValue {
     param(
         [Parameter(Mandatory = $true)]
-        [ValidateSet('jwt', 'admin', 'postgres', 'backup_encryption')]
+        [ValidateSet('jwt', 'encryption_key', 'admin', 'postgres', 'backup_encryption')]
         [string]$Kind,
 
         [Parameter(Mandatory = $true)]
@@ -133,6 +137,11 @@ function Assert-SecretValue {
         'jwt' {
             if ($Value.Length -lt 128 -or $Value -notmatch '^[0-9a-f]+$') {
                 throw 'Le secret JWT doit representer au moins 64 octets aleatoires en hexadecimal.'
+            }
+        }
+        'encryption_key' {
+            if ($Value.Length -lt 64 -or $Value -notmatch '^[0-9a-f]+$') {
+                throw 'La cle de chiffrement des secrets stockes doit representer au moins 32 octets aleatoires en hexadecimal.'
             }
         }
         'postgres' {
@@ -234,6 +243,7 @@ if (-not (Test-Path -LiteralPath $backendRoot -PathType Container)) {
 
 $secretDefinitions = [ordered]@{
     'subnetory_jwt_secret' = 'jwt'
+    'subnetory_encryption_key' = 'encryption_key'
     'subnetory_admin_default_password' = 'admin'
     'postgres_password' = 'postgres'
 }
@@ -254,10 +264,11 @@ $existingNames = @(
 
 # Sans -Force : on ne (re)cree que les secrets demandes qui n'existent pas
 # encore. Un secret deja present reste strictement inchange, meme si
-# d'autres secrets sont crees dans le meme appel (ex. relancer ce script sans
-# -WithoutBackupEncryption sur une instance qui a deja ses 3 secrets de
-# base : seul subnetory_backup_encryption_key sera cree). Avec -Force, tous
-# les secrets demandes sont regeneres (rotation volontaire explicite).
+# d'autres secrets sont crees dans le meme appel (ex. relancer ce script sur
+# une instance qui a deja ses secrets historiques : seul un secret
+# nouvellement introduit, comme subnetory_encryption_key ou
+# subnetory_backup_encryption_key, sera cree). Avec -Force, tous les
+# secrets demandes sont regeneres (rotation volontaire explicite).
 $namesToWrite = @(
     if ($Force) {
         $secretDefinitions.Keys
@@ -302,6 +313,7 @@ try {
     foreach ($name in $namesToWrite) {
         $values[$name] = switch ($name) {
             'subnetory_jwt_secret' { New-RandomHexSecret -ByteCount 64 }
+            'subnetory_encryption_key' { New-RandomHexSecret -ByteCount 32 }
             'subnetory_admin_default_password' { New-TemporaryAdminPassword }
             'postgres_password' { New-RandomHexSecret -ByteCount 32 }
             'subnetory_backup_encryption_key' { New-RandomHexSecret -ByteCount 32 }
@@ -381,6 +393,7 @@ if (-not $completed) {
 
 $secretLabels = [ordered]@{
     'subnetory_jwt_secret' = 'Secret JWT'
+    'subnetory_encryption_key' = 'Cle de chiffrement des secrets stockes (LDAP/MFA)'
     'subnetory_admin_default_password' = 'Mot de passe admin temporaire'
     'postgres_password' = 'Mot de passe DB'
     'subnetory_backup_encryption_key' = 'Cle de chiffrement des sauvegardes'

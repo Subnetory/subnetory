@@ -1,15 +1,16 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
-<head><title>Tableau de bord — Subnetory</title></head>
 <body>
 <div id="main-content">
 <div class="sn-page">
 
     <div class="sn-page__header">
         <div>
-            <h1 class="sn-page__title">Tableau de bord</h1>
-            <p class="sn-page__subtitle" th:text="${activeContextId != null ? 'Vue du contexte ' + activeContextName : 'Vue de tous les contextes autorisés'}">Vue d'ensemble du réseau</p>
+            <h1 class="sn-page__title" th:text="#{nav.dashboard}">Tableau de bord</h1>
+            <p class="sn-page__subtitle"
+               th:with="ctxLabel=#{dashboard.subtitle.context},allLabel=#{dashboard.subtitle.all}"
+               th:text="${activeContextId != null ? ctxLabel + ' ' + activeContextName : allLabel}">Vue d'ensemble du réseau</p>
         </div>
     </div>
 
@@ -19,31 +20,31 @@
         <a th:href="@{/network/contexts}" class="sn-stat-card sn-stat-card--link">
             <span class="sn-stat-card__icon sn-stat-card__icon--blue">◎</span>
             <div class="sn-stat-card__value" th:text="${stats.totalContexts}">0</div>
-            <div class="sn-stat-card__label">Contextes</div>
+            <div class="sn-stat-card__label" th:text="#{nav.contexts}">Contextes</div>
         </a>
 
         <a th:href="@{/network/sites}" class="sn-stat-card sn-stat-card--link">
             <span class="sn-stat-card__icon sn-stat-card__icon--green">⌖</span>
             <div class="sn-stat-card__value" th:text="${stats.totalSites}">0</div>
-            <div class="sn-stat-card__label">Sites</div>
+            <div class="sn-stat-card__label" th:text="#{nav.sites}">Sites</div>
         </a>
 
         <a th:href="@{/network/vlans}" class="sn-stat-card sn-stat-card--link">
             <span class="sn-stat-card__icon sn-stat-card__icon--purple">◇</span>
             <div class="sn-stat-card__value" th:text="${stats.totalVlans}">0</div>
-            <div class="sn-stat-card__label">VLANs</div>
+            <div class="sn-stat-card__label" th:text="#{nav.vlans}">VLANs</div>
         </a>
 
         <a th:href="@{/network/subnets}" class="sn-stat-card sn-stat-card--link">
             <span class="sn-stat-card__icon sn-stat-card__icon--orange">▦</span>
             <div class="sn-stat-card__value" th:text="${stats.totalSubnets}">0</div>
-            <div class="sn-stat-card__label">Sous-réseaux</div>
+            <div class="sn-stat-card__label" th:text="#{nav.subnets}">Sous-réseaux</div>
         </a>
 
         <a th:href="@{/network/addresses}" class="sn-stat-card sn-stat-card--link">
             <span class="sn-stat-card__icon sn-stat-card__icon--cyan">⌁</span>
             <div class="sn-stat-card__value" th:text="${stats.totalAddresses}">0</div>
-            <div class="sn-stat-card__label">Adresses IP</div>
+            <div class="sn-stat-card__label" th:text="#{nav.addresses}">Adresses IP</div>
         </a>
 
     </div>
@@ -54,14 +55,14 @@
             <table class="sn-table">
                 <thead>
                     <tr>
-                        <th>Sous-réseaux les plus utilisés</th>
+                        <th th:text="#{dashboard.topsubnets.title}">Sous-réseaux les plus utilisés</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr class="sn-table--empty">
                         <td>
-                            Aucun sous-réseau configuré.
-                            <a th:href="@{/network/subnets/new}">Créer un sous-réseau</a>
+                            <span th:text="#{dashboard.topsubnets.empty}">Aucun sous-réseau configuré.</span>
+                            <a th:href="@{/network/subnets/new}" th:text="#{dashboard.topsubnets.create}">Créer un sous-réseau</a>
                         </td>
                     </tr>
                 </tbody>
@@ -73,20 +74,20 @@
     <div th:if="${not #lists.isEmpty(stats.topSubnets)}" class="sn-card">
 
         <div class="sn-card__header">
-            <h2 class="sn-card__title">Sous-réseaux les plus utilisés</h2>
+            <h2 class="sn-card__title" th:text="#{dashboard.topsubnets.title}">Sous-réseaux les plus utilisés</h2>
         </div>
 
         <div class="sn-table-wrapper">
             <table class="sn-table">
                 <thead>
                     <tr>
-                        <th>Réseau</th>
-                        <th>Description</th>
-                        <th>Site</th>
-                        <th>Contexte</th>
-                        <th>Utilisé</th>
-                        <th>Capacité</th>
-                        <th>Utilisation</th>
+                        <th th:text="#{table.network}">Réseau</th>
+                        <th th:text="#{common.description}">Description</th>
+                        <th th:text="#{common.site}">Site</th>
+                        <th th:text="#{common.context}">Contexte</th>
+                        <th th:text="#{table.used}">Utilisé</th>
+                        <th th:text="#{table.capacity}">Capacité</th>
+                        <th th:text="#{table.utilization}">Utilisation</th>
                     </tr>
                 </thead>
                 <tbody>

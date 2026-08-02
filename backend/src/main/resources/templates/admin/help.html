@@ -1,24 +1,23 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
-<head><title>Guide administrateur - Subnetory</title></head>
 <body>
 <div id="main-content">
 <div class="sn-page">
 
     <div class="sn-page__header">
         <div>
-            <h1 class="sn-page__title">Guide administrateur &amp; déploiement</h1>
-            <p class="sn-page__subtitle">
+            <h1 class="sn-page__title" th:text="#{adminHelp.heading}">Guide administrateur &amp; déploiement</h1>
+            <p class="sn-page__subtitle" th:text="#{adminHelp.subtitle}">
                 Configuration, sécurité et exploitation de votre instance Subnetory.
             </p>
         </div>
-        <nav class="sn-admin-subnav" aria-label="Navigation administration">
-            <a th:href="@{/admin/users}" class="sn-admin-subnav__item">Comptes</a>
-            <a th:href="@{/admin/ldap}" class="sn-admin-subnav__item">LDAP</a>
-            <a th:href="@{/admin/audit-log}" class="sn-admin-subnav__item">Audit</a>
-            <a th:href="@{/admin/backup}" class="sn-admin-subnav__item">Sauvegardes</a>
-            <a th:href="@{/admin/help}" class="sn-admin-subnav__item active">Aide</a>
+        <nav class="sn-admin-subnav" th:aria-label="#{profile.nav.aria}">
+            <a th:href="@{/admin/users}" class="sn-admin-subnav__item" th:text="#{admin.subnav.accounts}">Comptes</a>
+            <a th:href="@{/admin/ldap}" class="sn-admin-subnav__item" th:text="#{admin.subnav.ldap}">LDAP</a>
+            <a th:href="@{/admin/audit-log}" class="sn-admin-subnav__item" th:text="#{admin.subnav.audit}">Audit</a>
+            <a th:href="@{/admin/backup}" class="sn-admin-subnav__item" th:text="#{admin.subnav.backup}">Sauvegardes</a>
+            <a th:href="@{/admin/help}" class="sn-admin-subnav__item active" th:text="#{admin.subnav.help}">Aide</a>
         </nav>
     </div>
 
@@ -26,8 +25,8 @@
 
         <a th:href="@{/admin/help/utilisateurs-roles}" class="sn-help-hub-card">
             <span class="sn-help-hub-card__icon" aria-hidden="true">⚙</span>
-            <span class="sn-help-hub-card__title">Utilisateurs, rôles &amp; MFA</span>
-            <span class="sn-help-hub-card__desc">
+            <span class="sn-help-hub-card__title" th:text="#{adminHelp.card.usersRoles.title}">Utilisateurs, rôles &amp; MFA</span>
+            <span class="sn-help-hub-card__desc" th:text="#{adminHelp.card.usersRoles.desc}">
                 Rôles disponibles, gestion des comptes, révocation de jetons API, procédure de secours en cas
                 de perte du MFA.
             </span>
@@ -35,16 +34,16 @@
 
         <a th:href="@{/admin/help/audit}" class="sn-help-hub-card">
             <span class="sn-help-hub-card__icon" aria-hidden="true">☰</span>
-            <span class="sn-help-hub-card__title">Audit &amp; journalisation</span>
-            <span class="sn-help-hub-card__desc">
+            <span class="sn-help-hub-card__title" th:text="#{adminHelp.card.audit.title}">Audit &amp; journalisation</span>
+            <span class="sn-help-hub-card__desc" th:text="#{adminHelp.card.audit.desc}">
                 Événements tracés, filtres, export CSV, rétention automatique et purge manuelle.
             </span>
         </a>
 
         <a th:href="@{/admin/help/sauvegardes}" class="sn-help-hub-card">
             <span class="sn-help-hub-card__icon" aria-hidden="true">⛁</span>
-            <span class="sn-help-hub-card__title">Sauvegarde &amp; restauration</span>
-            <span class="sn-help-hub-card__desc">
+            <span class="sn-help-hub-card__title" th:text="#{adminHelp.card.backup.title}">Sauvegarde &amp; restauration</span>
+            <span class="sn-help-hub-card__desc" th:text="#{adminHelp.card.backup.desc}">
                 Moteur intégré (/admin/backup), chiffrement au repos, scripts PowerShell historiques,
                 procédure de restauration d'urgence.
             </span>
@@ -52,16 +51,16 @@
 
         <a th:href="@{/admin/help/deploiement-docker}" class="sn-help-hub-card">
             <span class="sn-help-hub-card__icon" aria-hidden="true">▤</span>
-            <span class="sn-help-hub-card__title">Déploiement Docker Compose &amp; HTTPS</span>
-            <span class="sn-help-hub-card__desc">
+            <span class="sn-help-hub-card__title" th:text="#{adminHelp.card.docker.title}">Déploiement Docker Compose &amp; HTTPS</span>
+            <span class="sn-help-hub-card__desc" th:text="#{adminHelp.card.docker.desc}">
                 Installation autonome, gestion des secrets, exposition HTTPS clé en main via Caddy.
             </span>
         </a>
 
         <a th:href="@{/admin/help/deploiement-kubernetes}" class="sn-help-hub-card">
             <span class="sn-help-hub-card__icon" aria-hidden="true">◈</span>
-            <span class="sn-help-hub-card__title">Déploiement Kubernetes</span>
-            <span class="sn-help-hub-card__desc">
+            <span class="sn-help-hub-card__title" th:text="#{adminHelp.card.kubernetes.title}">Déploiement Kubernetes</span>
+            <span class="sn-help-hub-card__desc" th:text="#{adminHelp.card.kubernetes.desc}">
                 Chart Helm, PostgreSQL inclus ou externe, Secrets Kubernetes, image applicative.
             </span>
         </a>
@@ -70,10 +69,10 @@
 
     <div class="sn-help-admin-banner">
         <div>
-            <strong>Vous cherchez l'aide utilisateur ?</strong>
-            <p>Prise en main, réseau, adresses IP, import &amp; export, compte et API.</p>
+            <strong th:text="#{adminHelp.banner.title}">Vous cherchez l'aide utilisateur ?</strong>
+            <p th:text="#{adminHelp.banner.desc}">Prise en main, réseau, adresses IP, import &amp; export, compte et API.</p>
         </div>
-        <a th:href="@{/help}" class="sn-btn sn-btn--primary">Ouvrir l'aide générale</a>
+        <a th:href="@{/help}" class="sn-btn sn-btn--primary" th:text="#{adminHelp.banner.button}">Ouvrir l'aide générale</a>
     </div>
 
 </div>

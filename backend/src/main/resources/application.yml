@@ -63,6 +63,17 @@ spring:
   lifecycle:
     timeout-per-shutdown-phase: 30s
 
+  # Internationalisation (01/08/2026) : francais (defaut) et anglais.
+  # Bascule via ?lang=fr / ?lang=en, memorisee dans un cookie (dev.subnetory.config.I18nConfig).
+  # Deploiement progressif : navigation, tableau de bord et CRUD reseau traduits en premier ;
+  # administration, aide et messages de validation/erreur suivront dans une prochaine passe
+  # (voir backend/docs, section internationalisation).
+  messages:
+    basename: messages
+    encoding: UTF-8
+    fallback-to-system-locale: false
+    always-use-message-format: false
+
 subnetory:
   admin:
     default-password: ${SUBNETORY_ADMIN_DEFAULT_PASSWORD:}
@@ -123,6 +134,13 @@ subnetory:
       enabled: ${SUBNETORY_API_RATE_LIMIT_ENABLED:true}
       requests-per-window: ${SUBNETORY_API_RATE_LIMIT_REQUESTS:300}
       window-seconds: ${SUBNETORY_API_RATE_LIMIT_WINDOW_SECONDS:60}
+    # Cle de chiffrement dediee (audit 02/08/2026) pour les secrets stockes
+    # en base (mot de passe de bind LDAP, secret TOTP MFA), separee du
+    # secret JWT. Vide par defaut : SecretCipherService retombe alors sur
+    # subnetory.jwt.secret avec un avertissement au demarrage. Recommande en
+    # production, meme format que le secret JWT (chaine hexadecimale longue,
+    # generee par scripts/init-compose.sh/.ps1).
+    encryption-key: ${SUBNETORY_ENCRYPTION_KEY:}
   jwt:
     # Variable obligatoire en production. Minimum recommandé : 32 caractères.
     secret: ${SUBNETORY_JWT_SECRET}
@@ -167,6 +185,42 @@ logging:
 server:
   shutdown: graceful
   port: ${SERVER_PORT:8080}
+  # Correctif securite MOYENNE (02/08/2026) : par defaut Spring/Tomcat
+  # ignorent X-Forwarded-Proto, donc request.isSecure() renvoie toujours
+  # false derriere un reverse proxy qui termine le TLS (overlay
+  # docker-compose.https.yml / Caddy, voir HTTPS_REVERSE_PROXY.md). Deux
+  # consequences concretes sans ce correctif : le cookie de session
+  # n'obtient jamais l'attribut Secure (Tomcat ne l'ajoute que si la
+  # requete est vue comme securisee), et les URLs absolues generees par
+  # Spring (redirections) restent en http:// meme derriere HTTPS.
+  # "none" par defaut : safe pour le mode HTTP direct (docker-compose.yml
+  # de base, sans proxy) ou une valeur usurpee de X-Forwarded-Proto n'a
+  # aucun sens a etre prise en compte. L'overlay HTTPS positionne
+  # explicitement SERVER_FORWARD_HEADERS_STRATEGY=framework, en coherence
+  # avec SUBNETORY_SECURITY_TRUSTED_PROXY deja active pour ClientIpResolver
+  # dans ce meme overlay (cf. docker-compose.https.yml).
+  forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:none}
+  servlet:
+    session:
+      cookie:
+        # HttpOnly explicite (deja le defaut Spring Boot, mais documente ici
+        # par hygiene) : interdit tout acces au cookie de session depuis du
+        # JavaScript cote client, meme en cas de XSS.
+        http-only: true
+        # SameSite=Lax : le cookie de session n'est pas envoye sur des
+        # requetes cross-site de navigation type <img>/<script>/fetch
+        # depuis un autre site, ce qui attenue le CSRF sur les endpoints
+        # sensibles au-dela de la protection CSRF applicative deja active
+        # (chaine Web, SecurityConfig). "Lax" (et non "Strict") car le
+        # formulaire de login est atteint par navigation classique
+        # (redirection depuis un lien externe) qui doit rester fonctionnelle.
+        same-site: lax
+        # "secure" volontairement non fixe en dur : Tomcat l'ajoute
+        # automatiquement des lors que la requete est vue comme securisee
+        # (request.isSecure()), ce qui redevient fiable une fois
+        # forward-headers-strategy correctement configure ci-dessus. Un
+        # "true" fige casserait le mode HTTP direct (docker-compose.yml de
+        # base), qui reste un mode de deploiement supporte.
   error:
     include-message: never
     include-binding-errors: never

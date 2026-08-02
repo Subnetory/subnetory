@@ -14,7 +14,7 @@
 
 [CmdletBinding()]
 param(
-    [string]$ArtifactName = "subnetory-0.5.0-windows-x64",
+    [string]$ArtifactName = "subnetory-0.7.0-windows-x64",
     [switch]$KeepExtraction,
     [switch]$KeepDatabase
 )

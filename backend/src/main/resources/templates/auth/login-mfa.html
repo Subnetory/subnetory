@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verification MFA — Subnetory</title>
+    <title th:with="t=#{loginMfa.title}" th:text="${t} + ' — Subnetory'">Verification MFA — Subnetory</title>
     <link rel="stylesheet" th:href="@{/assets/css/app.css}">
 </head>
 <body class="sn-login-body">
@@ -13,8 +13,8 @@
         Subnetory
     </div>
 
-    <h1 class="sn-card__title">Verification en deux etapes</h1>
-    <p class="sn-login-subtitle">
+    <h1 class="sn-card__title" th:text="#{loginMfa.heading}">Verification en deux etapes</h1>
+    <p class="sn-login-subtitle" th:text="#{loginMfa.subtitle}">
         Saisissez le code de votre application d'authentification, ou l'un de
         vos codes de recuperation.
     </p>
@@ -34,7 +34,7 @@
                th:value="${_csrf.token}">
 
         <div class="sn-login-field">
-            <label class="sn-login-label" for="code">Code TOTP ou de recuperation</label>
+            <label class="sn-login-label" for="code" th:text="#{loginMfa.code.label}">Code TOTP ou de recuperation</label>
             <input id="code"
                    type="text"
                    th:field="*{code}"
@@ -47,7 +47,7 @@
                  class="sn-form__error"></div>
         </div>
 
-        <button type="submit" class="sn-btn sn-btn--primary sn-login-submit">
+        <button type="submit" class="sn-btn sn-btn--primary sn-login-submit" th:text="#{loginMfa.submit}">
             Valider
         </button>
     </form>
@@ -58,7 +58,7 @@
                th:name="${_csrf.parameterName}"
                th:value="${_csrf.token}">
         <button type="submit"
-                class="sn-btn sn-btn--ghost sn-login-submit">
+                class="sn-btn sn-btn--ghost sn-login-submit" th:text="#{loginMfa.logout}">
             Se deconnecter
         </button>
     </form>

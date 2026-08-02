@@ -2,15 +2,14 @@
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity6"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
-<head><title>Adresses IP — Subnetory</title></head>
 <body>
 <div id="main-content">
 <div class="sn-page">
 
     <div class="sn-page__header">
         <div>
-            <h1 class="sn-page__title">Adresses IP</h1>
-            <p class="sn-page__subtitle">Recherchez, filtrez et gérez toutes les adresses IP enregistrées.</p>
+            <h1 class="sn-page__title" th:text="#{nav.addresses}">Adresses IP</h1>
+            <p class="sn-page__subtitle" th:text="#{address.subtitle}">Recherchez, filtrez et gérez toutes les adresses IP enregistrées.</p>
         </div>
         <div class="sn-page__actions">
             <!-- Exports — liens vers les endpoints Web session, filtres actifs transmis.
@@ -21,12 +20,12 @@
             <a th:href="@{/network/addresses/export/xlsx(q=${query},hostname=${hostnameFilter},mac=${macFilter},subnetId=${selectedSubnetId})}"
                class="sn-btn sn-btn--ghost sn-btn--sm">↓ Excel</a>
             <a th:if="${canManage}" th:href="@{/network/addresses/import}"
-               class="sn-btn sn-btn--secondary">⇧ Importer</a>
+               class="sn-btn sn-btn--secondary" th:text="#{address.action.import}">⇧ Importer</a>
             <a th:if="${canManage}" th:href="@{/network/addresses/reserve}"
-               class="sn-btn sn-btn--secondary">⊞ Réserver plusieurs IP</a>
+               class="sn-btn sn-btn--secondary" th:text="#{address.action.reserveMultiple}">⊞ Réserver plusieurs IP</a>
             <!-- Nouvelle adresse — conditionnel canManage -->
             <a th:if="${canManage}" href="/network/addresses/new"
-               class="sn-btn sn-btn--primary">+ Nouvelle adresse</a>
+               class="sn-btn sn-btn--primary" th:text="#{address.button.new}">+ Nouvelle adresse</a>
         </div>
     </div>
 
@@ -36,22 +35,25 @@
 <form th:action="@{/network/addresses}" method="get" class="sn-search sn-filter-bar">
         <input type="text" name="q" class="sn-search__input"
                th:value="${query}"
-               placeholder="IP, hostname, MAC, site, contexte…">
+               th:placeholder="#{address.search.placeholder}"
+               th:aria-label="#{address.search.aria}">
         <input type="text" name="hostname" class="sn-search__input"
                th:value="${hostnameFilter}"
-               placeholder="Hostname contient…">
+               th:placeholder="#{address.search.hostname.placeholder}"
+               th:aria-label="#{address.search.hostname.aria}">
         <input type="text" name="mac"
                class="sn-search__input sn-search__input--narrow"
                th:value="${macFilter}"
-               placeholder="MAC (aa:bb:cc:dd:ee:ff)">
+               th:placeholder="#{address.search.mac.placeholder}"
+               th:aria-label="#{address.search.mac.aria}">
         <input type="hidden" name="subnetId" th:value="${selectedSubnetId}" th:if="${selectedSubnetId != null}">
-        <button type="submit" class="sn-btn sn-btn--primary sn-btn--sm">Rechercher</button>
-        <a th:href="@{/network/addresses}" class="sn-btn sn-btn--ghost sn-btn--sm">Réinitialiser</a>
+        <button type="submit" class="sn-btn sn-btn--primary sn-btn--sm" th:text="#{common.search}">Rechercher</button>
+        <a th:href="@{/network/addresses}" class="sn-btn sn-btn--ghost sn-btn--sm" th:text="#{common.reset}">Réinitialiser</a>
     </form>
 
     <div th:if="${selectedSubnetId != null}" class="sn-alert sn-alert--info">
-        Filtré sur le sous-réseau sélectionné.
-        <a th:href="@{/network/addresses}" class="sn-btn sn-btn--ghost sn-btn--sm">Retirer le filtre</a>
+        <span th:text="#{address.filter.subnetActive}">Filtré sur le sous-réseau sélectionné.</span>
+        <a th:href="@{/network/addresses}" class="sn-btn sn-btn--ghost sn-btn--sm" th:text="#{address.filter.remove}">Retirer le filtre</a>
     </div>
 
     <div class="sn-card">
@@ -59,14 +61,14 @@
             <table class="sn-table">
                 <thead>
                     <tr>
-                        <th>Adresse IP</th>
-                        <th>Hostname</th>
-                        <th>MAC</th>
-                        <th>Subnet</th>
-                        <th>Site</th>
-                        <th>Source</th>
-                        <th>Dernière détection</th>
-                        <th th:if="${canManage}" class="sn-table-col-actions">Actions</th>
+                        <th th:text="#{table.ip}">Adresse IP</th>
+                        <th th:text="#{table.hostname}">Hostname</th>
+                        <th th:text="#{table.mac}">MAC</th>
+                        <th th:text="#{table.subnetCol}">Subnet</th>
+                        <th th:text="#{common.site}">Site</th>
+                        <th th:text="#{table.source}">Source</th>
+                        <th th:text="#{table.lastSeen}">Dernière détection</th>
+                        <th th:if="${canManage}" class="sn-table-col-actions" th:text="#{common.actions}">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -77,34 +79,34 @@
                         <td class="sn-text-mono" th:text="${addr.mac ?: '—'}">aa:bb:cc:dd:ee:ff</td>
                         <td class="sn-text-mono sn-text-muted" th:text="${addr.subnetNetwork}">10.0.0.0/24</td>
                         <td class="sn-text-secondary" th:text="${addr.siteName}">Site</td>
-                        <td>
+                        <td th:with="lblScan=#{source.scan},lblManual=#{source.manual},lblImport=#{source.import},lblApi=#{source.api},lblDns=#{source.dns}">
                             <span class="sn-badge"
                                   th:classappend="${addr.discoverySource == 'manual' ? 'sn-badge--neutral' :
                                                    addr.discoverySource != null && (addr.discoverySource == 'nmap' or addr.discoverySource == 'arp-scan') ? 'sn-badge--blue' :
                                                    'sn-badge--green'}"
-                                  th:text="${addr.discoverySource == 'nmap' or addr.discoverySource == 'arp-scan' ? 'Scan' :
-                                            addr.discoverySource == 'manual' ? 'Manuel' :
-                                            (addr.discoverySource == 'csv' or addr.discoverySource == 'xlsx') ? 'Import' :
-                                            addr.discoverySource == 'api' ? 'API' :
-                                            addr.discoverySource == 'dns' ? 'DNS' :
+                                  th:text="${addr.discoverySource == 'nmap' or addr.discoverySource == 'arp-scan' ? lblScan :
+                                            addr.discoverySource == 'manual' ? lblManual :
+                                            (addr.discoverySource == 'csv' or addr.discoverySource == 'xlsx') ? lblImport :
+                                            addr.discoverySource == 'api' ? lblApi :
+                                            addr.discoverySource == 'dns' ? lblDns :
                                             '—'}">Import</span>
                         </td>
                         <td class="sn-text-muted"
-                            th:text="${addr.lastSeenAt != null ? #temporals.format(addr.lastSeenAt, 'dd/MM/yyyy HH:mm') : '—'}">—</td>
+                            th:text="${addr.lastSeenAt != null ? #temporals.format(addr.lastSeenAt) : '—'}">—</td>
                         <td th:if="${canManage}" class="sn-table-actions">
                             <a th:href="@{/network/addresses/{id}/edit(id=${addr.id})}"
-                               class="sn-btn sn-btn--secondary sn-btn--sm">Modifier</a>
+                               class="sn-btn sn-btn--secondary sn-btn--sm" th:text="#{common.edit}">Modifier</a>
                             <form th:action="@{/network/addresses/{id}/delete(id=${addr.id})}"
                                   method="post"
                                   class="sn-inline-form"
-                                  th:attr="data-confirm=|Supprimer l'adresse ${addr.address} ?|"
+                                  th:attr="data-confirm=#{address.confirm.delete(${addr.address})}"
                                   sec:authorize="hasAnyRole('ADMIN', 'IP')">
-                                <button type="submit" class="sn-btn sn-btn--danger sn-btn--sm">Supprimer</button>
+                                <button type="submit" class="sn-btn sn-btn--danger sn-btn--sm" th:text="#{common.delete}">Supprimer</button>
                             </form>
                         </td>
                     </tr>
                     <tr th:if="${addresses.empty}" class="sn-table--empty">
-                        <td th:colspan="${canManage ? 8 : 7}">Aucune adresse trouvée.</td>
+                        <td th:colspan="${canManage ? 8 : 7}" th:text="#{address.empty}">Aucune adresse trouvée.</td>
                     </tr>
                 </tbody>
             </table>
@@ -112,7 +114,8 @@
 
         <div class="sn-pagination" th:if="${!addresses.empty}">
             <span class="sn-pagination__info"
-                  th:text="${addresses.totalElements} + ' adresse(s)'">N adresses</span>
+                  th:with="suffix=#{pagination.addresses.suffix}"
+                  th:text="${addresses.totalElements} + ' ' + suffix">N adresses</span>
             <nav class="sn-pagination__nav" th:if="${addresses.totalPages > 1}">
                 <a th:href="@{/network/addresses(page=${addresses.number - 1}, q=${query}, hostname=${hostnameFilter}, mac=${macFilter}, subnetId=${selectedSubnetId})}"
                    th:classappend="${addresses.first ? 'sn-pagination__btn--disabled' : ''}"

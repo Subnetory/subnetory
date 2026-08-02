@@ -148,7 +148,7 @@ class AuthControllerMandatoryPasswordChangeTest {
         MockHttpServletRequest request = new MockHttpServletRequest();
 
         when(clientIpResolver.resolve(request)).thenReturn("127.0.0.1");
-        when(loginRateLimiter.recordFailure("127.0.0.1"))
+        when(loginRateLimiter.recordFailure("127.0.0.1", "admin"))
                 .thenReturn(new LoginRateLimiter.RateLimitDecision(false, false, java.time.Duration.ZERO));
         when(authenticationManager.authenticate(any()))
                 .thenThrow(new org.springframework.security.authentication.BadCredentialsException("bad"));

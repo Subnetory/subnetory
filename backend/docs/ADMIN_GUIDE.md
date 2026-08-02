@@ -448,6 +448,8 @@ Depuis le Sprint 2.37, chaque compte local peut activer un second facteur TOTP (
 
 A l'activation, 10 codes de recuperation a usage unique sont generes et affiches une seule fois. Chaque code peut remplacer le code TOTP, aussi bien pour la connexion (Web et API) que pour la desactivation du MFA ou la regeneration des codes. Une fois utilise, un code de recuperation est marque et ne peut plus servir.
 
+Le secret TOTP est chiffre en base (AES/GCM, `SecretCipherService`) avec la cle `subnetory.security.encryption-key` (secret Docker/K8s `subnetory_encryption_key`, voir `INSTALL_DOCKER_COMPOSE.md`) — la meme cle chiffre aussi le mot de passe de bind LDAP. Cette cle est deliberement separee du secret JWT (`subnetory.jwt.secret`) depuis l'audit du 02/08/2026 : les deux ont des roles distincts (signature des jetons vs chiffrement au repos), et melanger les deux rendait une rotation JWT inutilement destructrice pour les secrets stockes. Si `subnetory.security.encryption-key` n'est pas configuree, l'application retombe automatiquement sur `subnetory.jwt.secret` (avec un avertissement au demarrage) : fonctionnel mais non recommande.
+
 Cote connexion :
 
 * Web : apres identifiants corrects, redirection vers `/login/mfa` tant que le second facteur n'est pas verifie pour la session ;
@@ -459,9 +461,14 @@ Cote connexion :
 
 Si un compte perd l'acces a son mot de passe et a son application d'authentification (et que les codes de recuperation n'ont pas ete conserves), aucune recuperation en libre-service n'est possible : Subnetory n'envoie pas d'email et ne propose pas de lien de reinitialisation par courrier electronique.
 
-Si un autre compte ROLE_ADMIN existe, il peut reinitialiser le mot de passe du compte bloque (`POST /api/v1/admin/users/{id}/reset-password` ou l'action equivalente dans `/admin/users`). Cela ne desactive pas le MFA : une action dediee de desactivation MFA par un administrateur est prevue dans un lot ulterieur du Sprint 2.37.
+Si un autre compte ROLE_ADMIN existe, c'est la voie normale de recuperation, entierement depuis l'interface, en deux etapes :
 
-**Si aucun autre compte admin n'existe**, le seul recours est un acces direct a la base PostgreSQL (procedure de secours, a n'utiliser qu'en dernier ressort et par une personne de confiance ayant acces au serveur) :
+1. reinitialiser le mot de passe du compte bloque depuis `/admin/users` (fiche du compte, ou `POST /api/v1/admin/users/{id}/reset-password`) ; cela ne desactive pas le MFA ;
+2. sur la meme fiche compte (`/admin/users/{id}`), section MFA, utiliser le bouton **« Desactiver le MFA »** (`POST /admin/users/{id}/disable-mfa`). Cette action retire le second facteur du compte sans toucher au mot de passe ; elle est prevue precisement pour ce cas de deblocage et n'affecte que l'utilisateur cible, pas le compte administrateur qui l'execute.
+
+Ces deux etapes suffisent a debloquer entierement le compte, sans aucune intervention en base de donnees.
+
+**Seulement si aucun autre compte admin n'existe**, le recours devient un acces direct a la base PostgreSQL (procedure de secours, a n'utiliser qu'en dernier ressort et par une personne de confiance ayant acces au serveur) :
 
 ```sql
 -- 1. Desactiver le MFA sur le compte bloque et supprimer ses codes de recuperation

@@ -9,6 +9,8 @@ import dev.subnetory.service.NetworkContextService;
 import dev.subnetory.web.form.ContextForm;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import java.util.Locale;
+import org.springframework.context.MessageSource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -33,10 +35,17 @@ public class NetworkContextWebController {
 
     private final NetworkContextService contextService;
     private final AuthAuditService authAuditService;
+    private final MessageSource messageSource;
 
-    public NetworkContextWebController(NetworkContextService contextService, AuthAuditService authAuditService) {
+    public NetworkContextWebController(NetworkContextService contextService, AuthAuditService authAuditService,
+                                       MessageSource messageSource) {
         this.contextService = contextService;
         this.authAuditService = authAuditService;
+        this.messageSource = messageSource;
+    }
+
+    private String msg(String key, Locale locale, Object... args) {
+        return messageSource.getMessage(key, args, locale);
     }
 
     // ── Liste ──────────────────────────────────────────────────────────────
@@ -44,12 +53,13 @@ public class NetworkContextWebController {
     @GetMapping
     public String list(@RequestParam(defaultValue = "0") int page,
                        Model model,
-                       Authentication authentication) {
+                       Authentication authentication,
+                       Locale locale) {
         model.addAttribute("contexts",
                 contextService.findAll(PageRequest.of(page, PAGE_SIZE, Sort.by("name"))));
         model.addAttribute("canManage", canManage(authentication));
         model.addAttribute("activeSection", "contexts");
-        model.addAttribute("pageTitle", "Contextes");
+        model.addAttribute("pageTitle", msg("nav.contexts", locale));
         return "network/contexts";
     }
 
@@ -57,8 +67,8 @@ public class NetworkContextWebController {
 
     @GetMapping("/new")
     @PreAuthorize("hasRole('ADMIN')")
-    public String newForm(Model model) {
-        prepareFormModel(model, new ContextForm(), "Nouveau contexte",
+    public String newForm(Model model, Locale locale) {
+        prepareFormModel(model, new ContextForm(), msg("pageTitle.contextNew", locale),
                 "/network/contexts", "/network/contexts");
         return "network/context-form";
     }
@@ -71,9 +81,10 @@ public class NetworkContextWebController {
                          BindingResult errors,
                          Model model,
                          Authentication auth,
-                         RedirectAttributes flash) {
+                         RedirectAttributes flash,
+                         Locale locale) {
         if (errors.hasErrors()) {
-            prepareFormModel(model, form, "Nouveau contexte",
+            prepareFormModel(model, form, msg("pageTitle.contextNew", locale),
                     "/network/contexts", "/network/contexts");
             return "network/context-form";
         }
@@ -82,10 +93,10 @@ public class NetworkContextWebController {
                     contextService.create(new NetworkContextRequest(form.getName(), form.getDescription()));
             authAuditService.recordContextCreated(auth.getName(), created.id(), created.name());
             flash.addFlashAttribute("flashSuccess",
-                    "Contexte « " + form.getName() + " » créé avec succès.");
+                    msg("flash.context.createSuccess", locale, form.getName()));
         } catch (ConflictException e) {
-            model.addAttribute("formError", "Un contexte portant ce nom existe déjà.");
-            prepareFormModel(model, form, "Nouveau contexte",
+            model.addAttribute("formError", msg("flash.context.nameConflict", locale));
+            prepareFormModel(model, form, msg("pageTitle.contextNew", locale),
                     "/network/contexts", "/network/contexts");
             return "network/context-form";
         }
@@ -98,10 +109,11 @@ public class NetworkContextWebController {
     @PreAuthorize("hasRole('ADMIN')")
     public String editForm(@PathVariable Long id,
                            Model model,
-                           HttpServletResponse response) {
+                           HttpServletResponse response,
+                           Locale locale) {
         try {
             prepareFormModel(model, ContextForm.from(contextService.findById(id)),
-                    "Modifier le contexte",
+                    msg("pageTitle.contextEdit", locale),
                     "/network/contexts/" + id,
                     "/network/contexts");
         } catch (ResourceNotFoundException e) {
@@ -120,9 +132,10 @@ public class NetworkContextWebController {
                          BindingResult errors,
                          Model model,
                          RedirectAttributes flash,
-                         HttpServletResponse response) {
+                         HttpServletResponse response,
+                         Locale locale) {
         if (errors.hasErrors()) {
-            prepareFormModel(model, form, "Modifier le contexte",
+            prepareFormModel(model, form, msg("pageTitle.contextEdit", locale),
                     "/network/contexts/" + id, "/network/contexts");
             // Piege POST/redirect (audit du 31/07/2026), meme pattern que
             // AddressWebController.prepareReserveModel().
@@ -131,13 +144,13 @@ public class NetworkContextWebController {
         }
         try {
             contextService.update(id, new NetworkContextRequest(form.getName(), form.getDescription()));
-            flash.addFlashAttribute("flashSuccess", "Contexte mis à jour.");
+            flash.addFlashAttribute("flashSuccess", msg("flash.context.updateSuccess", locale));
         } catch (ResourceNotFoundException e) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
             return "error/404";
         } catch (ConflictException e) {
-            model.addAttribute("formError", "Un contexte portant ce nom existe déjà.");
-            prepareFormModel(model, form, "Modifier le contexte",
+            model.addAttribute("formError", msg("flash.context.nameConflict", locale));
+            prepareFormModel(model, form, msg("pageTitle.contextEdit", locale),
                     "/network/contexts/" + id, "/network/contexts");
             model.addAttribute("currentRequestPath", "/network/contexts/" + id + "/edit");
             return "network/context-form";
@@ -149,17 +162,16 @@ public class NetworkContextWebController {
 
     @PostMapping("/{id}/delete")
     @PreAuthorize("hasRole('ADMIN')")
-    public String delete(@PathVariable Long id, Authentication auth, RedirectAttributes flash) {
+    public String delete(@PathVariable Long id, Authentication auth, RedirectAttributes flash, Locale locale) {
         try {
             NetworkContextResponse context = contextService.findById(id);
             contextService.delete(id);
             authAuditService.recordContextDeleted(auth.getName(), id, context.name());
-            flash.addFlashAttribute("flashSuccess", "Contexte supprimé.");
+            flash.addFlashAttribute("flashSuccess", msg("flash.context.deleteSuccess", locale));
         } catch (ResourceNotFoundException e) {
-            flash.addFlashAttribute("flashError", "Contexte introuvable.");
+            flash.addFlashAttribute("flashError", msg("flash.context.notFound", locale));
         } catch (DataIntegrityViolationException e) {
-            flash.addFlashAttribute("flashError",
-                    "Impossible de supprimer : des sites sont rattachés à ce contexte.");
+            flash.addFlashAttribute("flashError", msg("flash.context.deleteConflict", locale));
         }
         return "redirect:/network/contexts";
     }

@@ -49,7 +49,7 @@ class RateLimitingAuthenticationSuccessHandlerTest {
 
         assertThat(response.getRedirectedUrl())
                 .endsWith("/profile/change-password-required");
-        verify(loginRateLimiter).recordSuccess("127.0.0.1");
+        verify(loginRateLimiter).recordSuccess("127.0.0.1", "admin");
         verify(authAuditService).recordLoginSuccess(
                 "admin", "127.0.0.1", null);
     }

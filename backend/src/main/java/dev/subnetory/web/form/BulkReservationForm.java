@@ -24,11 +24,11 @@ import java.util.List;
  */
 public class BulkReservationForm {
 
-    @NotNull(message = "Le sous-réseau est obligatoire")
+    @NotNull(message = "{validation.field.subnetRequired}")
     private Long subnetId;
 
-    @Min(value = 1, message = "Minimum 1")
-    @Max(value = 50, message = "Maximum 50 à la fois")
+    @Min(value = 1, message = "{validation.reserve.additionalCount.min}")
+    @Max(value = 50, message = "{validation.reserve.additionalCount.max}")
     private int additionalCount = 10;
 
     @Valid

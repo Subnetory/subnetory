@@ -1,53 +1,53 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
-<head><title>Import &amp; export - Aide - Subnetory</title></head>
 <body>
 <div id="main-content">
 <div class="sn-page">
 
-    <p class="sn-help-crumb"><a th:href="@{/help}">Aide</a> / Import &amp; export</p>
+    <p class="sn-help-crumb"><a th:href="@{/help}" th:text="#{help.crumbPrefix}">Aide</a> / <span th:text="#{help.card.importExport.title}">Import &amp; export</span></p>
 
     <div class="sn-help-layout">
         <div th:replace="~{help/fragments :: sidebar-user('import-export')}"></div>
 
         <div class="sn-help-article">
             <div class="sn-help-article__header">
-                <h1 class="sn-page__title">Import &amp; export</h1>
-                <p>Reprendre un inventaire existant en CSV ou Excel, et comprendre le format attendu.</p>
+                <h1 class="sn-page__title" th:text="#{help.card.importExport.title}">Import &amp; export</h1>
+                <p th:text="#{help.importExport.subtitle}">Reprendre un inventaire existant en CSV ou Excel, et comprendre le format attendu.</p>
             </div>
 
             <section class="sn-help-section">
-                <h2>Importer des adresses</h2>
-                <p>
-                    Menu <em>Adresses IP → Importer des adresses</em>. Formats acceptés : <strong>CSV</strong>
+                <h2 th:text="#{help.importExport.import.title}">Importer des adresses</h2>
+                <p th:utext="#{help.importExport.import.body1}">
+                    Menu <em>Adresses IP → ⇧ Importer</em>. Formats acceptés : <strong>CSV</strong>
                     et <strong>Excel (.xlsx)</strong>, avec les mêmes colonnes et les mêmes règles pour les deux
                     formats.
                 </p>
-                <p>
+                <p th:text="#{help.importExport.import.body2}">
                     Après import, un rapport s'affiche avec le nombre de lignes traitées, créées, mises à jour
                     et en erreur — avec le détail ligne par ligne pour les erreurs.
                 </p>
+                <p class="sn-text-muted sn-help-permission" th:utext="#{help.importExport.import.permission}">Permissions requises : <code>ROLE_ADMIN</code> ou <code>ROLE_IP</code>.</p>
             </section>
 
             <section class="sn-help-section">
-                <h2>Colonnes attendues</h2>
+                <h2 th:text="#{help.importExport.columns.title}">Colonnes attendues</h2>
                 <table class="sn-table">
                     <thead>
-                    <tr><th>Colonne</th><th>Obligatoire</th><th>Description</th></tr>
+                    <tr><th th:text="#{help.importExport.table.column}">Colonne</th><th th:text="#{help.importExport.table.required}">Obligatoire</th><th th:text="#{help.importExport.table.description}">Description</th></tr>
                     </thead>
                     <tbody>
-                    <tr><td><code>address</code></td><td>Oui</td><td>Adresse IPv4, ex. <code>192.168.1.10</code></td></tr>
-                    <tr><td><code>subnet_id</code></td><td><code>subnet_id</code> ou <code>subnet_network</code></td><td>ID numérique du sous-réseau</td></tr>
-                    <tr><td><code>subnet_network</code></td><td><code>subnet_id</code> ou <code>subnet_network</code></td><td>Réseau CIDR, ex. <code>192.168.1.0/24</code></td></tr>
-                    <tr><td><code>mac</code></td><td>Non</td><td>Adresse MAC</td></tr>
-                    <tr><td><code>hostname</code></td><td>Non</td><td>Nom d'hôte</td></tr>
-                    <tr><td><code>description</code></td><td>Non</td><td>Description libre</td></tr>
-                    <tr><td><code>temporary</code></td><td>Non</td><td><code>true</code> ou <code>false</code>, défaut <code>false</code></td></tr>
-                    <tr><td><code>discovery_source</code></td><td>Non</td><td>manual / api / csv / xlsx / nmap / arp-scan / dns</td></tr>
+                    <tr><td><code>address</code></td><td th:text="#{help.importExport.col.address.required}">Oui</td><td th:utext="#{help.importExport.col.address.desc}">Adresse IPv4, ex. <code>192.168.1.10</code></td></tr>
+                    <tr><td><code>subnet_id</code></td><td><code>subnet_id</code> ou <code>subnet_network</code></td><td th:text="#{help.importExport.col.subnetId.desc}">ID numérique du sous-réseau</td></tr>
+                    <tr><td><code>subnet_network</code></td><td><code>subnet_id</code> ou <code>subnet_network</code></td><td th:utext="#{help.importExport.col.subnetNetwork.desc}">Réseau CIDR, ex. <code>192.168.1.0/24</code></td></tr>
+                    <tr><td><code>mac</code></td><td th:text="#{help.importExport.col.optional}">Non</td><td th:text="#{help.importExport.col.mac.desc}">Adresse MAC</td></tr>
+                    <tr><td><code>hostname</code></td><td th:text="#{help.importExport.col.optional}">Non</td><td th:text="#{help.importExport.col.hostname.desc}">Nom d'hôte</td></tr>
+                    <tr><td><code>description</code></td><td th:text="#{help.importExport.col.optional}">Non</td><td th:text="#{help.importExport.col.description.desc}">Description libre</td></tr>
+                    <tr><td><code>temporary</code></td><td th:text="#{help.importExport.col.optional}">Non</td><td th:utext="#{help.importExport.col.temporary.desc}"><code>true</code> ou <code>false</code>, défaut <code>false</code></td></tr>
+                    <tr><td><code>discovery_source</code></td><td th:text="#{help.importExport.col.optional}">Non</td><td th:text="#{help.importExport.col.discoverySource.desc}">manual / api / csv / xlsx / nmap / arp-scan / dns</td></tr>
                     </tbody>
                 </table>
-                <p class="sn-mt-3">
+                <p class="sn-mt-3" th:utext="#{help.importExport.columns.body}">
                     Si <code>subnet_id</code> est fourni, il est utilisé directement et le sous-réseau doit déjà
                     exister. Si seul <code>subnet_network</code> est fourni, Subnetory recherche le sous-réseau
                     correspondant — si plusieurs sous-réseaux partagent le même CIDR, la ligne est rejetée pour
@@ -56,9 +56,9 @@
             </section>
 
             <section class="sn-help-section">
-                <h2>Exemple CSV</h2>
+                <h2 th:text="#{help.importExport.csvExample.title}">Exemple CSV</h2>
                 <div class="sn-command-preview">
-                    <span>fichier .csv</span>
+                    <span th:text="#{help.importExport.csvExample.fileLabel}">fichier .csv</span>
                     <code>address,subnet_id,subnet_network,mac,hostname,description,temporary,discovery_source<br>
                     192.168.1.10,3,,aa:bb:cc:dd:ee:ff,srv-web-01,Serveur web principal,false,csv<br>
                     192.168.1.20,3,,,,Imprimante RDC,,<br>
@@ -67,17 +67,17 @@
             </section>
 
             <section class="sn-help-section">
-                <h2>Comportement selon l'existence de l'adresse</h2>
+                <h2 th:text="#{help.importExport.behavior.title}">Comportement selon l'existence de l'adresse</h2>
                 <table class="sn-table">
                     <thead>
-                    <tr><th>État</th><th>Comportement par défaut</th><th>Avec « remplacer les existantes »</th></tr>
+                    <tr><th th:text="#{help.importExport.table.state}">État</th><th th:text="#{help.importExport.table.defaultBehavior}">Comportement par défaut</th><th th:text="#{help.importExport.table.replaceBehavior}">Avec « remplacer les existantes »</th></tr>
                     </thead>
                     <tbody>
-                    <tr><td>IP absente</td><td>Création complète</td><td>Création complète</td></tr>
-                    <tr><td>IP existante</td><td>Mise à jour de la dernière observation uniquement</td><td>Mise à jour des champs fournis</td></tr>
+                    <tr><td th:text="#{help.importExport.state.absent}">IP absente</td><td th:text="#{help.importExport.state.absent.default}">Création complète</td><td th:text="#{help.importExport.state.absent.default}">Création complète</td></tr>
+                    <tr><td th:text="#{help.importExport.state.existing}">IP existante</td><td th:text="#{help.importExport.state.existing.default}">Mise à jour de la dernière observation uniquement</td><td th:text="#{help.importExport.state.existing.replace}">Mise à jour des champs fournis</td></tr>
                     </tbody>
                 </table>
-                <p class="sn-mt-3">
+                <p class="sn-mt-3" th:utext="#{help.importExport.behavior.body}">
                     L'option <strong>Remplacer les adresses existantes</strong> du formulaire d'import détermine
                     ce comportement : décochée, une IP déjà connue n'est jamais écrasée — seul un conflit est
                     signalé sans modification.
@@ -85,8 +85,8 @@
             </section>
 
             <section class="sn-help-section">
-                <h2>Export</h2>
-                <p>
+                <h2 th:text="#{help.importExport.export.title}">Export</h2>
+                <p th:utext="#{help.importExport.export.body}">
                     Boutons <strong>↓ CSV</strong> et <strong>↓ Excel</strong> sur les pages <em>Adresses
                     IP</em> et <em>Sous-réseaux</em>, avec les filtres actifs appliqués au fichier généré.
                 </p>

@@ -6,6 +6,8 @@ import dev.subnetory.repository.LdapSettingsRepository;
 import dev.subnetory.repository.RoleRepository;
 import dev.subnetory.security.AssignableRoles;
 import dev.subnetory.web.form.LdapSettingsForm;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -28,15 +30,18 @@ public class LdapConfigurationService {
     private final LdapSettingsRepository repository;
     private final RoleRepository roleRepository;
     private final SecretCipherService secretCipherService;
+    private final AuthAuditService authAuditService;
 
     public LdapConfigurationService(LdapProperties fallbackProperties,
                                     LdapSettingsRepository repository,
                                     RoleRepository roleRepository,
-                                    SecretCipherService secretCipherService) {
+                                    SecretCipherService secretCipherService,
+                                    AuthAuditService authAuditService) {
         this.fallbackProperties = fallbackProperties;
         this.repository = repository;
         this.roleRepository = roleRepository;
         this.secretCipherService = secretCipherService;
+        this.authAuditService = authAuditService;
     }
 
     @Transactional(readOnly = true)
@@ -95,6 +100,25 @@ public class LdapConfigurationService {
         }
 
         repository.save(settings);
+
+        // Audit manquant (02/08/2026, correctif MOYENNE) : la configuration
+        // LDAP (URL, DN de bind, mot de passe de bind, role par defaut
+        // attribue aux comptes provisionnes) est une surface hautement
+        // sensible — un role par defaut mal configure peut octroyer
+        // ROLE_ADMIN a tout compte de l'annuaire — et n'etait jusqu'ici pas
+        // tracee du tout dans le journal d'audit.
+        if (authAuditService != null) {
+            authAuditService.recordLdapConfigurationUpdated(currentUsername());
+        }
+    }
+
+    private String currentUsername() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || "anonymousUser".equals(authentication.getPrincipal())) {
+            return null;
+        }
+        return authentication.getName();
     }
 
     private EffectiveLdapSettings fromEntity(LdapSettings settings) {

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connexion — Subnetory</title>
+    <title th:with="t=#{login.title}" th:text="${t} + ' — Subnetory'">Connexion — Subnetory</title>
     <link rel="stylesheet" th:href="@{/assets/css/app.css}">
 </head>
 <body class="sn-login-body">
@@ -12,30 +12,30 @@
         <span class="sn-navbar__brand-dot"></span>
         Subnetory
     </div>
-    <p class="sn-login-subtitle">Gestion d'adresses IP</p>
+    <p class="sn-login-subtitle" th:text="#{login.subtitle}">Gestion d'adresses IP</p>
 
-    <div th:if="${param.error}" class="sn-alert sn-alert--danger">
+    <div th:if="${param.error}" class="sn-alert sn-alert--danger" th:text="#{login.error}">
         Identifiants incorrects. Vérifiez votre nom d'utilisateur et votre mot de passe.
     </div>
-    <div th:if="${param.logout}" class="sn-alert sn-alert--info">
+    <div th:if="${param.logout}" class="sn-alert sn-alert--info" th:text="#{login.loggedOut}">
         Vous avez été déconnecté.
     </div>
 
     <form th:action="@{/login}" method="post" class="sn-login-form">
         <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
         <div class="sn-login-field">
-            <label class="sn-login-label" for="username">Identifiant</label>
+            <label class="sn-login-label" for="username" th:text="#{login.username.label}">Identifiant</label>
             <input type="text" id="username" name="username"
                    class="sn-login-input" autofocus required
                    autocomplete="username">
         </div>
         <div class="sn-login-field">
-            <label class="sn-login-label" for="password">Mot de passe</label>
+            <label class="sn-login-label" for="password" th:text="#{login.password.label}">Mot de passe</label>
             <input type="password" id="password" name="password"
                    class="sn-login-input" required
                    autocomplete="current-password">
         </div>
-        <button type="submit" class="sn-btn sn-btn--primary sn-login-submit">
+        <button type="submit" class="sn-btn sn-btn--primary sn-login-submit" th:text="#{login.submit}">
             Se connecter
         </button>
     </form>

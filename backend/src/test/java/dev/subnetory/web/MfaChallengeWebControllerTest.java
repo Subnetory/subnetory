@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.support.ResourceBundleMessageSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -20,6 +21,7 @@ import org.springframework.validation.BeanPropertyBindingResult;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -29,6 +31,8 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MfaChallengeWebControllerTest {
+
+    private static final Locale LOCALE = Locale.FRENCH;
 
     @Mock MfaLoginChallengeService mfaLoginChallengeService;
     @Mock LoginRateLimiter loginRateLimiter;
@@ -40,8 +44,11 @@ class MfaChallengeWebControllerTest {
 
     @BeforeEach
     void setUp() {
+        ResourceBundleMessageSource messageSource = new ResourceBundleMessageSource();
+        messageSource.setBasename("messages");
+        messageSource.setDefaultEncoding("UTF-8");
         controller = new MfaChallengeWebController(
-                mfaLoginChallengeService, loginRateLimiter, clientIpResolver, authAuditService);
+                mfaLoginChallengeService, loginRateLimiter, clientIpResolver, authAuditService, messageSource);
         authentication = new UsernamePasswordAuthenticationToken("jdoe", "n/a", List.of());
     }
 
@@ -87,11 +94,11 @@ class MfaChallengeWebControllerTest {
         BeanPropertyBindingResult binding = new BeanPropertyBindingResult(form, "form");
         MockHttpSession session = new MockHttpSession();
 
-        String view = controller.verify(form, binding, authentication, request, session, new ExtendedModelMap());
+        String view = controller.verify(form, binding, authentication, request, session, new ExtendedModelMap(), LOCALE);
 
         assertThat(view).isEqualTo("redirect:/");
         assertThat(session.getAttribute(MfaChallengeFilter.SESSION_MFA_VERIFIED)).isEqualTo(Boolean.TRUE);
-        verify(loginRateLimiter).recordSuccess("127.0.0.1");
+        verify(loginRateLimiter).recordSuccess("127.0.0.1", "jdoe");
     }
 
     @Test
@@ -100,7 +107,7 @@ class MfaChallengeWebControllerTest {
         when(mfaLoginChallengeService.verify("jdoe", "000000")).thenReturn(false);
         MockHttpServletRequest request = new MockHttpServletRequest();
         when(clientIpResolver.resolve(request)).thenReturn("127.0.0.1");
-        when(loginRateLimiter.recordFailure("127.0.0.1"))
+        when(loginRateLimiter.recordFailure("127.0.0.1", "jdoe"))
                 .thenReturn(new LoginRateLimiter.RateLimitDecision(false, false, Duration.ZERO));
         MfaConfirmForm form = new MfaConfirmForm();
         form.setCode("000000");
@@ -108,7 +115,7 @@ class MfaChallengeWebControllerTest {
         MockHttpSession session = new MockHttpSession();
         ExtendedModelMap model = new ExtendedModelMap();
 
-        String view = controller.verify(form, binding, authentication, request, session, model);
+        String view = controller.verify(form, binding, authentication, request, session, model, LOCALE);
 
         assertThat(view).isEqualTo("auth/login-mfa");
         assertThat(model.get("flashError")).isNotNull();
@@ -122,7 +129,7 @@ class MfaChallengeWebControllerTest {
         when(mfaLoginChallengeService.verify("jdoe", "000000")).thenReturn(false);
         MockHttpServletRequest request = new MockHttpServletRequest();
         when(clientIpResolver.resolve(request)).thenReturn("127.0.0.1");
-        when(loginRateLimiter.recordFailure("127.0.0.1"))
+        when(loginRateLimiter.recordFailure("127.0.0.1", "jdoe"))
                 .thenReturn(new LoginRateLimiter.RateLimitDecision(false, true, Duration.ofMinutes(15)));
         MockHttpSession session = new MockHttpSession();
         request.setSession(session);
@@ -130,7 +137,7 @@ class MfaChallengeWebControllerTest {
         form.setCode("000000");
         BeanPropertyBindingResult binding = new BeanPropertyBindingResult(form, "form");
 
-        String view = controller.verify(form, binding, authentication, request, session, new ExtendedModelMap());
+        String view = controller.verify(form, binding, authentication, request, session, new ExtendedModelMap(), LOCALE);
 
         assertThat(view).isEqualTo("redirect:/login?locked");
         assertThat(session.isInvalid()).isTrue();
@@ -144,14 +151,14 @@ class MfaChallengeWebControllerTest {
         when(mfaLoginChallengeService.isRequired("jdoe")).thenReturn(true);
         MockHttpServletRequest request = new MockHttpServletRequest();
         when(clientIpResolver.resolve(request)).thenReturn("127.0.0.1");
-        when(loginRateLimiter.isLocked("127.0.0.1")).thenReturn(true);
+        when(loginRateLimiter.isLocked("127.0.0.1", "jdoe")).thenReturn(true);
         MockHttpSession session = new MockHttpSession();
         request.setSession(session);
         MfaConfirmForm form = new MfaConfirmForm();
         form.setCode("123456");
         BeanPropertyBindingResult binding = new BeanPropertyBindingResult(form, "form");
 
-        String view = controller.verify(form, binding, authentication, request, session, new ExtendedModelMap());
+        String view = controller.verify(form, binding, authentication, request, session, new ExtendedModelMap(), LOCALE);
 
         assertThat(view).isEqualTo("redirect:/login?locked");
         assertThat(session.isInvalid()).isTrue();
@@ -166,9 +173,10 @@ class MfaChallengeWebControllerTest {
         BeanPropertyBindingResult binding = new BeanPropertyBindingResult(form, "form");
 
         String view = controller.verify(
-                form, binding, authentication, new MockHttpServletRequest(), new MockHttpSession(), new ExtendedModelMap());
+                form, binding, authentication, new MockHttpServletRequest(), new MockHttpSession(),
+                new ExtendedModelMap(), LOCALE);
 
         assertThat(view).isEqualTo("redirect:/");
-        verify(loginRateLimiter, never()).isLocked(any());
+        verify(loginRateLimiter, never()).isLocked(any(), any());
     }
 }

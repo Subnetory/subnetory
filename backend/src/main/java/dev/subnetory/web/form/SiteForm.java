@@ -3,21 +3,28 @@ package dev.subnetory.web.form;
 import dev.subnetory.dto.SiteResponse;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public class SiteForm {
 
     private Long id;
 
-    @NotBlank(message = "Le nom est obligatoire")
-    @Size(max = 100, message = "100 caractères maximum")
+    @NotBlank(message = "{validation.field.nameRequired}")
+    @Size(max = 100, message = "{validation.size.max}")
     private String name;
 
-    @NotBlank(message = "Le code est obligatoire")
-    @Size(max = 20, message = "20 caractères maximum")
+    @NotBlank(message = "{validation.field.codeRequired}")
+    @Size(max = 20, message = "{validation.size.max}")
+    // Aligne sur SiteRequest (API REST) - audit 02/08/2026, correctif ELEVEE :
+    // le formulaire web n'imposait jusqu'ici aucun format de code, contrairement
+    // a l'API qui exige des majuscules/chiffres/_/-. Un code invalide saisi via
+    // le web (espaces, accents, minuscules) passait la validation Bean Validation
+    // sans erreur claire, pour echouer plus loin de facon moins comprehensible.
+    @Pattern(regexp = "^[A-Z0-9_-]+$", message = "{validation.field.codePattern}")
     private String code;
 
-    @NotNull(message = "Le contexte est obligatoire")
+    @NotNull(message = "{validation.field.contextRequired}")
     private Long contextId;
 
     public SiteForm() {}

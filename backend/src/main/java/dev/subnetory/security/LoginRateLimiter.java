@@ -18,6 +18,16 @@ import java.util.concurrent.ConcurrentHashMap;
  * - a partir de 10 echecs : verrouillage 15 minutes ;
  * - remise a zero sur succes ;
  * - stockage in-memory uniquement, acceptable pour le MVP.
+ *
+ * <p>Compteur par nom d'utilisateur (audit du 02/08/2026, correctif MOYENNE) :
+ * le compteur par IP seul ne protege pas un compte cible depuis de nombreuses
+ * IP differentes (botnet, proxys residentiels tournants) — chaque IP reste
+ * individuellement sous les seuils meme si le meme compte encaisse des
+ * centaines de tentatives au total. Les methodes historiques a un seul
+ * argument (IP) restent strictement inchangees pour compatibilite (tests,
+ * appelants existants) ; les nouvelles surcharges a deux arguments
+ * verrouillent si l'IP OU le nom d'utilisateur normalise depasse son propre
+ * seuil, avec un compteur independant par dimension.</p>
  */
 @Service
 public class LoginRateLimiter {
@@ -30,6 +40,7 @@ public class LoginRateLimiter {
 
     private final Clock clock;
     private final Map<String, LoginAttempt> attempts = new ConcurrentHashMap<>();
+    private final Map<String, LoginAttempt> attemptsByUsername = new ConcurrentHashMap<>();
 
     public LoginRateLimiter() {
         this(Clock.systemUTC());
@@ -43,9 +54,20 @@ public class LoginRateLimiter {
      * Indique si une IP est actuellement verrouillee.
      */
     public boolean isLocked(String ipAddress) {
-        cleanupExpiredEntries();
+        return isLocked(attempts, normalizeIp(ipAddress));
+    }
 
-        LoginAttempt attempt = attempts.get(normalizeIp(ipAddress));
+    /**
+     * Indique si l'IP OU le nom d'utilisateur est actuellement verrouille.
+     */
+    public boolean isLocked(String ipAddress, String username) {
+        return isLocked(ipAddress) || (username != null && isLocked(attemptsByUsername, normalizeUsername(username)));
+    }
+
+    private boolean isLocked(Map<String, LoginAttempt> bucket, String key) {
+        cleanupExpiredEntries(bucket);
+
+        LoginAttempt attempt = bucket.get(key);
         if (attempt == null || attempt.lockedUntil == null) {
             return false;
         }
@@ -54,7 +76,7 @@ public class LoginRateLimiter {
             return true;
         }
 
-        attempts.remove(normalizeIp(ipAddress));
+        bucket.remove(key);
         return false;
     }
 
@@ -72,15 +94,33 @@ public class LoginRateLimiter {
     }
 
     /**
-     * Enregistre un echec de login.
+     * Enregistre un echec de login pour une IP.
      */
     public RateLimitDecision recordFailure(String ipAddress) {
-        cleanupExpiredEntries();
+        return recordFailure(attempts, normalizeIp(ipAddress));
+    }
 
-        String key = normalizeIp(ipAddress);
+    /**
+     * Enregistre un echec de login pour une IP ET un nom d'utilisateur,
+     * chacun avec son propre compteur independant. La decision retournee
+     * (delai/verrouillage) est la plus severe des deux dimensions, pour que
+     * l'appelant applique toujours la protection la plus stricte applicable.
+     */
+    public RateLimitDecision recordFailure(String ipAddress, String username) {
+        RateLimitDecision ipDecision = recordFailure(ipAddress);
+        if (username == null) {
+            return ipDecision;
+        }
+        RateLimitDecision usernameDecision = recordFailure(attemptsByUsername, normalizeUsername(username));
+        return moreSevere(ipDecision, usernameDecision);
+    }
+
+    private RateLimitDecision recordFailure(Map<String, LoginAttempt> bucket, String key) {
+        cleanupExpiredEntries(bucket);
+
         Instant now = Instant.now(clock);
 
-        LoginAttempt attempt = attempts.computeIfAbsent(key, ignored -> new LoginAttempt());
+        LoginAttempt attempt = bucket.computeIfAbsent(key, ignored -> new LoginAttempt());
         attempt.failureCount++;
         attempt.lastFailureAt = now;
 
@@ -96,11 +136,32 @@ public class LoginRateLimiter {
         return RateLimitDecision.allowed();
     }
 
+    private static RateLimitDecision moreSevere(RateLimitDecision a, RateLimitDecision b) {
+        if (a.locked() || b.locked()) {
+            return a.locked() ? a : b;
+        }
+        if (a.delayed() || b.delayed()) {
+            return a.delayed() ? a : b;
+        }
+        return RateLimitDecision.allowed();
+    }
+
     /**
-     * Remet a zero le compteur apres une authentification reussie.
+     * Remet a zero le compteur IP apres une authentification reussie.
      */
     public void recordSuccess(String ipAddress) {
         attempts.remove(normalizeIp(ipAddress));
+    }
+
+    /**
+     * Remet a zero les compteurs IP et nom d'utilisateur apres une
+     * authentification reussie.
+     */
+    public void recordSuccess(String ipAddress, String username) {
+        recordSuccess(ipAddress);
+        if (username != null) {
+            attemptsByUsername.remove(normalizeUsername(username));
+        }
     }
 
     /**
@@ -111,9 +172,17 @@ public class LoginRateLimiter {
         return attempt == null ? 0 : attempt.failureCount;
     }
 
-    private void cleanupExpiredEntries() {
+    /**
+     * Visible pour les tests unitaires.
+     */
+    int getFailureCountByUsername(String username) {
+        LoginAttempt attempt = attemptsByUsername.get(normalizeUsername(username));
+        return attempt == null ? 0 : attempt.failureCount;
+    }
+
+    private void cleanupExpiredEntries(Map<String, LoginAttempt> bucket) {
         Instant now = Instant.now(clock);
-        Iterator<Map.Entry<String, LoginAttempt>> iterator = attempts.entrySet().iterator();
+        Iterator<Map.Entry<String, LoginAttempt>> iterator = bucket.entrySet().iterator();
 
         while (iterator.hasNext()) {
             Map.Entry<String, LoginAttempt> entry = iterator.next();
@@ -134,6 +203,21 @@ public class LoginRateLimiter {
             return "unknown";
         }
         return ipAddress.trim();
+    }
+
+    /**
+     * Normalise en minuscules, independamment de la sensibilite a la casse
+     * de l'authentification elle-meme (SubnetoryUserDetailsService fait une
+     * recherche exacte via findByUsername), pour eviter qu'un attaquant
+     * fasse compter ses tentatives sur des cles differentes ("Admin",
+     * "ADMIN", "admin"...) et dilue ainsi artificiellement le compteur par
+     * nom d'utilisateur sur plusieurs seaux au lieu d'un seul.
+     */
+    private String normalizeUsername(String username) {
+        if (username == null || username.isBlank()) {
+            return "unknown";
+        }
+        return username.trim().toLowerCase();
     }
 
     private static final class LoginAttempt {

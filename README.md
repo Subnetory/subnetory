@@ -46,8 +46,8 @@ pwsh.exe -File .\scripts\make-jpackage.ps1
 
 Generated artifacts:
 
-- `dist/windows/subnetory-0.5.0-windows-x64/`;
-- `dist/windows/subnetory-0.5.0-windows-x64.zip`;
+- `dist/windows/subnetory-0.7.0-windows-x64/`;
+- `dist/windows/subnetory-0.7.0-windows-x64.zip`;
 - SHA256 and manifest files.
 
 At first login, the local `admin` account must replace its bootstrap password.
@@ -159,7 +159,7 @@ The repository and its GHCR packages are private: pulling an image requires auth
 
 ```bash
 docker login ghcr.io
-docker pull ghcr.io/subnetory/subnetory:v0.6.0
+docker pull ghcr.io/subnetory/subnetory:v0.7.0
 ```
 
 ## Project rules

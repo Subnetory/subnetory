@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Page introuvable — Subnetory</title>
+    <title th:with="t=#{error404.title}" th:text="${t} + ' — Subnetory'">Page introuvable — Subnetory</title>
     <link rel="stylesheet" th:href="@{/assets/css/app.css}">
 </head>
 <body>
@@ -15,9 +15,9 @@
 </nav>
 <div class="sn-error-page">
     <div class="sn-error-page__code">404</div>
-    <h1 class="sn-error-page__title">Page introuvable</h1>
-    <p class="sn-error-page__message">La page que vous cherchez n'existe pas ou a été déplacée.</p>
-    <a th:href="@{/}" class="sn-btn sn-btn--ghost">Retour au tableau de bord</a>
+    <h1 class="sn-error-page__title" th:text="#{error404.title}">Page introuvable</h1>
+    <p class="sn-error-page__message" th:text="#{error404.message}">La page que vous cherchez n'existe pas ou a été déplacée.</p>
+    <a th:href="@{/}" class="sn-btn sn-btn--ghost" th:text="#{error.backToDashboard}">Retour au tableau de bord</a>
 </div>
 </body>
 </html>

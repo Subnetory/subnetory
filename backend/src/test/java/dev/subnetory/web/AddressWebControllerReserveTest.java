@@ -18,6 +18,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Page;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -25,6 +26,7 @@ import org.springframework.ui.ExtendedModelMap;
 import org.springframework.validation.BeanPropertyBindingResult;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,6 +34,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -39,12 +42,15 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class AddressWebControllerReserveTest {
 
+    private static final Locale LOCALE = Locale.FRENCH;
+
     @Mock AddressService addressService;
     @Mock SubnetService subnetService;
     @Mock IpAllocService ipAllocService;
     @Mock ObjectProvider<ActiveContextService> activeContextServiceProvider;
     @Mock ImportFileValidator importFileValidator;
     @Mock AuthAuditService authAuditService;
+    @Mock MessageSource messageSource;
 
     AddressWebController controller;
     Authentication authentication;
@@ -52,9 +58,17 @@ class AddressWebControllerReserveTest {
     @BeforeEach
     void setUp() {
         when(activeContextServiceProvider.getIfAvailable()).thenReturn(null);
+        // messageSource n'est utile ici que pour verifier la presence/absence
+        // d'un message d'erreur (assertThat(...).isNotNull()/isNull()) : on
+        // renvoie systematiquement la cle demandee plutot que de simuler
+        // chaque traduction individuellement (messages_fr/en.properties deja
+        // couverts par ailleurs, cf. Task #5/#21).
+        lenient().when(messageSource.getMessage(any(String.class), any(), any(Locale.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
         controller = new AddressWebController(
                 addressService, subnetService, ipAllocService,
-                activeContextServiceProvider, importFileValidator, authAuditService);
+                activeContextServiceProvider, importFileValidator, authAuditService,
+                messageSource);
         authentication = new UsernamePasswordAuthenticationToken("operator", "n/a", List.of());
     }
 
@@ -65,7 +79,7 @@ class AddressWebControllerReserveTest {
         when(subnetService.findAll(any())).thenReturn(Page.empty());
         ExtendedModelMap model = new ExtendedModelMap();
 
-        String view = controller.reserveForm(42L, model);
+        String view = controller.reserveForm(42L, model, LOCALE);
 
         assertThat(view).isEqualTo("network/address-reserve");
         BulkReservationForm form = (BulkReservationForm) model.get("form");
@@ -79,12 +93,31 @@ class AddressWebControllerReserveTest {
     void reserveGenerate_noSubnetSelected_setsFormErrorWithoutCallingService() {
         when(subnetService.findAll(any())).thenReturn(Page.empty());
         BulkReservationForm form = new BulkReservationForm();
+        BeanPropertyBindingResult errors = new BeanPropertyBindingResult(form, "form");
         ExtendedModelMap model = new ExtendedModelMap();
 
-        String view = controller.reserveGenerate(form, model);
+        String view = controller.reserveGenerate(form, errors, model, LOCALE);
 
         assertThat(view).isEqualTo("network/address-reserve");
         assertThat(model.get("formError")).isNotNull();
+        verify(ipAllocService, never()).findAvailableIps(anyLong(), anyInt());
+    }
+
+    @Test
+    void reserveGenerate_bindingErrors_redisplaysFormWithoutCallingService() {
+        // Correctif MOYENNE (02/08/2026) : @Valid ajoute sur reserveGenerate
+        // (ex. additionalCount hors bornes @Min/@Max) doit court-circuiter
+        // avant tout appel a IpAllocService, exactement comme reserveSubmit.
+        when(subnetService.findAll(any())).thenReturn(Page.empty());
+        BulkReservationForm form = new BulkReservationForm();
+        form.setSubnetId(3L);
+        BeanPropertyBindingResult errors = new BeanPropertyBindingResult(form, "form");
+        errors.reject("error");
+        ExtendedModelMap model = new ExtendedModelMap();
+
+        String view = controller.reserveGenerate(form, errors, model, LOCALE);
+
+        assertThat(view).isEqualTo("network/address-reserve");
         verify(ipAllocService, never()).findAvailableIps(anyLong(), anyInt());
     }
 
@@ -95,12 +128,13 @@ class AddressWebControllerReserveTest {
         form.setSubnetId(3L);
         form.setAdditionalCount(3);
         form.getRows().add(new BulkReservationRow("10.0.0.10"));
+        BeanPropertyBindingResult errors = new BeanPropertyBindingResult(form, "form");
         when(ipAllocService.findAvailableIps(3L, 4))
                 .thenReturn(new AvailableIpResponse("10.0.0.0/24", 4, 4,
                         List.of("10.0.0.10", "10.0.0.11", "10.0.0.12", "10.0.0.13")));
         ExtendedModelMap model = new ExtendedModelMap();
 
-        String view = controller.reserveGenerate(form, model);
+        String view = controller.reserveGenerate(form, errors, model, LOCALE);
 
         assertThat(view).isEqualTo("network/address-reserve");
         assertThat(model.get("formError")).isNull();
@@ -116,11 +150,12 @@ class AddressWebControllerReserveTest {
         when(subnetService.findAll(any())).thenReturn(Page.empty());
         BulkReservationForm form = new BulkReservationForm();
         form.setSubnetId(999L);
+        BeanPropertyBindingResult errors = new BeanPropertyBindingResult(form, "form");
         when(ipAllocService.findAvailableIps(999L, 10))
                 .thenThrow(new ResourceNotFoundException("Subnet", 999L));
         ExtendedModelMap model = new ExtendedModelMap();
 
-        String view = controller.reserveGenerate(form, model);
+        String view = controller.reserveGenerate(form, errors, model, LOCALE);
 
         assertThat(view).isEqualTo("network/address-reserve");
         assertThat(model.get("formError")).isNotNull();
@@ -136,7 +171,7 @@ class AddressWebControllerReserveTest {
         errors.reject("error");
         ExtendedModelMap model = new ExtendedModelMap();
 
-        String view = controller.reserveSubmit(form, errors, model, authentication);
+        String view = controller.reserveSubmit(form, errors, model, authentication, LOCALE);
 
         assertThat(view).isEqualTo("network/address-reserve");
         verify(addressService, never()).bulkUpsert(any(), any());
@@ -153,7 +188,7 @@ class AddressWebControllerReserveTest {
         BeanPropertyBindingResult errors = new BeanPropertyBindingResult(form, "form");
         ExtendedModelMap model = new ExtendedModelMap();
 
-        String view = controller.reserveSubmit(form, errors, model, authentication);
+        String view = controller.reserveSubmit(form, errors, model, authentication, LOCALE);
 
         assertThat(view).isEqualTo("network/address-reserve");
         assertThat(model.get("formError")).isNotNull();
@@ -178,7 +213,7 @@ class AddressWebControllerReserveTest {
         when(addressService.bulkUpsert(any(), eq("operator"))).thenReturn(response);
         ExtendedModelMap model = new ExtendedModelMap();
 
-        String view = controller.reserveSubmit(form, errors, model, authentication);
+        String view = controller.reserveSubmit(form, errors, model, authentication, LOCALE);
 
         assertThat(view).isEqualTo("network/address-reserve-result");
         assertThat(model.get("result")).isEqualTo(response);

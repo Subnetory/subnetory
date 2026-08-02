@@ -1,21 +1,20 @@
 <!DOCTYPE html>
 <html lang="fr" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
-<head><title>Annuaire LDAP — Subnetory</title></head>
 <body>
 <div id="main-content">
 <div class="sn-page">
 
     <div class="sn-page__header">
         <div>
-            <h1 class="sn-page__title">Annuaire LDAP</h1>
+            <h1 class="sn-page__title" th:text="#{ldap.heading}">Annuaire LDAP</h1>
         </div>
-        <nav class="sn-admin-subnav" aria-label="Navigation administration">
-            <a th:href="@{/admin/users}" class="sn-admin-subnav__item">Comptes</a>
-            <a th:href="@{/admin/ldap}" class="sn-admin-subnav__item active">LDAP</a>
-            <a th:href="@{/admin/audit-log}" class="sn-admin-subnav__item">Audit</a>
-            <a th:href="@{/admin/backup}" class="sn-admin-subnav__item">Sauvegardes</a>
-            <a th:href="@{/admin/help}" class="sn-admin-subnav__item">Aide</a>
+        <nav class="sn-admin-subnav" th:aria-label="#{profile.nav.aria}">
+            <a th:href="@{/admin/users}" class="sn-admin-subnav__item" th:text="#{admin.subnav.accounts}">Comptes</a>
+            <a th:href="@{/admin/ldap}" class="sn-admin-subnav__item active" th:text="#{admin.subnav.ldap}">LDAP</a>
+            <a th:href="@{/admin/audit-log}" class="sn-admin-subnav__item" th:text="#{admin.subnav.audit}">Audit</a>
+            <a th:href="@{/admin/backup}" class="sn-admin-subnav__item" th:text="#{admin.subnav.backup}">Sauvegardes</a>
+            <a th:href="@{/admin/help}" class="sn-admin-subnav__item" th:text="#{admin.subnav.help}">Aide</a>
         </nav>
     </div>
 
@@ -35,24 +34,24 @@
                 <div class="sn-ldap-status-card__intro">
                     <span class="sn-ldap-status-card__icon" aria-hidden="true">↔</span>
                     <div>
-                        <h2 class="sn-card__title">Authentification LDAP</h2>
-                        <p>Connexion annuaire et recherche utilisateur.</p>
+                        <h2 class="sn-card__title" th:text="#{ldap.status.title}">Authentification LDAP</h2>
+                        <p th:text="#{ldap.status.desc}">Connexion annuaire et recherche utilisateur.</p>
                     </div>
                 </div>
-                <span th:if="${ldapStatus.enabled()}" class="sn-badge sn-badge--green">Activée</span>
-                <span th:unless="${ldapStatus.enabled()}" class="sn-badge sn-badge--neutral">Désactivée</span>
+                <span th:if="${ldapStatus.enabled()}" class="sn-badge sn-badge--green" th:text="#{ldap.status.enabled}">Activée</span>
+                <span th:unless="${ldapStatus.enabled()}" class="sn-badge sn-badge--neutral" th:text="#{ldap.status.disabled}">Désactivée</span>
             </div>
             <dl class="sn-ldap-summary">
                 <div>
-                    <dt>Serveur</dt>
+                    <dt th:text="#{ldap.summary.server}">Serveur</dt>
                     <dd class="sn-text-mono" th:text="${ldapStatus.url()}">ldap://localhost:389</dd>
                 </div>
                 <div>
-                    <dt>Base DN</dt>
+                    <dt th:text="#{ldap.summary.baseDn}">Base DN</dt>
                     <dd class="sn-text-mono" th:text="${ldapStatus.baseDn()}">dc=example,dc=com</dd>
                 </div>
                 <div>
-                    <dt>Attribut</dt>
+                    <dt th:text="#{ldap.summary.attribute}">Attribut</dt>
                     <dd class="sn-text-mono"
                         th:text="${#strings.replace(#strings.replace(ldapStatus.userSearchFilter(), '(', ''), '={0})', '')}">
                         sAMAccountName
@@ -66,30 +65,30 @@
                 <div class="sn-ldap-status-card__intro">
                     <span class="sn-ldap-status-card__icon sn-ldap-status-card__icon--service" aria-hidden="true">●</span>
                     <div>
-                        <h2 class="sn-card__title">Compte de service</h2>
-                        <p>Compte utilisé pour interroger l’annuaire.</p>
+                        <h2 class="sn-card__title" th:text="#{ldap.service.title}">Compte de service</h2>
+                        <p th:text="#{ldap.service.desc}">Compte utilisé pour interroger l’annuaire.</p>
                     </div>
                 </div>
-                <span th:if="${ldapStatus.managerPasswordConfigured()}" class="sn-badge sn-badge--green">Complet</span>
-                <span th:unless="${ldapStatus.managerPasswordConfigured()}" class="sn-badge sn-badge--orange">À compléter</span>
+                <span th:if="${ldapStatus.managerPasswordConfigured()}" class="sn-badge sn-badge--green" th:text="#{ldap.service.complete}">Complet</span>
+                <span th:unless="${ldapStatus.managerPasswordConfigured()}" class="sn-badge sn-badge--orange" th:text="#{ldap.service.incomplete}">À compléter</span>
             </div>
             <dl class="sn-ldap-summary">
                 <div>
-                    <dt>DN manager</dt>
+                    <dt th:text="#{ldap.service.managerDn}">DN manager</dt>
                     <dd>
-                        <span th:if="${ldapStatus.managerDnConfigured()}" class="sn-badge sn-badge--neutral">Configuré</span>
-                        <span th:unless="${ldapStatus.managerDnConfigured()}" class="sn-text-muted">Non configuré</span>
+                        <span th:if="${ldapStatus.managerDnConfigured()}" class="sn-badge sn-badge--neutral" th:text="#{ldap.service.configured}">Configuré</span>
+                        <span th:unless="${ldapStatus.managerDnConfigured()}" class="sn-text-muted" th:text="#{ldap.service.notConfigured}">Non configuré</span>
                     </dd>
                 </div>
                 <div>
-                    <dt>Mot de passe</dt>
+                    <dt th:text="#{ldap.service.password}">Mot de passe</dt>
                     <dd>
-                        <span th:if="${ldapStatus.managerPasswordConfigured()}" class="sn-badge sn-badge--neutral">Enregistré</span>
-                        <span th:unless="${ldapStatus.managerPasswordConfigured()}" class="sn-text-muted">Non enregistré</span>
+                        <span th:if="${ldapStatus.managerPasswordConfigured()}" class="sn-badge sn-badge--neutral" th:text="#{ldap.service.saved}">Enregistré</span>
+                        <span th:unless="${ldapStatus.managerPasswordConfigured()}" class="sn-text-muted" th:text="#{ldap.service.notSaved}">Non enregistré</span>
                     </dd>
                 </div>
                 <div>
-                    <dt>Rôles par défaut</dt>
+                    <dt th:text="#{ldap.service.defaultRoles}">Rôles par défaut</dt>
                     <dd class="sn-ldap-role-pills">
                         <span th:each="role : ${ldapStatus.defaultRoles()}"
                               class="sn-badge sn-badge--neutral"
@@ -106,7 +105,7 @@
         <article class="sn-card">
             <div class="sn-card__header">
                 <div>
-                    <h2 class="sn-card__title">Configuration</h2>
+                    <h2 class="sn-card__title" th:text="#{ldap.config.title}">Configuration</h2>
                 </div>
             </div>
 
@@ -116,30 +115,30 @@
                 <div class="sn-form__group sn-form__group--checkbox">
                     <label class="sn-chip-checkbox">
                         <input type="checkbox" class="sn-chip-checkbox__input" th:field="*{enabled}">
-                        <span class="sn-chip-checkbox__pill">Activer l’authentification LDAP</span>
+                        <span class="sn-chip-checkbox__pill" th:text="#{ldap.config.enable.pill}">Activer l’authentification LDAP</span>
                     </label>
                 </div>
 
                 <div class="sn-form__group">
-                    <label for="ldapUrl" class="sn-form__label">URL du serveur</label>
+                    <label for="ldapUrl" class="sn-form__label" th:text="#{ldap.config.url.label}">URL du serveur</label>
                     <input id="ldapUrl" th:field="*{url}" type="text" maxlength="512"
                            class="sn-input sn-text-mono" placeholder="ldaps://ldap.example.com:636">
                 </div>
 
                 <div class="sn-form__group">
-                    <label for="ldapBaseDn" class="sn-form__label">Base DN</label>
+                    <label for="ldapBaseDn" class="sn-form__label" th:text="#{ldap.config.baseDn.label}">Base DN</label>
                     <input id="ldapBaseDn" th:field="*{baseDn}" type="text" maxlength="512"
                            class="sn-input sn-text-mono" placeholder="dc=example,dc=com">
                 </div>
 
                 <div class="sn-form__group">
-                    <label for="ldapSearchBase" class="sn-form__label">Base de recherche utilisateur</label>
+                    <label for="ldapSearchBase" class="sn-form__label" th:text="#{ldap.config.searchBase.label}">Base de recherche utilisateur</label>
                     <input id="ldapSearchBase" th:field="*{userSearchBase}" type="text" maxlength="512"
                            class="sn-input sn-text-mono" placeholder="ou=users">
                 </div>
 
                 <div class="sn-form__group">
-                    <label for="ldapSearchFilter" class="sn-form__label">Attribut de connexion</label>
+                    <label for="ldapSearchFilter" class="sn-form__label" th:text="#{ldap.config.searchFilter.label}">Attribut de connexion</label>
                     <select id="ldapSearchFilter" th:field="*{userSearchFilter}" class="sn-input">
                         <option th:each="option : ${ldapFilterOptions}"
                                 th:value="${option.value()}"
@@ -148,11 +147,12 @@
                         </option>
                         <option th:if="${ldapCustomFilter}"
                                 th:value="${ldapForm.userSearchFilter}"
+                                th:text="#{ldap.config.searchFilter.custom}"
                                 selected>
                             Attribut personnalisé configuré
                         </option>
                     </select>
-                    <p class="sn-form-hint">
+                    <p class="sn-form-hint" th:utext="#{ldap.config.searchFilter.hint}">
                         Choisir le champ LDAP comparé à l’identifiant saisi lors de la connexion.
                         Exemple : avec <strong>sAMAccountName</strong>, le login <code>jdupont</code>
                         recherche le compte dont <code>sAMAccountName</code> vaut <code>jdupont</code>.
@@ -160,27 +160,28 @@
                 </div>
 
                 <div class="sn-form__group">
-                    <label for="ldapManagerDn" class="sn-form__label">DN du compte de service</label>
+                    <label for="ldapManagerDn" class="sn-form__label" th:text="#{ldap.config.managerDn.label}">DN du compte de service</label>
                     <input id="ldapManagerDn" th:field="*{managerDn}" type="text" maxlength="512"
                            class="sn-input sn-text-mono" placeholder="cn=subnetory,ou=services,dc=example,dc=com">
                 </div>
 
                 <div class="sn-form__group">
-                    <label for="ldapManagerPassword" class="sn-form__label">Mot de passe du compte de service</label>
+                    <label for="ldapManagerPassword" class="sn-form__label" th:text="#{ldap.config.managerPassword.label}">Mot de passe du compte de service</label>
                     <input id="ldapManagerPassword" th:field="*{managerPassword}" type="password" maxlength="512"
                            autocomplete="new-password" class="sn-input"
-                           th:placeholder="${ldapStatus.managerPasswordConfigured() ? 'Mot de passe déjà enregistré' : 'Mot de passe'}">
+                           th:with="lblConfigured=#{ldap.config.managerPassword.placeholder.configured},lblEmpty=#{ldap.config.managerPassword.placeholder.empty}"
+                           th:placeholder="${ldapStatus.managerPasswordConfigured() ? lblConfigured : lblEmpty}">
                 </div>
 
                 <div class="sn-form__group sn-form__group--checkbox" th:if="${ldapStatus.managerPasswordConfigured()}">
                     <label class="sn-chip-checkbox">
                         <input type="checkbox" class="sn-chip-checkbox__input" th:field="*{clearManagerPassword}">
-                        <span class="sn-chip-checkbox__pill">Supprimer le mot de passe enregistré</span>
+                        <span class="sn-chip-checkbox__pill" th:text="#{ldap.config.clearPassword.pill}">Supprimer le mot de passe enregistré</span>
                     </label>
                 </div>
 
                 <div class="sn-form__group">
-                    <div class="sn-form__label">Rôles par défaut</div>
+                    <div class="sn-form__label" th:text="#{ldap.service.defaultRoles}">Rôles par défaut</div>
                     <div class="sn-roles-list">
                         <label th:each="role : ${allRoles}" class="sn-chip-checkbox">
                             <input type="checkbox"
@@ -191,7 +192,7 @@
                             <span class="sn-chip-checkbox__pill" th:text="${#strings.replace(role.name, 'ROLE_', '')}">IP</span>
                         </label>
                     </div>
-                    <p class="sn-form-hint">
+                    <p class="sn-form-hint" th:utext="#{ldap.config.defaultRoles.hint}">
                         Rôles attribués automatiquement lors de la première connexion d’un utilisateur LDAP.
                         <strong>READ_ONLY</strong> limite l’utilisateur à la consultation des contextes autorisés.
                         <strong>IP</strong> gère les adresses IP, imports et exports.
@@ -201,7 +202,7 @@
                 </div>
 
                 <div class="sn-form__actions">
-                    <button type="submit" class="sn-btn sn-btn--primary">Enregistrer la configuration</button>
+                    <button type="submit" class="sn-btn sn-btn--primary" th:text="#{ldap.config.submit}">Enregistrer la configuration</button>
                 </div>
             </form>
         </article>
@@ -209,19 +210,19 @@
         <article class="sn-card">
             <div class="sn-card__header">
                 <div>
-                    <h2 class="sn-card__title">Diagnostics</h2>
+                    <h2 class="sn-card__title" th:text="#{ldap.diagnostics.title}">Diagnostics</h2>
                 </div>
             </div>
 
             <div class="sn-ldap-actions">
                 <form th:action="@{/admin/ldap/test-connection}" method="post" class="sn-form">
                     <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-                    <button type="submit" class="sn-btn sn-btn--primary">Tester la connexion</button>
+                    <button type="submit" class="sn-btn sn-btn--primary" th:text="#{ldap.diagnostics.testConnection}">Tester la connexion</button>
                 </form>
 
                 <form th:action="@{/admin/ldap/test-user}" method="post" class="sn-form sn-ldap-user-test">
                     <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-                    <label for="ldapUsername" class="sn-form__label">Identifiant à rechercher</label>
+                    <label for="ldapUsername" class="sn-form__label" th:text="#{ldap.diagnostics.usernameLabel}">Identifiant à rechercher</label>
                     <div class="sn-ldap-user-test__row">
                         <input id="ldapUsername"
                                name="username"
@@ -230,8 +231,9 @@
                                autocomplete="off"
                                class="sn-input"
                                th:value="${ldapUsername}"
+                               th:placeholder="#{ldap.diagnostics.usernamePlaceholder}"
                                placeholder="ex : jdupont">
-                        <button type="submit" class="sn-btn sn-btn--ghost">Tester la recherche</button>
+                        <button type="submit" class="sn-btn sn-btn--ghost" th:text="#{ldap.diagnostics.testSearch}">Tester la recherche</button>
                     </div>
                 </form>
             </div>

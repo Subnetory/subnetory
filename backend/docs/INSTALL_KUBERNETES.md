@@ -7,7 +7,9 @@ Cette procédure installe Subnetory avec le chart `charts/subnetory` en mode mon
 - PostgreSQL inclus au chart, avec un volume persistant ;
 - PostgreSQL externe, fourni et exploité séparément.
 
-Le chart impose `replicaCount: 1`. Il ne fournit ni haute disponibilité applicative, ni opérateur PostgreSQL, ni image publique officielle.
+Le chart impose `replicaCount: 1`. Il ne fournit ni haute disponibilité applicative, ni opérateur PostgreSQL.
+
+Une image officielle est publiée sur GHCR à chaque tag `v*` (voir [README.md](../../README.md#release-workflow)), mais le dépôt et ses paquets GHCR sont privés : la récupérer exige une authentification avec un compte GitHub ayant accès au projet. Pour un cluster sans accès à ce registre privé (cluster `kind` local, registre d'entreprise isolé), l'image doit être construite et rendue accessible aux nœuds autrement — voir les options ci-dessous.
 
 ## Prérequis
 
@@ -31,13 +33,28 @@ Toutes les commandes suivantes sont exécutées depuis la racine du dépôt.
 
 ## 1. Fournir l'image applicative
 
-### Cluster kind et build local
+### Option A — image officielle GHCR
 
-Le Sprint 2.31 ne publie aucune image Subnetory officielle sur un registre public. Pour un cluster `kind`, construire puis charger l'image localement :
+Si le cluster cible peut atteindre `ghcr.io` et que le Secret d'authentification est configuré, utiliser directement l'image publiée par le workflow de release :
+
+```yaml
+image:
+  repository: ghcr.io/subnetory/subnetory
+  tag: v0.7.0
+  pullPolicy: IfNotPresent
+  imagePullSecrets:
+    - name: ghcr-credentials
+```
+
+Créer le Secret `ghcr-credentials` (type `kubernetes.io/dockerconfigjson`) avec un compte GitHub ayant accès au dépôt et un jeton `read:packages`, avant l'installation.
+
+### Option B — cluster kind et build local
+
+Pour un cluster `kind` sans accès à GHCR, construire puis charger l'image localement :
 
 ```powershell
-docker build --tag subnetory:0.6.0 .\backend
-kind load docker-image subnetory:0.6.0 --name NOM_DU_CLUSTER
+docker build --tag subnetory:0.7.0 .\backend
+kind load docker-image subnetory:0.7.0 --name NOM_DU_CLUSTER
 ```
 
 Les valeurs par défaut du chart utilisent déjà :
@@ -45,18 +62,18 @@ Les valeurs par défaut du chart utilisent déjà :
 ```yaml
 image:
   repository: subnetory
-  tag: 0.6.0
+  tag: 0.7.0
   pullPolicy: IfNotPresent
 ```
 
-### Registre privé
+### Option C — registre privé d'entreprise
 
 Pour un autre cluster, construire l'image, la publier dans le registre privé autorisé par l'organisation, puis fournir des valeurs dédiées :
 
 ```yaml
 image:
   repository: registry.example.internal/subnetory/subnetory
-  tag: 0.6.0
+  tag: 0.7.0
   pullPolicy: IfNotPresent
   imagePullSecrets:
     - name: registry-credentials
