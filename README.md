@@ -160,13 +160,3 @@ Important rule:
 - User guide MVP: [backend/docs/USER_GUIDE_MVP.md](backend/docs/USER_GUIDE_MVP.md)
 - Changelog: [CHANGELOG.md](CHANGELOG.md)
 
-## Release workflow
-
-Each push to `main` and each pull request runs CI.
-Each `v*` tag triggers the release workflow and publishes a Docker image to GHCR.
-
-The repository and its GHCR package are public as of `v0.8.0`. No authentication is required to pull:
-
-```bash
-docker pull ghcr.io/subnetory/subnetory:v0.8.0
-```
