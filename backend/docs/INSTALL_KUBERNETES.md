@@ -9,7 +9,7 @@ Cette procédure installe Subnetory avec le chart `charts/subnetory` en mode mon
 
 Le chart impose `replicaCount: 1`. Il ne fournit ni haute disponibilité applicative, ni opérateur PostgreSQL.
 
-Une image officielle est publiée sur GHCR à chaque tag `v*` (voir [README.md](../../README.md#release-workflow)), mais le dépôt et ses paquets GHCR sont privés : la récupérer exige une authentification avec un compte GitHub ayant accès au projet. Pour un cluster sans accès à ce registre privé (cluster `kind` local, registre d'entreprise isolé), l'image doit être construite et rendue accessible aux nœuds autrement — voir les options ci-dessous.
+Une image officielle est publiée sur GHCR à chaque tag `v*` (voir [README.md](../../README.md#release-workflow)). Le dépôt et son package GHCR sont publics depuis la `v0.8.0` : la récupérer ne nécessite aucune authentification. Pour un cluster sans accès sortant à `ghcr.io` (cluster `kind` local isolé, registre d'entreprise fermé), l'image doit être construite et rendue accessible aux nœuds autrement — voir les options ci-dessous.
 
 ## Prérequis
 
@@ -35,26 +35,22 @@ Toutes les commandes suivantes sont exécutées depuis la racine du dépôt.
 
 ### Option A — image officielle GHCR
 
-Si le cluster cible peut atteindre `ghcr.io` et que le Secret d'authentification est configuré, utiliser directement l'image publiée par le workflow de release :
+Si le cluster cible peut atteindre `ghcr.io`, utiliser directement l'image publiée par le workflow de release. Le package étant public, aucun `imagePullSecrets` n'est nécessaire :
 
 ```yaml
 image:
   repository: ghcr.io/subnetory/subnetory
-  tag: v0.7.0
+  tag: v0.8.0
   pullPolicy: IfNotPresent
-  imagePullSecrets:
-    - name: ghcr-credentials
 ```
-
-Créer le Secret `ghcr-credentials` (type `kubernetes.io/dockerconfigjson`) avec un compte GitHub ayant accès au dépôt et un jeton `read:packages`, avant l'installation.
 
 ### Option B — cluster kind et build local
 
-Pour un cluster `kind` sans accès à GHCR, construire puis charger l'image localement :
+Pour un cluster `kind` sans accès sortant à `ghcr.io`, construire puis charger l'image localement :
 
 ```powershell
-docker build --tag subnetory:0.7.0 .\backend
-kind load docker-image subnetory:0.7.0 --name NOM_DU_CLUSTER
+docker build --tag subnetory:0.8.0 .\backend
+kind load docker-image subnetory:0.8.0 --name NOM_DU_CLUSTER
 ```
 
 Les valeurs par défaut du chart utilisent déjà :
@@ -62,7 +58,7 @@ Les valeurs par défaut du chart utilisent déjà :
 ```yaml
 image:
   repository: subnetory
-  tag: 0.7.0
+  tag: 0.8.0
   pullPolicy: IfNotPresent
 ```
 
@@ -73,7 +69,7 @@ Pour un autre cluster, construire l'image, la publier dans le registre privé au
 ```yaml
 image:
   repository: registry.example.internal/subnetory/subnetory
-  tag: 0.7.0
+  tag: 0.8.0
   pullPolicy: IfNotPresent
   imagePullSecrets:
     - name: registry-credentials

@@ -4,7 +4,14 @@ All notable changes to Subnetory will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows semantic versioning pragmatically during early development.
 
-## [Unreleased]
+## [0.8.0] - 2026-08-03
+
+Première version pensée comme point de départ public propre : `v0.7.0` reste une version de développement interne, non promue comme référence publique.
+
+### Added
+
+* `SECURITY.md` : politique de signalement de vulnérabilité via GitHub Security Advisories.
+* `CONTRIBUTING.md` : attentes de contribution, setup de dev, seuils de couverture, conventions.
 
 ### Fixed
 
@@ -14,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   * **Moyens** : rate limiting de connexion par couple (IP, nom d'utilisateur) plutôt que par IP seule (`LoginRateLimiter`) ; couverture d'audit et cookies de session (`HttpOnly`, `SameSite=Lax`) étendus ; `server.forward-headers-strategy` documenté et activé derrière un reverse proxy (Caddy) ; validation `@Valid`/`BindingResult` sur `reserveGenerate` et capture du conflit d'adresse concurrente ; libellés et permissions de l'aide corrigés, tag d'image Kubernetes mis à jour ; qualité de l'anglais (pluriels) et query string préservée lors du changement de langue (`NavigationModelAdvice`) ; doublons CSS (`.sn-badge--green`, `.sn-btn--danger`) supprimés et libellés d'accessibilité ajoutés ; versions obsolètes 0.6.0 → 0.7.0 dans README/Helm/Kubernetes.
   * **Faibles** : nettoyage de la feuille de style CSS morte, des balises `<head><title>` orphelines dans les templates Thymeleaf (41 fichiers) et de libellés incohérents (VLANs → VLAN au singulier).
   * `mvn test` : 873 tests, 0 échec, 0 erreur.
+* Deuxième passe de cohérence documentaire avant publication : statut "dépôt/package GHCR privé" retiré de `README.md`, `backend/README.md` et `backend/docs/INSTALL_KUBERNETES.md` ; flux `.env` obsolète remplacé par les 5 Docker Secrets réels dans `backend/docs/USER_GUIDE_MVP.md` ; mention du changement de mot de passe obligatoire au premier login ajoutée ; référence obsolète aux migrations Flyway V1–V5 corrigée ; toutes les références codées en dur à `0.7.0` / `0.8.0-SNAPSHOT` alignées sur `0.8.0` (`pom.xml`, README (x2), `USER_GUIDE_MVP.md`, `SECURITY.md`, chart Helm `Chart.yaml`/`values.yaml`, `INSTALL_WINDOWS.md`, `INSTALL_KUBERNETES.md`, `scripts/smoke-test-jpackage.ps1`).
 
 ## [0.7.0] - 2026-08-01
 

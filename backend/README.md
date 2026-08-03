@@ -17,13 +17,12 @@ Application IPAM (IP Address Management) moderne, self-hosted, API-first.
 
 Les images Docker sont publiées automatiquement sur GitHub Container Registry à chaque release.
 
-Le dépôt et ses packages GHCR sont privés : le pull nécessite une authentification avec un compte GitHub ayant accès au projet, via un personal access token avec le scope `read:packages`.
+Le dépôt est public. Le package GHCR l'est également depuis la publication de la `v0.8.0` : aucune authentification n'est nécessaire pour le pull.
 
 ```bash
-docker login ghcr.io
 docker pull ghcr.io/subnetory/subnetory:latest
 # ou une version spécifique
-docker pull ghcr.io/subnetory/subnetory:v0.7.0
+docker pull ghcr.io/subnetory/subnetory:v0.8.0
 ```
 
 Pour utiliser l'image publiée avec `docker-compose.prod.yml`, remplacer `image: subnetory:latest` par `image: ghcr.io/subnetory/subnetory:latest` dans le fichier.
@@ -50,7 +49,7 @@ pwsh.exe -File .\scripts\make-jpackage.ps1
 L'artefact principal est :
 
 ```text
-dist\windows\subnetory-0.7.0-windows-x64\Subnetory.exe
+dist\windows\subnetory-0.8.0-windows-x64\Subnetory.exe
 ```
 
 PostgreSQL 17 reste externe. Avant le démarrage, définir :
@@ -61,7 +60,7 @@ $env:SPRING_DATASOURCE_USERNAME="subnetory"
 $env:SPRING_DATASOURCE_PASSWORD="<mot-de-passe-postgresql>"
 $env:SUBNETORY_JWT_SECRET="<secret-aleatoire-de-32-caracteres-minimum>"
 $env:SUBNETORY_ADMIN_DEFAULT_PASSWORD="<mot-de-passe-bootstrap-temporaire>"
-.\dist\windows\subnetory-0.7.0-windows-x64\Subnetory.exe
+.\dist\windows\subnetory-0.8.0-windows-x64\Subnetory.exe
 ```
 
 Le compte local `admin` est redirigé vers `/profile/change-password-required` au premier login.

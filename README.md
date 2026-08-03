@@ -6,12 +6,11 @@ Subnetory is a lightweight IP address management platform focused on clean infra
 
 ## Current release
 
-- Current released version: `v0.7.0`
-- Current development version: `0.8.0-SNAPSHOT`
-- Latest locally validated milestone: MFA, backup lifecycle (import/delete/purge/labels), backup encryption enabled by default, dependency scanning, optional HTTPS reverse-proxy overlay, generalized API rate limiting
+- Current released version: `v0.8.0`
+- Latest milestone: MFA, backup lifecycle (import/delete/purge/labels), backup encryption enabled by default, dependency scanning, optional HTTPS reverse-proxy overlay, generalized API rate limiting
 - Publication status: merged on `main` and validated by GitHub Actions
 - Backend stack: Java 21, Spring Boot, PostgreSQL, Flyway, Thymeleaf, Docker
-- Repository status: private early development, production-oriented MVP track
+- Repository status: public, early-stage, production-oriented MVP track
 
 ## Main capabilities
 
@@ -46,8 +45,8 @@ pwsh.exe -File .\scripts\make-jpackage.ps1
 
 Generated artifacts:
 
-- `dist/windows/subnetory-0.7.0-windows-x64/`;
-- `dist/windows/subnetory-0.7.0-windows-x64.zip`;
+- `dist/windows/subnetory-0.8.0-windows-x64/`;
+- `dist/windows/subnetory-0.8.0-windows-x64.zip`;
 - SHA256 and manifest files.
 
 At first login, the local `admin` account must replace its bootstrap password.
@@ -155,11 +154,10 @@ Important rule:
 Each push to `main` and each pull request runs CI.
 Each `v*` tag triggers the release workflow and publishes a Docker image to GHCR.
 
-The repository and its GHCR packages are private: pulling an image requires authentication with a GitHub account that has access to the project, using a personal access token with the `read:packages` scope.
+The repository and its GHCR package are public as of `v0.8.0`. No authentication is required to pull:
 
 ```bash
-docker login ghcr.io
-docker pull ghcr.io/subnetory/subnetory:v0.7.0
+docker pull ghcr.io/subnetory/subnetory:v0.8.0
 ```
 
 ## Project rules

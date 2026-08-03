@@ -1,6 +1,6 @@
 # Subnetory — Guide utilisateur MVP
 
-> Version : 0.8.0-SNAPSHOT
+> Version : 0.8.0
 > Public : administrateurs réseau, équipes IT
 
 ---
@@ -32,27 +32,42 @@ Il permet de :
 
 ```bash
 mkdir subnetory && cd subnetory
-cp .env.example .env
 ```
 
-### 2. Configurer `.env`
+### 2. Générer les secrets
 
-Éditer `.env` et renseigner au minimum :
+Les secrets (mot de passe admin bootstrap, clé de signature JWT, clé de
+chiffrement dédiée, mot de passe PostgreSQL, clé de chiffrement des
+sauvegardes) ne se configurent **jamais** dans `.env`. Ils sont gérés comme
+des Docker Secrets, générés automatiquement par un script fourni :
 
-```env
-SUBNETORY_ADMIN_DEFAULT_PASSWORD=choisir-un-mot-de-passe-robuste
-SUBNETORY_JWT_SECRET=une-chaine-aleatoire-de-32-caracteres-minimum
-SPRING_DATASOURCE_PASSWORD=mot-de-passe-base-de-donnees
+```bash
+./scripts/init-compose.sh
 ```
 
-> **Important** : définir ces valeurs **avant le premier démarrage**.
+```powershell
+pwsh.exe -File .\scripts\init-compose.ps1
+```
+
+Ce script crée les 5 fichiers nécessaires sous `backend/secrets/`. Aucun
+secret n'est affiché à l'écran. Pour lire le mot de passe admin bootstrap
+généré aléatoirement :
+
+```bash
+cat backend/secrets/subnetory_admin_default_password
+```
+
+`backend/.env.example` ne contient que des réglages non sensibles
+(`HOST_PORT`, `SERVER_PORT`, `POSTGRES_USER`, `TZ`) ; le copier vers `.env`
+uniquement si l'une de ces valeurs par défaut doit être modifiée.
+
+> **Important** : générer les secrets **avant le premier démarrage**.
 > Le compte admin est initialisé une seule fois, au premier démarrage,
-> si le compte n'existe pas encore en base.
-> Modifier `.env` après initialisation ne change pas le mot de passe
-> déjà enregistré en base.
+> si le compte n'existe pas encore en base. Relancer le script après coup ne
+> change pas le mot de passe déjà enregistré en base.
 
-> **Sécurité** : `.env` ne doit jamais être versionné dans Git.
-> Vérifier qu'il figure bien dans `.gitignore`.
+> **Sécurité** : ne jamais versionner `backend/secrets/` ni `.env` dans Git.
+> Vérifier qu'ils figurent bien dans `.gitignore`.
 
 ### 3. Lancer l'application
 
@@ -68,9 +83,14 @@ sont appliquées automatiquement.
 Naviguer sur `http://localhost:8080`
 
 - Identifiant : `admin`
-- Mot de passe : la valeur définie dans `SUBNETORY_ADMIN_DEFAULT_PASSWORD`
+- Mot de passe : la valeur bootstrap générée à l'étape 2
 
-Après connexion, vous arrivez sur le **Tableau de bord**.
+**Changement de mot de passe obligatoire** : à la première connexion, le
+compte admin doit remplacer ce mot de passe bootstrap avant de pouvoir
+accéder aux pages de l'application ou obtenir un token JWT. Tant que ce
+changement n'est pas effectué, l'accès reste bloqué.
+
+Une fois le mot de passe changé, vous arrivez sur le **Tableau de bord**.
 
 ---
 
@@ -82,9 +102,12 @@ Choisir un mot de passe d'au moins 12 caractères.
 Éviter les mots de passe évidents (nom du projet, `admin`, dates).
 Privilégier une passphrase ou un générateur de mots de passe.
 
-`SUBNETORY_ADMIN_DEFAULT_PASSWORD` initialise le compte admin au premier
-démarrage uniquement, si le compte est absent ou son mot de passe vide en base.
-Ce n'est pas un mécanisme de rotation applicable à une base déjà initialisée.
+Le secret `subnetory_admin_default_password` (fichier généré par
+`scripts/init-compose.sh`/`.ps1`) initialise le compte admin au premier
+démarrage uniquement, si le compte est absent ou son mot de passe vide en
+base. Ce n'est pas un mécanisme de rotation applicable à une base déjà
+initialisée, et il est de toute façon remplacé dès la première connexion
+(changement obligatoire, voir plus haut).
 
 Les comptes locaux peuvent changer leur mot de passe depuis leur profil.
 Un administrateur peut réinitialiser le mot de passe d'un compte local depuis
@@ -92,14 +115,17 @@ l'écran de détail utilisateur.
 
 ### Secret JWT
 
-`SUBNETORY_JWT_SECRET` doit contenir au moins 32 caractères aléatoires.
-Ce secret signe les tokens d'API. Ne jamais utiliser une valeur triviale
-en production.
+Le secret `subnetory_jwt_secret` (généré automatiquement, ≥ 32 caractères
+aléatoires) signe les tokens d'API. Ne jamais le remplacer par une valeur
+triviale ni le régénérer manuellement sans comprendre l'impact (invalide
+tous les tokens émis).
 
-### Fichier `.env`
+### Secrets Docker
 
-Ne jamais versionner `.env`. Ne jamais le copier dans un dépôt Git, même
-privé. Ne jamais le partager dans un canal non chiffré.
+Le dossier `backend/secrets/` contient les 5 fichiers de secrets générés par
+le script d'initialisation. Ne jamais les versionner dans Git, ne jamais les
+copier dans un dépôt même privé, ne jamais les partager dans un canal non
+chiffré. Vérifier qu'ils figurent bien dans `.gitignore`.
 
 ### Limites de sécurité connues
 
@@ -320,15 +346,26 @@ docker compose exec -T db psql -U subnetory subnetory < backup.sql
 
 ---
 
-## Variables d'environnement
+## Secrets et variables d'environnement
+
+Secrets (fichiers sous `backend/secrets/`, générés par
+`scripts/init-compose.sh`/`.ps1`, jamais dans `.env`) :
+
+| Secret | Description | Obligatoire |
+|---|---|---|
+| `subnetory_admin_default_password` | Mot de passe bootstrap du compte admin (premier démarrage) | Oui |
+| `subnetory_jwt_secret` | Secret HMAC JWT (≥ 32 caractères) | Oui |
+| `subnetory_encryption_key` | Clé de chiffrement dédiée (secrets en base : bind LDAP, TOTP MFA) | Oui |
+| `postgres_password` | Mot de passe PostgreSQL | Oui |
+| `subnetory_backup_encryption_key` | Clé de chiffrement des sauvegardes | Oui |
+
+Variables non sensibles, optionnelles dans `backend/.env` :
 
 | Variable | Description | Obligatoire |
 |---|---|---|
-| `SUBNETORY_ADMIN_DEFAULT_PASSWORD` | Mot de passe bootstrap du compte admin (premier démarrage) | Oui |
-| `SUBNETORY_JWT_SECRET` | Secret HMAC JWT (≥ 32 caractères) | Oui |
-| `SPRING_DATASOURCE_PASSWORD` | Mot de passe PostgreSQL | Oui |
-| `SPRING_DATASOURCE_USERNAME` | Utilisateur PostgreSQL | Non (défaut : `subnetory`) |
-| `SERVER_PORT` | Port HTTP | Non (défaut : `8080`) |
+| `HOST_PORT` / `SERVER_PORT` | Port HTTP | Non (défaut : `8080`) |
+| `POSTGRES_USER` | Utilisateur PostgreSQL | Non (défaut : `subnetory`) |
+| `TZ` | Fuseau horaire d'affichage | Non (défaut : `Europe/Paris`) |
 | `SUBNETORY_LDAP_ENABLED` | Activer l'auth LDAP | Non (défaut : `false`) |
 | `SUBNETORY_JWT_EXPIRATION_MINUTES` | Durée de vie du token JWT | Non (défaut : `60`) |
 
@@ -340,8 +377,9 @@ docker compose exec -T db psql -U subnetory subnetory < backup.sql
 ```bash
 docker compose logs app
 ```
-Cause fréquente : variable `SUBNETORY_ADMIN_DEFAULT_PASSWORD` ou
-`SUBNETORY_JWT_SECRET` absente dans `.env`.
+Cause fréquente : le script `scripts/init-compose.sh`/`.ps1` n'a pas été
+lancé avant `docker compose up`, donc un ou plusieurs fichiers sous
+`backend/secrets/` sont manquants.
 
 **Erreur de connexion à la base de données**
 ```bash
@@ -350,10 +388,11 @@ docker compose ps
 Attendre l'initialisation complète de PostgreSQL au premier démarrage.
 
 **Migrations Flyway en erreur**
-Vérifier les logs. S'assurer que les migrations V1–V5 sont toutes appliquées.
+Vérifier les logs. S'assurer que toutes les migrations sous
+`backend/src/main/resources/db/migration/` sont appliquées.
 
-**Connexion admin refusée après modification de `.env`**
-`SUBNETORY_ADMIN_DEFAULT_PASSWORD` n'est utilisé qu'au bootstrap initial.
-Si la base est déjà initialisée, modifier ce paramètre ne change pas le
-mot de passe existant. Utiliser le profil du compte ou une réinitialisation
-administrateur.
+**Connexion admin refusée après relance du script d'initialisation**
+Le secret `subnetory_admin_default_password` n'est utilisé qu'au bootstrap
+initial. Si la base est déjà initialisée, régénérer ce secret ne change pas
+le mot de passe existant. Utiliser le profil du compte ou une
+réinitialisation administrateur.
