@@ -48,6 +48,15 @@
                     d'un compte local depuis l'écran de détail utilisateur — cela réactive aussi la contrainte
                     de changement obligatoire.
                 </p>
+                <p class="sn-mt-3" th:utext="#{helpAdmin.usersRoles.accounts.disableVsDelete}">
+                    Depuis la même fiche, un compte peut être <strong>désactivé</strong> (réversible : l'accès
+                    est bloqué mais le compte et son historique restent consultables) ou
+                    <strong>supprimé définitivement</strong> (section « Zone dangereuse », irréversible). La
+                    suppression est refusée pour son propre compte et pour le dernier compte
+                    <code>ROLE_ADMIN</code> actif. Le journal d'audit et l'historique des sauvegardes ne sont
+                    pas affectés par une suppression : privilégier la désactivation si la fiche du compte doit
+                    rester consultable.
+                </p>
             </section>
 
             <section class="sn-help-section">

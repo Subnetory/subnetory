@@ -421,6 +421,85 @@ class AdminWebControllerIT {
                 .andExpect(status().isForbidden());
     }
 
+    // Suppression definitive du compte (03/08/2026)
+
+    @Test
+    @WithMockUser(roles = "ADMIN", username = "admin")
+    void delete_withCsrf_redirectsToListWithFlashSuccess() throws Exception {
+        mvc.perform(post("/admin/users/10/delete")
+                        .with(csrf())
+                        .header("User-Agent", "JUnit"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/users"))
+                .andExpect(flash().attributeExists("flashSuccess"));
+
+        verify(userAdminService).deleteUser(
+                eq(10L),
+                eq("admin"),
+                eq("127.0.0.1"),
+                eq("JUnit"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void delete_withoutCsrf_returns403() throws Exception {
+        mvc.perform(post("/admin/users/10/delete"))
+                .andExpect(status().isForbidden());
+
+        verify(userAdminService, never()).deleteUser(anyLong(), anyString(), any(), any());
+    }
+
+    @Test
+    @WithMockUser(roles = "IP")
+    void delete_withoutAdminRole_returns403() throws Exception {
+        mvc.perform(post("/admin/users/10/delete").with(csrf()))
+                .andExpect(status().isForbidden());
+
+        verify(userAdminService, never()).deleteUser(anyLong(), anyString(), any(), any());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN", username = "admin")
+    void delete_ownAccount_redirectsToDetailWithFlashError() throws Exception {
+        doThrow(new AdminLockoutException("Impossible de supprimer votre propre compte."))
+                .when(userAdminService).deleteUser(eq(10L), anyString(), any(), any());
+
+        mvc.perform(post("/admin/users/10/delete")
+                        .with(csrf())
+                        .header("User-Agent", "JUnit"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/users/10"))
+                .andExpect(flash().attributeExists("flashError"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN", username = "admin")
+    void delete_lastAdmin_redirectsToDetailWithFlashError() throws Exception {
+        doThrow(new AdminLockoutException("Impossible de supprimer le dernier administrateur actif."))
+                .when(userAdminService).deleteUser(eq(10L), anyString(), any(), any());
+
+        mvc.perform(post("/admin/users/10/delete")
+                        .with(csrf())
+                        .header("User-Agent", "JUnit"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/users/10"))
+                .andExpect(flash().attributeExists("flashError"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN", username = "admin")
+    void delete_unknownUser_redirectsToListWithFlashError() throws Exception {
+        doThrow(new ResourceNotFoundException("User", 999L))
+                .when(userAdminService).deleteUser(eq(999L), anyString(), any(), any());
+
+        mvc.perform(post("/admin/users/999/delete")
+                        .with(csrf())
+                        .header("User-Agent", "JUnit"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/users"))
+                .andExpect(flash().attributeExists("flashError"));
+    }
+
     // Invalidation tokens API
 
     @Test

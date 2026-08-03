@@ -209,6 +209,24 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Violation d'une règle anti-lockout côté administration des comptes
+     * (correctif 03/08/2026, à l'occasion de l'ajout de la suppression de
+     * compte) : jusqu'ici {@link dev.subnetory.service.AdminLockoutException}
+     * n'était pas interceptée ici et tombait dans le handler générique 500,
+     * alors que la Javadoc de cette classe promet un 409 pour les conflits
+     * métier. S'applique à {@code setEnabled}, {@code updateRoles} et
+     * {@code deleteUser} dans {@code UserAdminService}.
+     */
+    @ExceptionHandler(dev.subnetory.service.AdminLockoutException.class)
+    public ProblemDetail handleAdminLockout(dev.subnetory.service.AdminLockoutException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        pd.setType(URI.create(ERROR_BASE + "admin-lockout"));
+        pd.setTitle("Admin Lockout Prevented");
+        pd.setProperty("timestamp", Instant.now());
+        return pd;
+    }
+
+    /**
      * Verrouillage optimiste (audit du 31/07/2026, {@code Address}/{@code Subnet}
      * uniquement) : la ressource a été modifiée par quelqu'un d'autre entre
      * la lecture et l'écriture. Message explicite plutôt qu'un 500 générique

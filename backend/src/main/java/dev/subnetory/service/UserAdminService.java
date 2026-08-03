@@ -406,6 +406,52 @@ public class UserAdminService {
         return saved;
     }
 
+    /**
+     * Supprime definitivement un compte utilisateur (03/08/2026, fonctionnalite
+     * manquante identifiee lors de la relecture avant publication : seule la
+     * desactivation ({@link #setEnabled}) existait jusqu'ici).
+     *
+     * Suppression physique (hard delete), pas de suppression logique : les
+     * tables d'historique (auth_audit_log, backup_runs, backup_restores,
+     * revoked_tokens, user_token_invalidations) referencent l'utilisateur par
+     * son nom en texte libre, jamais par une cle etrangere vers users(id), donc
+     * rien n'y est casse ni orphelin de maniere bloquante. Seules
+     * user_roles, user_context_access et mfa_recovery_codes ont une
+     * contrainte ON DELETE CASCADE vers users(id) : elles sont nettoyees
+     * automatiquement par la base au moment de la suppression.
+     *
+     * Memes garde-fous que {@link #setEnabled} : un administrateur ne peut ni
+     * se supprimer lui-meme, ni supprimer le dernier compte ROLE_ADMIN actif.
+     *
+     * @param targetId       ID de l'utilisateur a supprimer
+     * @param currentUsername administrateur realisant l'action
+     * @param ipAddress      adresse IP cliente (pour l'audit, peut etre null)
+     * @param userAgent      user-agent HTTP (pour l'audit, peut etre null)
+     */
+    public void deleteUser(Long targetId, String currentUsername, String ipAddress, String userAgent) {
+        User target = findById(targetId);
+        User current = findByUsername(currentUsername);
+
+        if (target.getId().equals(current.getId())) {
+            throw new AdminLockoutException("Impossible de supprimer votre propre compte.");
+        }
+
+        if (hasRole(target, ROLE_ADMIN)) {
+            long activeAdminCount = userRepository.countActiveByRoleName(ROLE_ADMIN);
+            if (activeAdminCount <= 1) {
+                throw new AdminLockoutException(
+                        "Impossible de supprimer le dernier administrateur actif.");
+            }
+        }
+
+        String deletedUsername = target.getUsername();
+        userRepository.delete(target);
+
+        if (authAuditService != null) {
+            authAuditService.recordUserDeleted(currentUsername, deletedUsername, ipAddress, userAgent);
+        }
+    }
+
     // Utilitaires prives
 
     private Set<Role> resolveRoles(Set<Long> roleIds) {

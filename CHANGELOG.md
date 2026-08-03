@@ -12,6 +12,7 @@ Première version pensée comme point de départ public propre : `v0.7.0` reste 
 
 * `SECURITY.md` : politique de signalement de vulnérabilité via GitHub Security Advisories.
 * `CONTRIBUTING.md` : attentes de contribution, setup de dev, seuils de couverture, conventions.
+* Suppression définitive d'un compte utilisateur (03/08/2026), fonctionnalité manquante identifiée lors de la relecture avant publication — jusqu'ici seule la désactivation existait. `DELETE /api/v1/admin/users/{id}` côté API, section « Zone dangereuse » sur la fiche compte côté IHM (`/admin/users/{id}`). Suppression physique protégée par les mêmes garde-fous anti-lockout que la désactivation (impossible sur son propre compte ou sur le dernier ADMIN actif) ; roles/contextes/codes de récupération MFA du compte supprimés en cascade (`ON DELETE CASCADE`) ; journal d'audit, historique des sauvegardes et tokens révoqués conservés intacts (référencés par nom d'utilisateur en texte libre, jamais par clé étrangère). Nouvel événement d'audit `USER_DELETED`.
 
 ### Fixed
 
@@ -22,6 +23,8 @@ Première version pensée comme point de départ public propre : `v0.7.0` reste 
   * **Faibles** : nettoyage de la feuille de style CSS morte, des balises `<head><title>` orphelines dans les templates Thymeleaf (41 fichiers) et de libellés incohérents (VLANs → VLAN au singulier).
   * `mvn test` : 873 tests, 0 échec, 0 erreur.
 * Deuxième passe de cohérence documentaire avant publication : statut "dépôt/package GHCR privé" retiré de `README.md`, `backend/README.md` et `backend/docs/INSTALL_KUBERNETES.md` ; flux `.env` obsolète remplacé par les 5 Docker Secrets réels dans `backend/docs/USER_GUIDE_MVP.md` ; mention du changement de mot de passe obligatoire au premier login ajoutée ; référence obsolète aux migrations Flyway V1–V5 corrigée ; toutes les références codées en dur à `0.7.0` / `0.8.0-SNAPSHOT` alignées sur `0.8.0` (`pom.xml`, README (x2), `USER_GUIDE_MVP.md`, `SECURITY.md`, chart Helm `Chart.yaml`/`values.yaml`, `INSTALL_WINDOWS.md`, `INSTALL_KUBERNETES.md`, `scripts/smoke-test-jpackage.ps1`).
+* Bug d'affichage trouvé en testant l'écran d'import (`/network/addresses/import`) sans contexte actif : le badge affichait littéralement `lblBlocked` au lieu du texte traduit. Cause réelle : erreur de syntaxe Thymeleaf dans `address-import.html` (variables `th:with` référencées sans `${}` dans l'expression ternaire du `th:text`), pas une clé de traduction manquante — `import.safety.blocked` existait déjà correctement dans les trois fichiers de messages.
+* `AdminLockoutException` (violations des règles anti-lockout sur `/api/v1/admin/users/**` : désactivation, retrait de rôle, suppression) tombait dans le handler générique 500 au lieu du 409 documenté par la Javadoc de cette classe et par `GlobalExceptionHandler`. Handler dédié ajouté.
 
 ## [0.7.0] - 2026-08-01
 

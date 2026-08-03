@@ -380,6 +380,31 @@ public class AdminWebController {
         return "redirect:/admin/users/" + id;
     }
 
+    // Suppression definitive du compte
+
+    @PostMapping("/users/{id}/delete")
+    public String delete(@PathVariable Long id,
+                         Authentication auth,
+                         HttpServletRequest request,
+                         RedirectAttributes flash,
+                         Locale locale) {
+        try {
+            userAdminService.deleteUser(
+                    id,
+                    auth.getName(),
+                    clientIpResolver.resolve(request),
+                    request.getHeader("User-Agent"));
+            flash.addFlashAttribute("flashSuccess", msg("flash.admin.userDeleted", locale));
+            return "redirect:/admin/users";
+        } catch (AdminLockoutException e) {
+            flash.addFlashAttribute("flashError", e.getMessage());
+            return "redirect:/admin/users/" + id;
+        } catch (ResourceNotFoundException e) {
+            flash.addFlashAttribute("flashError", msg("flash.admin.userNotFound", locale));
+            return "redirect:/admin/users";
+        }
+    }
+
     // Desactivation MFA (anti-lockout admin)
 
     @PostMapping("/users/{id}/disable-mfa")

@@ -228,6 +228,50 @@ class UserAdminServiceTest {
         verify(userRepository, never()).save(any());
     }
 
+    // ── deleteUser — cas nominal et règles anti-lockout ────────────────────
+
+    @Test
+    void deleteUser_otherAccount_succeeds() {
+        User current = buildUser(1L, "admin1", Set.of(roleAdmin));
+        User target  = buildUser(10L, "someone", Set.of(roleReadOnly));
+
+        when(userRepository.findById(10L)).thenReturn(Optional.of(target));
+        when(userRepository.findByUsername("admin1")).thenReturn(Optional.of(current));
+
+        service.deleteUser(10L, "admin1", "127.0.0.1", "test-agent");
+
+        verify(userRepository).delete(target);
+    }
+
+    @Test
+    void deleteUser_ownAccount_throwsAdminLockout() {
+        User current = buildUser(1L, "admin", Set.of(roleAdmin));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(current));
+        when(userRepository.findByUsername("admin")).thenReturn(Optional.of(current));
+
+        assertThatThrownBy(() -> service.deleteUser(1L, "admin", "127.0.0.1", "test-agent"))
+                .isInstanceOf(AdminLockoutException.class)
+                .hasMessageContaining("votre propre compte");
+
+        verify(userRepository, never()).delete(any());
+    }
+
+    @Test
+    void deleteUser_lastActiveAdmin_throwsAdminLockout() {
+        User current = buildUser(1L, "superadmin", Set.of(roleAdmin));
+        User target  = buildUser(10L, "admin", Set.of(roleAdmin));
+
+        when(userRepository.findById(10L)).thenReturn(Optional.of(target));
+        when(userRepository.findByUsername("superadmin")).thenReturn(Optional.of(current));
+        when(userRepository.countActiveByRoleName("ROLE_ADMIN")).thenReturn(1L);
+
+        assertThatThrownBy(() -> service.deleteUser(10L, "superadmin", "127.0.0.1", "test-agent"))
+                .isInstanceOf(AdminLockoutException.class)
+                .hasMessageContaining("dernier administrateur");
+
+        verify(userRepository, never()).delete(any());
+    }
+
     // ── Utilitaires ────────────────────────────────────────────────────────
 
     private User buildUser(Long id, String username, Set<Role> roles) {

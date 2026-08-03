@@ -20,6 +20,10 @@ Evenements actuellement traces :
 * CONTEXT_ACCESS_DENIED, USER_CREATED, USER_CONTEXTS_UPDATED, MFA_ENABLED,
   MFA_DISABLED, MFA_RECOVERY_CODES_REGENERATED, MFA_CHALLENGE_FAILED,
   MFA_DISABLED_BY_ADMIN
+* USER_ROLES_UPDATED, USER_ENABLED, USER_DISABLED : modification des rôles,
+  activation/désactivation d'un compte par un administrateur.
+* USER_DELETED (03/08/2026) : suppression définitive d'un compte utilisateur
+  par un administrateur.
 
 Traçabilité étendue (01/08/2026, backlog #27) — mêmes filtres/export/purge
 que ci-dessus, colonne `message` en texte libre pour les détails (id,
@@ -167,7 +171,7 @@ reservee a ADMIN.
 
 ## Administration des comptes utilisateurs et des roles
 
-L'ecran `/admin/users` liste les comptes utilisateurs et permet de consulter leur fiche detail, de modifier leurs roles et de les activer ou desactiver. Cet ecran est reserve a ROLE_ADMIN, avec CSRF obligatoire sur toute action de mutation.
+L'ecran `/admin/users` liste les comptes utilisateurs et permet de consulter leur fiche detail, de modifier leurs roles, de les activer ou desactiver, et de les supprimer definitivement. Cet ecran est reserve a ROLE_ADMIN, avec CSRF obligatoire sur toute action de mutation.
 
 Pour eviter qu'un administrateur se retrouve accidentellement sans acces a l'administration, les actions suivantes sont refusees et signalees par un message d'erreur explicite (sans detail technique) :
 
@@ -177,10 +181,24 @@ Pour eviter qu'un administrateur se retrouve accidentellement sans acces a l'adm
 | Desactiver le dernier compte ADMIN actif | refuse si c'est le dernier ADMIN actif restant |
 | Retirer le role ADMIN au dernier compte ADMIN actif | refuse si c'est le dernier ADMIN actif restant |
 | Enregistrer une fiche utilisateur sans aucun role | toujours refuse |
+| Supprimer son propre compte | toujours refuse |
+| Supprimer le dernier compte ADMIN actif | refuse si c'est le dernier ADMIN actif restant |
 
-Ces controles ne portent que sur la desactivation d'un compte et sur le retrait de role : activer un compte ou lui ajouter un role ne declenche aucune verification particuliere.
+Ces controles ne portent que sur la desactivation d'un compte, le retrait de role et la suppression : activer un compte ou lui ajouter un role ne declenche aucune verification particuliere.
 
 Maintenir au moins deux comptes ROLE_ADMIN actifs evite de dependre d'un compte unique et limite le risque de blocage total de l'administration.
+
+### Suppression definitive d'un compte (03/08/2026)
+
+Jusqu'ici, seule la desactivation (`setEnabled`) etait possible : aucune fonctionnalite ne permettait de supprimer definitivement un compte utilisateur. Disponible depuis la fiche compte (`/admin/users/{id}`, section « Zone dangereuse ») ou via `DELETE /api/v1/admin/users/{id}`.
+
+C'est une suppression physique (hard delete), pas une suppression logique :
+
+* les roles attribues (`user_roles`), les contextes autorises (`user_context_access`) et les codes de recuperation MFA (`mfa_recovery_codes`) du compte sont supprimes automatiquement par la base (contrainte `ON DELETE CASCADE`) ;
+* le journal d'audit (`auth_audit_log`), l'historique des sauvegardes (`backup_runs`, `backup_restores`) et les jetons revoques (`revoked_tokens`) referencent l'utilisateur par son nom en texte libre, jamais par une cle etrangere vers `users(id)` : ces entrees restent intactes apres la suppression du compte, la tracabilite n'est pas perdue ;
+* l'evenement `USER_DELETED` est trace dans le journal d'audit (administrateur, compte cible, IP, user-agent).
+
+Avant de supprimer un compte, envisager la desactivation si l'historique des actions de ce compte doit rester consultable via sa fiche (une fiche supprimee n'est plus consultable, contrairement a un compte desactive).
 
 ## Sauvegardes
 

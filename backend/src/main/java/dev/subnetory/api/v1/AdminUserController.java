@@ -22,6 +22,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -120,6 +121,23 @@ public class AdminUserController {
     @Operation(summary = "Désactiver un utilisateur")
     public AdminUserResponse disable(@PathVariable Long id, Authentication authentication) {
         return toResponse(userAdminService.setEnabled(id, false, authentication.getName()));
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Supprimer definitivement un compte utilisateur",
+            description = "Suppression physique et irreversible. Refusee pour son propre compte "
+                    + "ou pour le dernier administrateur actif. Les roles, acces contextes et "
+                    + "codes de recuperation MFA du compte sont supprimes en cascade ; les entrees "
+                    + "d'audit et de sauvegarde existantes qui le mentionnent sont conservees.")
+    public void delete(@PathVariable Long id,
+                       Authentication authentication,
+                       HttpServletRequest httpRequest) {
+        userAdminService.deleteUser(
+                id,
+                authentication.getName(),
+                clientIpResolver.resolve(httpRequest),
+                httpRequest.getHeader("User-Agent"));
     }
 
     @PostMapping("/{id}/reset-password")

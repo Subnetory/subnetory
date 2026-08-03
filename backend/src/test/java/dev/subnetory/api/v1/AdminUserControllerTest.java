@@ -99,6 +99,19 @@ class AdminUserControllerTest {
         verify(userAdminService).adminDisableMfa(10L, "admin", "127.0.0.1", "JUnit");
     }
 
+    @Test
+    void deleteDelegatesToUserAdminService() {
+        var request = new org.springframework.mock.web.MockHttpServletRequest();
+        request.addHeader("User-Agent", "JUnit");
+        when(clientIpResolver.resolve(request)).thenReturn("127.0.0.1");
+
+        controller.delete(10L,
+                new UsernamePasswordAuthenticationToken("admin", "n/a"),
+                request);
+
+        verify(userAdminService).deleteUser(10L, "admin", "127.0.0.1", "JUnit");
+    }
+
     private User user() {
         Role role = new Role("ROLE_IP");
         User user = new User();

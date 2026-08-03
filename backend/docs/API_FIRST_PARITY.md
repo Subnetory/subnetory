@@ -22,6 +22,7 @@ Subnetory is API-first: every business operation available from the web interfac
 | User administration | `/admin/users` | `/api/v1/admin/users` |
 | User roles and contexts | `/admin/users/{id}` | `GET /api/v1/admin/users/assignable-roles`, `/api/v1/admin/users/{id}/roles`, `/contexts` |
 | User activation and password reset | `/admin/users/{id}` | `/api/v1/admin/users/{id}/enable`, `/disable`, `/reset-password` |
+| User deletion (03/08/2026) | `/admin/users/{id}` ("Zone dangereuse") | `DELETE /api/v1/admin/users/{id}` |
 | API token invalidation | `/admin/users/{id}` | `/api/v1/admin/users/{id}/invalidate-tokens` |
 | LDAP configuration and diagnostics | `/admin/ldap` | `/api/v1/admin/ldap` |
 | Authentication audit log | `/admin/audit-log` | `/api/v1/admin/audit-log` |

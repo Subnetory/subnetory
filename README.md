@@ -25,6 +25,17 @@ Subnetory is a lightweight IP address management platform focused on clean infra
 - GitHub Actions CI and GHCR release workflow
 - Portable Windows x64 app-image with a bundled Java 21 runtime
 
+## Screenshots
+
+| | |
+|---|---|
+| ![Login](docs/screenshots/01-login.jpg) | ![Dashboard](docs/screenshots/02-dashboard.jpg) |
+| Login | Dashboard |
+| ![Subnets](docs/screenshots/04-subnets.jpg) | ![IP addresses](docs/screenshots/03-ip-addresses.jpg) |
+| Subnets | IP addresses |
+| ![CSV/XLSX import](docs/screenshots/05-import.jpg) | ![User administration](docs/screenshots/06-users.jpg) |
+| CSV/XLSX import | User administration |
+
 ## Prerequisites
 
 - Java 21

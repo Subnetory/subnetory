@@ -250,6 +250,30 @@
             </form>
         </div>
 
+        <div class="sn-card">
+            <div class="sn-card__header"><h2 class="sn-card__title" th:text="#{admin.userDetail.delete.title}">Zone dangereuse</h2></div>
+            <div class="sn-alert sn-alert--danger" th:text="#{admin.userDetail.delete.hint(${user.username})}">
+                Suppression definitive et irreversible de ce compte. Ses roles, ses contextes
+                autorises et ses codes de recuperation MFA sont supprimes avec lui. L'historique
+                d'audit et les sauvegardes existantes qui le mentionnent restent conserves.
+            </div>
+
+            <form th:action="@{/admin/users/{id}/delete(id=${user.id})}"
+                  method="post"
+                  class="sn-inline-form sn-mt-3"
+                  th:attr="data-confirm=#{admin.userDetail.delete.confirm(${user.username})}">
+
+                <input type="hidden"
+                       th:if="${_csrf != null}"
+                       th:name="${_csrf.parameterName}"
+                       th:value="${_csrf.token}">
+
+                <button type="submit" class="sn-btn sn-btn--danger" th:text="#{admin.userDetail.delete.submit}">
+                    Supprimer définitivement ce compte
+                </button>
+            </form>
+        </div>
+
     </div>
 
 </div>

@@ -21,7 +21,7 @@
         </div>
         <div class="sn-import-safety" th:classappend="${activeContextId == null} ? ' sn-import-safety--blocked'"
              th:with="lblSecure=#{import.safety.secure},lblBlocked=#{import.safety.blocked}">
-            <strong th:text="${activeContextId != null} ? lblSecure : lblBlocked">Import sécurisé</strong>
+            <strong th:text="${activeContextId != null} ? ${lblSecure} : ${lblBlocked}">Import sécurisé</strong>
             <span th:if="${activeContextId != null}" th:text="#{import.safety.secure.desc}">
                 Le fichier sera importé uniquement dans le contexte actif.
             </span>

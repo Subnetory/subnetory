@@ -42,6 +42,16 @@ public class AuthAuditService {
     public static final String USER_ENABLED = "USER_ENABLED";
     public static final String USER_DISABLED = "USER_DISABLED";
     /**
+     * Ajout du 03/08/2026 : suppression definitive d'un compte utilisateur,
+     * jusqu'ici absente de Subnetory (seule la desactivation via
+     * {@link #USER_DISABLED} etait possible). Comme les autres tables
+     * d'historique (auth_audit_log, backup_runs, backup_restores,
+     * revoked_tokens), cet evenement reference {@code targetUsername} en
+     * texte libre : aucune FK vers users(id), donc la suppression du compte
+     * ne casse pas la tracabilite de cette entree.
+     */
+    public static final String USER_DELETED = "USER_DELETED";
+    /**
      * Audit du 02/08/2026, correctif MOYENNE : LdapConfigurationService.save()
      * (URL, DN de bind, mot de passe de bind, role LDAP par defaut) n'etait
      * jusqu'ici jamais audite, alors qu'un role par defaut mal configure
@@ -259,6 +269,15 @@ public class AuthAuditService {
                                          boolean enabled) {
         record(enabled ? USER_ENABLED : USER_DISABLED, adminUsername, targetUsername, null, null, true,
                 enabled ? "Compte reactive." : "Compte desactive.");
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordUserDeleted(String adminUsername,
+                                  String targetUsername,
+                                  String ipAddress,
+                                  String userAgent) {
+        record(USER_DELETED, adminUsername, targetUsername, ipAddress, userAgent, true,
+                "Compte utilisateur supprime definitivement.");
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
