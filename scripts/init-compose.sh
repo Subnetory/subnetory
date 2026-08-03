@@ -321,7 +321,19 @@ for name in "${names_to_write[@]}"; do
     seen_values+=("$value")
 done
 
-chmod 600 -- "$staging_root"/* 2>/dev/null || true
+# 644 et non 600 (audit post-release 04/08/2026, job post-release-smoke) :
+# Docker Compose (hors swarm) monte les secrets "file:" en preservant le mode
+# et le proprietaire du fichier HOTE au lieu d'appliquer le 0444 documente
+# (bug connu, moby/moby#40046 et docker/compose#12362). Le conteneur "app"
+# tourne en utilisateur non-root "subnetory" (Dockerfile, adduser -S), dont
+# l'UID ne correspond jamais a l'UID de l'utilisateur hote qui a genere ces
+# fichiers : en 600, "subnetory" recoit AccessDeniedException en lisant
+# /run/secrets/*. La protection reste assuree par le repertoire
+# backend/secrets en 700 juste en dessous : sans le bit x sur ce repertoire,
+# aucun autre utilisateur local ne peut meme faire un stat() sur ces
+# fichiers, quel que soit leur propre mode — les rendre lisibles par "other"
+# n'expose donc rien de plus a un utilisateur non privilegie de la machine.
+chmod 644 -- "$staging_root"/* 2>/dev/null || true
 
 for name in "${names_to_write[@]}"; do
     if [[ -e "$secrets_root/$name" ]]; then
@@ -337,7 +349,7 @@ done
 
 chmod 700 -- "$secrets_root" 2>/dev/null || true
 for name in "${names_to_write[@]}"; do
-    chmod 600 -- "$secrets_root/$name" 2>/dev/null || true
+    chmod 644 -- "$secrets_root/$name" 2>/dev/null || true
 done
 completed=1
 

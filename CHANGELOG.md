@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-08-04
+
+### Fixed
+
+* `post-release-smoke` échouait systématiquement (04/08/2026, correctif du tooling CI introduit par `v0.8.2`) : le conteneur `app` tiré depuis GHCR crash-loopait avec `AccessDeniedException: /run/secrets/subnetory.jwt.secret`. Cause : `scripts/init-compose.sh` généra les secrets en mode `600` (lisible uniquement par l'utilisateur hôte qui exécute le script), or Docker Compose (hors swarm) monte les secrets `file:` en conservant le mode/propriétaire du fichier hôte au lieu d'appliquer le `0444` documenté (bug connu, [moby/moby#40046](https://github.com/moby/moby/issues/40046), [docker/compose#12362](https://github.com/docker/compose/issues/12362)) — le conteneur tourne en utilisateur non-root `subnetory` (`Dockerfile`, `adduser -S`), dont l'UID ne correspond jamais à celui de l'hôte. Secrets désormais générés en `644` ; le répertoire `backend/secrets/` reste en `700`, ce qui protège toujours contre les autres utilisateurs locaux (sans le bit `x` sur le répertoire, aucun autre utilisateur ne peut même faire un `stat()` sur ces fichiers). N'affecte pas le JAR ni l'image `v0.8.2` déjà publiés, uniquement le job de vérification post-publication.
+
 ## [0.8.2] - 2026-08-03
 
 ### Fixed
@@ -234,7 +240,9 @@ Première version pensée comme point de départ public propre : `v0.7.0` reste 
 * Basic secured GUI with Thymeleaf.
 * Docker packaging and GitHub Actions CI/CD foundations.
 
-[Unreleased]: https://github.com/Subnetory/subnetory/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/Subnetory/subnetory/compare/v0.8.3...HEAD
+[0.8.3]: https://github.com/Subnetory/subnetory/releases/tag/v0.8.3
+[0.8.2]: https://github.com/Subnetory/subnetory/releases/tag/v0.8.2
 [0.8.1]: https://github.com/Subnetory/subnetory/releases/tag/v0.8.1
 [0.8.0]: https://github.com/Subnetory/subnetory/releases/tag/v0.8.0
 

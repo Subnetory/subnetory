@@ -14,7 +14,7 @@
 
     <groupId>dev.subnetory</groupId>
     <artifactId>subnetory</artifactId>
-    <version>0.8.2</version>
+    <version>0.8.3</version>
     <name>Subnetory</name>
     <description>Subnetory — IPAM moderne, fork modernisé du projet Adrezo</description>
 

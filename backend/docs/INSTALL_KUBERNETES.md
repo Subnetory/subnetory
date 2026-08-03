@@ -40,7 +40,7 @@ Si le cluster cible peut atteindre `ghcr.io`, utiliser directement l'image publi
 ```yaml
 image:
   repository: ghcr.io/subnetory/subnetory
-  tag: v0.8.2
+  tag: v0.8.3
   pullPolicy: IfNotPresent
 ```
 
@@ -49,14 +49,14 @@ image:
 Pour un cluster `kind` sans accès sortant à `ghcr.io`, construire puis charger l'image localement, puis surcharger explicitement `image.repository`/`image.tag` (les valeurs par défaut du chart pointent vers GHCR depuis l'Option A ci-dessus) :
 
 ```powershell
-docker build --tag subnetory:0.8.2 .\backend
-kind load docker-image subnetory:0.8.2 --name NOM_DU_CLUSTER
+docker build --tag subnetory:0.8.3 .\backend
+kind load docker-image subnetory:0.8.3 --name NOM_DU_CLUSTER
 ```
 
 ```yaml
 image:
   repository: subnetory
-  tag: "0.8.2"
+  tag: "0.8.3"
   pullPolicy: IfNotPresent
 ```
 
@@ -67,7 +67,7 @@ Pour un autre cluster, construire l'image, la publier dans le registre privé au
 ```yaml
 image:
   repository: registry.example.internal/subnetory/subnetory
-  tag: 0.8.2
+  tag: 0.8.3
   pullPolicy: IfNotPresent
   imagePullSecrets:
     - name: registry-credentials
