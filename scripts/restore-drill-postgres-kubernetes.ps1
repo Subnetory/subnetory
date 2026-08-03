@@ -392,19 +392,35 @@ try {
 
     $deadline = [DateTimeOffset]::UtcNow.AddSeconds($TimeoutSeconds + 30)
     $completed = $false
+    $lastPollError = $null
     do {
-        $jobStatus = Invoke-KubectlJson -Arguments @(
-            "get", "job", $resourceName,
-            "--namespace", $Namespace,
-            "--output", "json"
-        )
-        $conditions = @()
-        if (
-            $jobStatus.PSObject.Properties.Name -contains "status" -and
-            $null -ne $jobStatus.status -and
-            $jobStatus.status.PSObject.Properties.Name -contains "conditions"
-        ) {
-            $conditions = @($jobStatus.status.conditions)
+        # kubectl / l'API Kubernetes peuvent répondre de façon transitoire
+        # (sortie vide, Job pas encore répliqué dans l'API server juste après
+        # sa création, hoquet réseau) : ce n'est pas une preuve d'échec du
+        # restore drill lui-même, seulement une non-disponibilité passagère
+        # de l'information de statut. On tolère ces ratés dans la boucle
+        # d'attente, exactement comme "Job pas encore terminé", jusqu'à la
+        # même échéance ; seule une non-disponibilité persistante jusqu'au
+        # délai fait échouer le restore drill (message ci-dessous).
+        try {
+            $jobStatus = Invoke-KubectlJson -Arguments @(
+                "get", "job", $resourceName,
+                "--namespace", $Namespace,
+                "--output", "json"
+            )
+            $conditions = @()
+            if (
+                $null -ne $jobStatus -and
+                @($jobStatus.PSObject.Properties.Name) -contains "status" -and
+                $null -ne $jobStatus.status -and
+                @($jobStatus.status.PSObject.Properties.Name) -contains "conditions"
+            ) {
+                $conditions = @($jobStatus.status.conditions)
+            }
+            $lastPollError = $null
+        } catch {
+            $conditions = @()
+            $lastPollError = $_.Exception.Message
         }
         if (@($conditions | Where-Object {
             $_.type -eq "Failed" -and $_.status -eq "True"
@@ -418,6 +434,9 @@ try {
             Start-Sleep -Seconds 2
         }
     } while (-not $completed -and [DateTimeOffset]::UtcNow -lt $deadline)
+    if (-not $completed -and $null -ne $lastPollError) {
+        throw "Statut du Job de restauration indisponible de façon persistante : $lastPollError"
+    }
 
     $pods = Invoke-KubectlJson -Arguments @(
         "get", "pods", "--namespace", $Namespace,
