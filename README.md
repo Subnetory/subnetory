@@ -170,10 +170,3 @@ The repository and its GHCR package are public as of `v0.8.0`. No authentication
 ```bash
 docker pull ghcr.io/subnetory/subnetory:v0.8.0
 ```
-
-## Project rules
-
-- Do not commit `.env`, secrets, database dumps or backup contents.
-- Do not use `robocopy` in Subnetory recovery/archive procedures.
-- Prefer `Copy-Item`, `Expand-Archive`, `Compress-Archive` and controlled PowerShell scripts.
-- Keep every sprint small, documented and validated by Maven tests.
