@@ -1,5 +1,6 @@
 package dev.subnetory.security;
 
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -43,8 +44,11 @@ public class ClientIpResolver {
      * autorisees a presenter X-Forwarded-For. Exemple :
      * {@code 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}.
      *
-     * <p>Si vide alors que trusted-proxy=true, tout proxy direct est accepte
-     * comme source d'en-tete (a eviter, mais laisse au choix de l'operateur).</p>
+     * <p>Obligatoire si trusted-proxy=true (audit 03/08/2026, correctif
+     * ELEVEE) : {@link #validateConfiguration()} refuse le demarrage de
+     * l'application si cette liste est vide alors que le mode proxy est
+     * actif, plutot que d'accepter silencieusement n'importe quelle
+     * connexion directe comme source d'en-tete de confiance.</p>
      */
     private final String[] trustedProxyCidrs;
 
@@ -53,6 +57,33 @@ public class ClientIpResolver {
             @Value("${subnetory.security.trusted-proxy-cidrs:}") String trustedProxyCidrs) {
         this.trustedProxyEnabled = trustedProxyEnabled;
         this.trustedProxyCidrs = splitCidrs(trustedProxyCidrs);
+    }
+
+    /**
+     * Audit 03/08/2026, correctif ELEVEE : jusqu'ici, activer
+     * {@code trusted-proxy=true} sans renseigner {@code trusted-proxy-cidrs}
+     * etait accepte silencieusement et faisait confiance a
+     * X-Forwarded-For/X-Real-IP en provenance de N'IMPORTE QUELLE connexion
+     * directe (voir {@link #isFromTrustedProxy} : liste vide => tout accepte).
+     * Un operateur qui active le mode proxy sans penser a restreindre la
+     * source (ou qui laisse une valeur vide par erreur de configuration)
+     * ouvrait alors la porte a une usurpation d'IP par n'importe quel client
+     * pouvant atteindre l'application, contournant le rate limiting et
+     * faussant le journal d'audit. Refuse desormais de demarrer plutot que
+     * de degrader silencieusement la protection.
+     */
+    @PostConstruct
+    void validateConfiguration() {
+        if (trustedProxyEnabled && trustedProxyCidrs.length == 0) {
+            throw new IllegalStateException(
+                    "subnetory.security.trusted-proxy est active mais "
+                            + "subnetory.security.trusted-proxy-cidrs est vide : "
+                            + "n'importe quelle connexion directe serait alors traitee "
+                            + "comme un proxy de confiance. Renseignez au moins une plage "
+                            + "CIDR (ex. l'adresse du reseau Docker/Kubernetes du reverse "
+                            + "proxy), ou desactivez trusted-proxy si aucun reverse proxy "
+                            + "de confiance n'est en place.");
+        }
     }
 
     public String resolve(HttpServletRequest request) {

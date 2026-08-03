@@ -53,11 +53,12 @@
     "secrets": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["existingSecretRuntime", "existingSecretBootstrap", "encryptionKeyEnabled"],
+      "required": ["existingSecretRuntime", "existingSecretBootstrap", "encryptionKeyEnabled", "backupEncryptionKeyEnabled"],
       "properties": {
         "existingSecretRuntime": {"type": "string", "minLength": 1},
         "existingSecretBootstrap": {"type": "string", "minLength": 1},
-        "encryptionKeyEnabled": {"type": "boolean"}
+        "encryptionKeyEnabled": {"type": "boolean"},
+        "backupEncryptionKeyEnabled": {"type": "boolean"}
       }
     },
     "serviceAccount": {

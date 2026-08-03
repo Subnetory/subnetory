@@ -81,9 +81,10 @@ La clé est lue depuis `SUBNETORY_BACKUP_ENCRYPTION_KEY` :
   identique, pas régénérée).
 - **Kubernetes** : même principe que les autres secrets de l'application —
   un `Secret` monté en lecture seule, exposé via `spring.config.import:
-  optional:configtree:/run/secrets/` (non câblé dans le chart Helm par
-  défaut, à ajouter au besoin en suivant le patron des secrets JWT/admin
-  existants).
+  optional:configtree:/run/secrets/`. Câblé dans le chart Helm (clé
+  `backup-encryption-key` du Secret `existingSecretRuntime`, activable via
+  `secrets.backupEncryptionKeyEnabled: true`), désactivé par défaut pour ne
+  pas casser un Secret existant — voir `backend/docs/KUBERNETES_HELM_READINESS.md`.
 - **Variable d'environnement brute** (dev/test uniquement, jamais en
   production — visible via `docker inspect`/l'environnement du processus) :
   définir directement `SUBNETORY_BACKUP_ENCRYPTION_KEY`.

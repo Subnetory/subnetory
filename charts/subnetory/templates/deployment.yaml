@@ -97,6 +97,10 @@ spec:
               - key: encryption-key
                 path: subnetory.security.encryption-key
               {{- end }}
+              {{- if .Values.secrets.backupEncryptionKeyEnabled }}
+              - key: backup-encryption-key
+                path: subnetory.backup.encryption.key
+              {{- end }}
         - name: bootstrap-secrets
           secret:
             secretName: {{ .Values.secrets.existingSecretBootstrap }}

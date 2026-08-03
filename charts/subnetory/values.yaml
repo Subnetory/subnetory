@@ -26,6 +26,17 @@ secrets:
   # ajouter la cle "encryption-key" au Secret existingSecretRuntime ci-dessus
   # (meme longueur/format que jwt-secret), puis passer ce flag a true.
   encryptionKeyEnabled: false
+  # Chiffrement des sauvegardes de l'engine in-app (audit 03/08/2026) :
+  # meme mecanisme que encryptionKeyEnabled ci-dessus, pour la cle
+  # SUBNETORY_BACKUP_ENCRYPTION_KEY (voir backend/docs/BACKUP_ENCRYPTION.md).
+  # false par defaut : les sauvegardes de "backupApp" restent en clair tant
+  # que ce flag n'est pas active explicitement. Pour l'activer : ajouter la
+  # cle "backup-encryption-key" au Secret existingSecretRuntime ci-dessus
+  # (contenu = passphrase, jamais commitee), puis passer ce flag a true.
+  # Attention : changer/perdre cette cle apres coup rend illisibles toutes
+  # les sauvegardes deja chiffrees avec l'ancienne valeur — ce n'est pas
+  # une rotation (meme mise en garde que pour Docker Compose).
+  backupEncryptionKeyEnabled: false
 
 serviceAccount:
   create: true

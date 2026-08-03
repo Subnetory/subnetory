@@ -43,6 +43,8 @@ Les deux objets attendus sont :
 subnetory-runtime-secrets
   jwt-secret
   postgres-password
+  encryption-key           (optionnel, secrets.encryptionKeyEnabled=true)
+  backup-encryption-key    (optionnel, secrets.backupEncryptionKeyEnabled=true)
 
 subnetory-bootstrap-secrets
   admin-default-password
@@ -53,10 +55,14 @@ Ils sont montés dans deux arborescences :
 ```text
 /run/secrets/runtime/subnetory.jwt.secret
 /run/secrets/runtime/spring.datasource.password
+/run/secrets/runtime/subnetory.security.encryption-key      (si encryptionKeyEnabled)
+/run/secrets/runtime/subnetory.backup.encryption.key        (si backupEncryptionKeyEnabled)
 /run/secrets/bootstrap/subnetory.admin.default-password
 ```
 
 Le volume bootstrap est optionnel au niveau de l'objet Secret complet. Après le premier changement de mot de passe, `subnetory-bootstrap-secrets` peut donc être supprimé sans empêcher un redémarrage. Le Secret runtime reste obligatoire.
+
+Les clés `encryption-key` et `backup-encryption-key` sont désactivées par défaut (voir les commentaires dans `charts/subnetory/values.yaml`) pour ne pas casser un Secret existant qui ne les porte pas encore. `encryption-key` chiffre les secrets stockés en base (bind LDAP, TOTP MFA) ; `backup-encryption-key` chiffre les sauvegardes de l'engine in-app (voir `backend/docs/BACKUP_ENCRYPTION.md`). Dans les deux cas, changer ou perdre la clé après activation rend illisible ce qu'elle protégeait déjà — elle doit être générée une seule fois et conservée hors du cluster (gestionnaire de secrets, coffre-fort).
 
 Le chart ne génère et ne rend aucun secret en clair.
 
