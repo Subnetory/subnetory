@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-08-03
+
 ### Fixed
 
 * `backend/README.md` (03/08/2026, relecture post-publication) : la section de déploiement production indiquait `SPRING_DATASOURCE_PASSWORD` dans `.env`, alors que `docker-compose.prod.yml` ne lit même pas cette variable depuis l'environnement — le mot de passe vient exclusivement du secret Docker `backend/secrets/postgres_password`. Tableau des variables d'environnement reformulé par mode de déploiement (Docker Compose vs JAR standalone) au lieu d'une liste unique trompeuse. Référence obsolète aux migrations Flyway "V1 à V4+" corrigée en "V1 à V21".
@@ -220,7 +222,8 @@ Première version pensée comme point de départ public propre : `v0.7.0` reste 
 * Basic secured GUI with Thymeleaf.
 * Docker packaging and GitHub Actions CI/CD foundations.
 
-[Unreleased]: https://github.com/Subnetory/subnetory/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/Subnetory/subnetory/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/Subnetory/subnetory/releases/tag/v0.8.1
 [0.8.0]: https://github.com/Subnetory/subnetory/releases/tag/v0.8.0
 
 <!-- v0.7.0 et les versions antérieures (sections ci-dessus) sont restées
