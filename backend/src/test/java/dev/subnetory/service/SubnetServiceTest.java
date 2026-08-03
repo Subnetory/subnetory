@@ -5,6 +5,7 @@ import dev.subnetory.domain.Site;
 import dev.subnetory.domain.Subnet;
 import dev.subnetory.dto.SubnetRequest;
 import dev.subnetory.exception.ConflictException;
+import dev.subnetory.repository.AddressRepository;
 import dev.subnetory.repository.SubnetRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,6 +47,7 @@ import static org.mockito.Mockito.when;
 class SubnetServiceTest {
 
     @Mock SubnetRepository subnetRepository;
+    @Mock AddressRepository addressRepository;
     @Mock NetworkContextService contextService;
     @Mock SiteService siteService;
     @Mock VlanService vlanService;
@@ -54,20 +56,25 @@ class SubnetServiceTest {
     SubnetService service;
 
     NetworkContext context;
+    NetworkContext otherContext;
     Site site;
 
     @BeforeEach
     void setUp() {
-        service = new SubnetService(subnetRepository, contextService, siteService, vlanService, contextAccessService);
+        service = new SubnetService(subnetRepository, addressRepository, contextService, siteService, vlanService, contextAccessService);
 
         context = new NetworkContext();
         setId(context, 1L);
+
+        otherContext = new NetworkContext();
+        setId(otherContext, 2L);
 
         site = new Site();
         setId(site, 10L);
         site.setContext(context);
 
         lenient().when(contextService.getEntityById(1L)).thenReturn(context);
+        lenient().when(contextService.getEntityById(2L)).thenReturn(otherContext);
         lenient().when(siteService.getEntityById(10L)).thenReturn(site);
     }
 
@@ -214,5 +221,110 @@ class SubnetServiceTest {
 
         assertThat(page.getContent()).hasSize(1);
         verify(subnetRepository, never()).findByVlanId(anyLong(), any());
+    }
+
+    /**
+     * Regression (audit du 03/08/2026, correctif MOYEN) : {@code
+     * SubnetService#update} laissait jusqu'ici changer librement le
+     * contexte, le site ou le reseau CIDR d'un sous-reseau, sans se soucier
+     * des adresses existantes (qui stockent leur propre context_id/site_id,
+     * jamais resynchronise) ni des sous-reseaux enfants (dont le containment
+     * CIDR et le contexte ne sont valides qu'au moment ou <em>eux</em>
+     * choisissent ce parent, jamais retroactivement).
+     */
+    @Test
+    void update_changingContext_withExistingAddresses_isRejected() {
+        Subnet existing = subnetWith(5L, "10.0.0.0/24", null);
+        when(subnetRepository.findById(5L)).thenReturn(java.util.Optional.of(existing));
+        when(addressRepository.existsBySubnetId(5L)).thenReturn(true);
+
+        var request = new SubnetRequest("10.0.0.0/24", null, null, 2L, 10L, null, null);
+
+        assertThatThrownBy(() -> service.update(5L, request))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("adresses");
+        verify(subnetRepository, never()).save(any());
+    }
+
+    @Test
+    void update_changingNetwork_withExistingAddresses_isRejected() {
+        Subnet existing = subnetWith(5L, "10.0.0.0/24", null);
+        when(subnetRepository.findById(5L)).thenReturn(java.util.Optional.of(existing));
+        when(addressRepository.existsBySubnetId(5L)).thenReturn(true);
+
+        var request = new SubnetRequest("10.0.1.0/24", null, null, 1L, 10L, null, null);
+
+        assertThatThrownBy(() -> service.update(5L, request))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("adresses");
+        verify(subnetRepository, never()).save(any());
+    }
+
+    @Test
+    void update_changingContext_withChildSubnets_isRejected() {
+        Subnet existing = subnetWith(5L, "10.0.0.0/24", null);
+        when(subnetRepository.findById(5L)).thenReturn(java.util.Optional.of(existing));
+        when(subnetRepository.existsByParentId(5L)).thenReturn(true);
+
+        var request = new SubnetRequest("10.0.0.0/24", null, null, 2L, 10L, null, null);
+
+        assertThatThrownBy(() -> service.update(5L, request))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("enfants");
+        verify(subnetRepository, never()).save(any());
+    }
+
+    @Test
+    void update_changingNetwork_withChildSubnets_isRejected() {
+        Subnet existing = subnetWith(5L, "10.0.0.0/24", null);
+        when(subnetRepository.findById(5L)).thenReturn(java.util.Optional.of(existing));
+        when(subnetRepository.existsByParentId(5L)).thenReturn(true);
+
+        var request = new SubnetRequest("10.0.0.0/25", null, null, 1L, 10L, null, null);
+
+        assertThatThrownBy(() -> service.update(5L, request))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("enfants");
+        verify(subnetRepository, never()).save(any());
+    }
+
+    @Test
+    void update_changingSiteOnly_withChildSubnets_isNotBlockedByChildGuard() {
+        // Un changement de site seul (contexte et CIDR inchanges) n'affecte
+        // pas la coherence des enfants (containment CIDR et contexte) : seul
+        // le garde-fou "adresses" pourrait s'appliquer, pas celui des enfants.
+        Site otherSite = new Site();
+        setId(otherSite, 20L);
+        otherSite.setContext(context);
+        lenient().when(siteService.getEntityById(20L)).thenReturn(otherSite);
+
+        Subnet existing = subnetWith(5L, "10.0.0.0/24", null);
+        when(subnetRepository.findById(5L)).thenReturn(java.util.Optional.of(existing));
+        when(subnetRepository.save(any(Subnet.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var request = new SubnetRequest("10.0.0.0/24", null, null, 1L, 20L, null, null);
+
+        var response = service.update(5L, request);
+
+        assertThat(response.siteId()).isEqualTo(20L);
+        verify(subnetRepository, never()).existsByParentId(any());
+    }
+
+    @Test
+    void update_noRelevantChange_neverChecksGuards_evenIfAddressesOrChildrenExist() {
+        // Renommer/decrire un sous-reseau sans toucher contexte/site/reseau
+        // ne doit jamais etre bloque par la presence d'adresses ou d'enfants :
+        // seul un changement reel de l'un de ces trois champs est concerne.
+        Subnet existing = subnetWith(5L, "10.0.0.0/24", null);
+        when(subnetRepository.findById(5L)).thenReturn(java.util.Optional.of(existing));
+        when(subnetRepository.save(any(Subnet.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var request = new SubnetRequest("10.0.0.0/24", "renamed", null, 1L, 10L, null, null);
+
+        var response = service.update(5L, request);
+
+        assertThat(response.description()).isEqualTo("renamed");
+        verify(addressRepository, never()).existsBySubnetId(any());
+        verify(subnetRepository, never()).existsByParentId(any());
     }
 }

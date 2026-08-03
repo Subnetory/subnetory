@@ -66,7 +66,8 @@ public class SiteController {
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'NETWORK')")
     @Operation(summary = "Modifier un site",
-            description = "Rôles requis : ADMIN ou NETWORK.")
+            description = "Rôles requis : ADMIN ou NETWORK. Changement de contexte refusé si "
+                    + "le site a encore des sous-réseaux (409).")
     public ResponseEntity<SiteResponse> updateSite(
             @PathVariable Long id,
             @Valid @RequestBody SiteRequest request) {

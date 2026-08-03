@@ -67,7 +67,8 @@ public class VlanController {
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'NETWORK')")
     @Operation(summary = "Modifier un VLAN",
-            description = "Rôles requis : ADMIN ou NETWORK.")
+            description = "Rôles requis : ADMIN ou NETWORK. Changement de site refusé si le "
+                    + "VLAN a encore des sous-réseaux (409).")
     public ResponseEntity<VlanResponse> updateVlan(
             @PathVariable Long id,
             @Valid @RequestBody VlanRequest request) {

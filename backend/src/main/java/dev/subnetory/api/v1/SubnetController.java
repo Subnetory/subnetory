@@ -221,7 +221,10 @@ public class SubnetController {
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'NETWORK')")
     @Operation(summary = "Modifier un sous-réseau",
-            description = "Rôles requis : ADMIN ou NETWORK.")
+            description = "Rôles requis : ADMIN ou NETWORK. Changement de contexte, de site ou "
+                    + "de réseau CIDR refusé si des adresses y sont encore rattachées ; "
+                    + "changement de contexte ou de réseau CIDR refusé si des sous-réseaux "
+                    + "enfants existent encore (409).")
     public ResponseEntity<SubnetResponse> updateSubnet(
             @PathVariable Long id,
             @Valid @RequestBody SubnetRequest request) {

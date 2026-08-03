@@ -8,6 +8,7 @@ import dev.subnetory.dto.SubnetRequest;
 import dev.subnetory.dto.SubnetResponse;
 import dev.subnetory.exception.ConflictException;
 import dev.subnetory.exception.ResourceNotFoundException;
+import dev.subnetory.repository.AddressRepository;
 import dev.subnetory.repository.SubnetRepository;
 import dev.subnetory.util.IpUtils;
 import java.util.List;
@@ -22,17 +23,20 @@ import org.springframework.transaction.annotation.Transactional;
 public class SubnetService {
 
     private final SubnetRepository subnetRepository;
+    private final AddressRepository addressRepository;
     private final NetworkContextService contextService;
     private final SiteService siteService;
     private final VlanService vlanService;
     private final ContextAccessService contextAccessService;
 
     public SubnetService(SubnetRepository subnetRepository,
+                         AddressRepository addressRepository,
                          NetworkContextService contextService,
                          SiteService siteService,
                          VlanService vlanService,
                          ContextAccessService contextAccessService) {
         this.subnetRepository = subnetRepository;
+        this.addressRepository = addressRepository;
         this.contextService = contextService;
         this.siteService = siteService;
         this.vlanService = vlanService;
@@ -163,16 +167,59 @@ public class SubnetService {
         return toResponse(subnetRepository.save(subnet));
     }
 
+    /**
+     * Bloque le changement de contexte/site/réseau/parent d'un sous-réseau
+     * qui a encore des adresses ou des sous-réseaux enfants (audit
+     * 03/08/2026, correctif MOYEN, même patron que
+     * {@link SiteService#update}/{@link VlanService#update}).
+     *
+     * <p>Sans ce garde-fou, {@code Address} (qui stocke son propre
+     * {@code context_id}/{@code site_id}/{@code subnet_id}, jamais
+     * resynchronisé) resterait associée à l'ancien contexte/site d'un
+     * sous-réseau déplacé : les utilisateurs de l'ancien contexte garderaient
+     * un accès (lecture/écriture) à ces adresses alors qu'elles appartiennent
+     * désormais réellement au nouveau contexte du sous-réseau, et les
+     * utilisateurs légitimes du nouveau contexte ne les verraient pas
+     * (adresses orphelines, pas une fuite vers un tiers comme le bug
+     * Site/VLAN — {@code AddressSpecifications} filtre déjà par le
+     * {@code context_id} propre de chaque adresse). Un changement de réseau
+     * CIDR est traité comme un changement de contexte/site pour ce
+     * garde-fou : les adresses existantes ne sont pas revalidées contre le
+     * nouveau CIDR. Un sous-réseau parent dont le contexte ou le CIDR change
+     * alors qu'il a des enfants poserait le même problème d'incohérence
+     * (containment/contexte non revalidés rétroactivement, voir
+     * {@link SubnetRepository#existsByParentId}).</p>
+     */
     @Transactional
     public SubnetResponse update(Long id, SubnetRequest request) {
         Subnet subnet = getEntityById(id);
         String originalNetwork = subnet.getNetwork();
         Long originalSiteId = subnet.getSite().getId();
+        Long originalContextId = subnet.getContext().getId();
+
+        boolean contextChanging = !originalContextId.equals(request.contextId());
+        boolean siteChanging = !originalSiteId.equals(request.siteId());
+        boolean networkChanging = !originalNetwork.equals(request.network());
+
+        if ((contextChanging || siteChanging || networkChanging)
+                && addressRepository.existsBySubnetId(id)) {
+            throw new ConflictException(
+                    "Impossible de changer le contexte, le site ou le reseau CIDR d'un "
+                            + "sous-reseau qui contient encore des adresses. Deplacez ou "
+                            + "supprimez d'abord ses adresses.");
+        }
+        if ((contextChanging || networkChanging)
+                && subnetRepository.existsByParentId(id)) {
+            throw new ConflictException(
+                    "Impossible de changer le contexte ou le reseau CIDR d'un sous-reseau "
+                            + "qui contient encore des sous-reseaux enfants. Deplacez ou "
+                            + "supprimez d'abord ses sous-reseaux enfants.");
+        }
+
         Subnet updated = buildSubnet(subnet, request);
 
         // Unicité : vérifier seulement si le réseau ou le site change
-        if ((!originalNetwork.equals(request.network())
-                || !originalSiteId.equals(request.siteId()))
+        if ((networkChanging || siteChanging)
                 && subnetRepository.existsByNetworkCidrAndSiteId(request.network(), request.siteId())) {
             throw new ConflictException(
                     "Subnet " + request.network() + " already exists on site " + request.siteId());

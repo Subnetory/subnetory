@@ -117,6 +117,18 @@ public interface SubnetRepository extends JpaRepository<Subnet, Long> {
     /** Utilisé pour bloquer le changement de site d'un VLAN qui a encore des sous-réseaux. */
     boolean existsByVlanId(Long vlanId);
 
+    /**
+     * Utilisé pour bloquer le changement de contexte/réseau CIDR d'un
+     * sous-réseau qui a encore des sous-réseaux enfants (audit 03/08/2026,
+     * correctif MOYEN) : {@link dev.subnetory.service.SubnetService#buildSubnet}
+     * ne valide l'appartenance au même contexte et le containment CIDR que
+     * lors du <em>choix</em> d'un parent (côté enfant), jamais rétroactivement
+     * lorsque le parent lui-même change ensuite de contexte ou de CIDR — ce
+     * qui laisserait ses enfants existants pointer vers un parent dont ils ne
+     * sont plus réellement contenus, ou qui appartient à un autre contexte.
+     */
+    boolean existsByParentId(Long parentId);
+
     // --- Non-paginés (export CSV — Sprint 2.8) ---
 
     /**

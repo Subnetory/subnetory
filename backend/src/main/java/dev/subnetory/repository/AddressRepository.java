@@ -24,6 +24,15 @@ public interface AddressRepository
     Page<Address> findBySubnetId(Long subnetId, Pageable pageable);
 
     /**
+     * Utilisé pour bloquer le changement de contexte/site/réseau CIDR d'un
+     * sous-réseau qui a encore des adresses (audit 03/08/2026, correctif
+     * MOYEN, même patron que {@code SubnetRepository#existsBySiteId} pour
+     * le fix Site/VLAN du même jour) : voir
+     * {@link dev.subnetory.service.SubnetService#update}.
+     */
+    boolean existsBySubnetId(Long subnetId);
+
+    /**
      * Variante filtrée par contexte propre de l'adresse (audit 03/08/2026,
      * correctif BLOQUANT, même raison que
      * {@link SubnetRepository#findBySiteIdAndContextIdIn}) : non appelée

@@ -4,7 +4,7 @@
 
 Le Sprint 2.32 étend le chart Helm mono-réplique avec des sauvegardes planifiées et un restore drill non destructif pour le PostgreSQL inclus. Le mode PostgreSQL externe reste pris en charge avec les sauvegardes du chart obligatoirement désactivées.
 
-L'implémentation est validée localement sur un cluster `kind` Kubernetes 1.34.8. La CI contient désormais les tests statiques, les tests Docker hostiles et le smoke test kind ; son exécution distante reste à réaliser lors de la publication autorisée du Sprint 2.32.
+L'implémentation est validée sur un cluster `kind` Kubernetes 1.34.8, localement et en CI distante (GitHub Actions) : les tests statiques (`helm-static`), les tests Docker hostiles et le smoke test kind (`helm-smoke`) s'exécutent à chaque push depuis la publication de `v0.8.0`.
 
 Ce statut ne vaut pas support de haute disponibilité, de multi-réplique ou de toutes les distributions Kubernetes.
 
@@ -171,7 +171,7 @@ Des limites trop faibles peuvent causer `OOMKilled`, des probes en échec ou des
 
 La matrice précise est tenue dans `backend/docs/KUBERNETES_COMPATIBILITY.md`.
 
-Le Sprint 2.31 ne publie aucune image Subnetory officielle. L'image doit être construite localement et chargée dans `kind`, ou publiée dans un registre privé maîtrisé avec `imagePullSecrets`.
+Depuis la release `v0.8.0`, `ghcr.io/subnetory/subnetory:v0.8.0` est une image officielle publique, publiée par `release.yml` et pullable anonymement — c'est le défaut de `image.repository`/`image.tag` dans `values.yaml`. Elle n'est pas signée (voir `KUBERNETES_COMPATIBILITY.md`, section « Non qualifié »). Construire l'image localement et la charger dans `kind`, ou la publier dans un registre privé avec `imagePullSecrets`, reste possible et documenté dans `backend/docs/INSTALL_KUBERNETES.md` (Options B/C) pour un cluster sans accès sortant à `ghcr.io`.
 
 ## Conditions restantes avant une offre de production élargie
 
@@ -182,7 +182,7 @@ Le Sprint 2.31 ne publie aucune image Subnetory officielle. L'image doit être c
 - raccorder le PVC ou ses exports à une sauvegarde hors cluster chiffrée et supervisée ;
 - qualifier les snapshots, la réplication, les quotas et les alertes du CSI retenu ;
 - qualifier le PostgreSQL externe ou l'opérateur retenu ;
-- publier, signer et tracer une image officielle si la distribution publique est décidée ;
+- signer et tracer l'image officielle déjà publiée (cosign/sigstore, provenance SLSA) ;
 - effectuer les travaux d'architecture nécessaires avant toute multi-réplique.
 
 ## Documentation associée

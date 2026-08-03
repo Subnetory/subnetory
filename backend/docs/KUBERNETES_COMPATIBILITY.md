@@ -2,13 +2,13 @@
 
 ## Portée
 
-Ce document enregistre les versions réellement utilisées pour valider le Sprint 2.31 le 22 juillet 2026. Il ne constitue pas une promesse de compatibilité avec toutes les versions intermédiaires, distributions Kubernetes, architectures ou implémentations CNI/CSI.
+Ce document enregistre les versions réellement utilisées pour valider le chart Helm, initialement pour le Sprint 2.31 le 22 juillet 2026, puis remises à jour au fil des releases (dernière mise à jour : 03/08/2026, release `v0.8.0`). Il ne constitue pas une promesse de compatibilité avec toutes les versions intermédiaires, distributions Kubernetes, architectures ou implémentations CNI/CSI. Le job CI `helm-smoke` (`.github/workflows/ci.yml`) revalide cette matrice à chaque push contre les valeurs par défaut courantes du chart.
 
 ## Matrice validée
 
 | Composant | Version ou image validée | Portée |
 |---|---|---|
-| Chart Subnetory | `0.1.2` | Application `0.7.0` |
+| Chart Subnetory | `0.1.3` | Application `0.8.0` |
 | Kubernetes | `1.34.8` | Cluster de smoke test réel |
 | Plancher déclaré par le chart | `>=1.34.0-0` | Refus Helm sous ce plancher |
 | Helm | `3.21.0` | `lint`, `template`, `install`, `test`, `upgrade`, `rollback`, `uninstall` |
@@ -16,7 +16,7 @@ Ce document enregistre les versions réellement utilisées pour valider le Sprin
 | Image de nœud kind | `kindest/node:v1.34.8@sha256:02722c2dedddcfc00febf5d27fbeb9b7b2c14294c82109ff4a85d89ac9ba3256` | Digest obligatoire pour reproduire le test |
 | kubectl | `1.34.8` | Aligné sur le cluster de test |
 | PostgreSQL inclus | `postgres:17.10-alpine3.23` | Tag de patch épinglé |
-| Image applicative | build local `subnetory:0.7.0` ou `ghcr.io/subnetory/subnetory:v0.7.0` | Image publique publiée par le workflow de release |
+| Image applicative | `ghcr.io/subnetory/subnetory:v0.8.0` (défaut du chart) ou build local | Image publique publiée par le workflow de release, désormais le défaut de `image.repository`/`image.tag` dans `values.yaml` |
 | Java observé dans l'image | Temurin `21.0.11` | Démarrage applicatif du smoke test |
 | Architecture testée | `linux/amd64` | Docker Desktop et runner GitHub Actions validé |
 
@@ -56,7 +56,7 @@ Le script reproductible est `scripts/smoke-test-helm.ps1`. Les versions de Helm,
 
 ## Non qualifié
 
-Les éléments suivants ne sont pas validés au Sprint 2.31 :
+Les éléments suivants ne sont toujours pas validés :
 
 - Kubernetes inférieur à 1.34 ou supérieur à la version testée ;
 - Helm 4 ;
@@ -66,6 +66,6 @@ Les éléments suivants ne sont pas validés au Sprint 2.31 :
 - upgrade majeur PostgreSQL ;
 - toutes les implémentations Ingress, Gateway API, CNI et CSI ;
 - enforcement complet des NetworkPolicy avec le CNI par défaut de kind ;
-- publication ou signature d'une image Subnetory officielle.
+- signature (cosign/sigstore) de l'image Subnetory officielle — l'image elle-même est publiée publiquement sur GHCR depuis `v0.8.0`.
 
 Toute extension de cette matrice doit être accompagnée d'un smoke test réel et d'une mise à jour de ce document.
