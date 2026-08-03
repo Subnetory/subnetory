@@ -2,9 +2,15 @@
 
 Thanks for your interest in Subnetory. This is a young, early-stage project, currently maintained by a very small team with limited review bandwidth. This document sets realistic expectations rather than a full open-source governance process.
 
+## How this repository relates to development
+
+This repository (`Subnetory/subnetory`) is where releases are published: tagged versions, the GitHub Release, and the GHCR image all come from here. Day-to-day development happens in a separate internal repository, periodically synced here as a clean, squashed history once changes are tested and ready.
+
+External contributions are still welcome directly on this repository. Open your pull request here as usual; once reviewed and accepted, it's integrated internally and included in the next sync, at which point it becomes part of this repository's history like any other change. You don't need to interact with the internal repository at all.
+
 ## Before you start
 
-For anything beyond a small, obvious fix (typo, broken link, off-by-one in a doc), please open an issue first to discuss the change before writing code. This avoids wasted effort on a pull request that doesn't fit the project's direction — see the "Project rules" section of [`README.md`](README.md) for the guiding constraints (incremental steps, no unnecessary complexity, every change must keep the app fully working).
+For anything beyond a small, obvious fix (typo, broken link, off-by-one in a doc), please open an issue first to discuss the change before writing code. This avoids wasted effort on a pull request that doesn't fit the project's direction — the guiding constraints are incremental steps, no unnecessary complexity, and every change must keep the app fully working.
 
 Subnetory intentionally avoids:
 
@@ -57,7 +63,7 @@ Local commands mentioned above cover most of `test`; the other jobs need Docker 
 
 - Keep commits and pull requests small and focused — one logical change per PR, consistent with the project's incremental-delivery approach.
 - Write commit subjects in the imperative, prefixed by type when relevant (`fix:`, `docs:`, `feat:`, `chore:`), matching the existing history (see `git log`).
-- Never commit `.env` files, anything under `backend/secrets/`, database dumps (`*.sql.gz`, `*.dump`), or backup contents — see the "Project rules" section of [`README.md`](README.md). `.gitignore` covers `.env` and `secrets/` by pattern and `/backups/` as a folder; dumps placed elsewhere are not automatically caught, so don't rely on `.gitignore` alone.
+- Never commit `.env` files, anything under `backend/secrets/`, database dumps (`*.sql.gz`, `*.dump`), or backup contents. `.gitignore` covers `.env` and `secrets/` by pattern and `/backups/` as a folder; dumps placed elsewhere are not automatically caught, so don't rely on `.gitignore` alone.
 
 ## Security issues
 

@@ -4,6 +4,14 @@ All notable changes to Subnetory will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows semantic versioning pragmatically during early development.
 
+## [Unreleased]
+
+### Fixed
+
+* `backend/README.md` (03/08/2026, relecture post-publication) : la section de déploiement production indiquait `SPRING_DATASOURCE_PASSWORD` dans `.env`, alors que `docker-compose.prod.yml` ne lit même pas cette variable depuis l'environnement — le mot de passe vient exclusivement du secret Docker `backend/secrets/postgres_password`. Tableau des variables d'environnement reformulé par mode de déploiement (Docker Compose vs JAR standalone) au lieu d'une liste unique trompeuse. Référence obsolète aux migrations Flyway "V1 à V4+" corrigée en "V1 à V21".
+* `CONTRIBUTING.md` (03/08/2026) : deux renvois vers la section "Project rules" du README, supprimée entre-temps, corrigés. Ajout d'une section expliquant que ce dépôt public est synchronisé depuis un dépôt de développement interne, et que les pull requests externes déposées ici sont bien acceptées et intégrées au prochain sync.
+* `release.yml` (03/08/2026) : le workflow de publication construisait le JAR avec `package -DskipTests`, ce qui aurait publié un JAR et une image GHCR même depuis un commit dont les tests ou la couverture JaCoCo échouent. Remplacé par `clean verify`.
+
 ## [0.8.0] - 2026-08-03
 
 Première version pensée comme point de départ public propre : `v0.7.0` reste une version de développement interne, non promue comme référence publique.

@@ -27,9 +27,12 @@ jobs:
         working-directory: backend
         run: chmod +x ./mvnw
 
-      - name: Build JAR
+      # Tests complets + seuils de couverture JaCoCo avant publication : un
+      # tag pousse sur un commit dont les tests ou la couverture echouent ne
+      # doit jamais publier de JAR ni d'image GHCR.
+      - name: Build and verify JAR
         working-directory: backend
-        run: ./mvnw package -DskipTests -B
+        run: ./mvnw clean verify -B
 
       # github.repository retourne "Subnetory/subnetory" avec une majuscule.
       # Docker exige des noms d'image en minuscules — conversion obligatoire.

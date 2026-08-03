@@ -194,17 +194,26 @@ Utiliser `docker-compose.prod.yml` quand PostgreSQL est géré séparément.
 docker build -t subnetory:latest .
 ```
 
-### 2. Configurer `.env` avec les paramètres de production
+### 2. Générer les secrets
 
-En mode production, définir les variables PostgreSQL externes dans `.env` :
+`docker-compose.prod.yml` lit le secret JWT, la clé de chiffrement, le mot de passe admin, le mot de passe PostgreSQL et la clé de chiffrement des sauvegardes exclusivement via des secrets Docker fichiers (`backend/secrets/`), jamais via `.env` — voir le commentaire en tête de ce fichier. Générer ces secrets avec le script versionné, comme pour le déploiement de développement :
+
+```bash
+../scripts/init-compose.sh
+```
+
+### 3. Configurer `.env` avec les paramètres non sensibles
+
+Seules l'URL et l'utilisateur PostgreSQL externes (non sensibles) se définissent dans `.env` :
 
 ```bash
 SPRING_DATASOURCE_URL=jdbc:postgresql://postgres.example.local:5432/subnetory
 SPRING_DATASOURCE_USERNAME=subnetory
-SPRING_DATASOURCE_PASSWORD=votre-mot-de-passe-db
 ```
 
-### 3. Lancer
+Le mot de passe PostgreSQL ne se met **pas** dans `.env` : `docker-compose.prod.yml` ne lit même pas `SPRING_DATASOURCE_PASSWORD` depuis l'environnement, il vient exclusivement du secret `backend/secrets/postgres_password` généré à l'étape précédente.
+
+### 4. Lancer
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d
@@ -214,22 +223,24 @@ docker compose -f docker-compose.prod.yml up -d
 
 ## Variables d'environnement
 
-Copier `.env.example` vers `.env` et remplir les valeurs. Le fichier `.env.example` contient la documentation de chaque variable.
+Le sens de ces variables dépend du mode de déploiement — ce ne sont pas toutes de simples variables d'environnement dans tous les cas :
 
-| Variable | Obligatoire | Description |
+| Variable | Docker Compose (dev et prod) | JAR standalone |
 |---|---|---|
-| `SUBNETORY_JWT_SECRET` | **Oui** | Secret JWT, minimum 32 caractères |
-| `SUBNETORY_ADMIN_DEFAULT_PASSWORD` | **Oui** | Mot de passe admin initial |
-| `SPRING_DATASOURCE_PASSWORD` | **Oui** | Mot de passe base de données |
-| `POSTGRES_PASSWORD` | **Oui** (compose dev) | Mot de passe PostgreSQL pour le service db |
-| `HOST_PORT` | Non | Port hôte, défaut `8080` |
-| `SERVER_PORT` | Non | Port conteneur Spring Boot, défaut `8080` |
-| `POSTGRES_USER` | Non | Utilisateur PostgreSQL, défaut `subnetory` |
-| `SPRING_DATASOURCE_URL` | Prod / JAR | URL PostgreSQL externe |
-| `SPRING_DATASOURCE_USERNAME` | Prod / JAR | Utilisateur PostgreSQL externe |
-| `SUBNETORY_LDAP_ENABLED` | Non | `false` par défaut |
+| `SUBNETORY_JWT_SECRET` | Secret Docker (`backend/secrets/`), jamais `.env` | Variable d'environnement, **obligatoire** |
+| `SUBNETORY_ADMIN_DEFAULT_PASSWORD` | Secret Docker, jamais `.env` | Variable d'environnement, **obligatoire** |
+| `SPRING_DATASOURCE_PASSWORD` | Secret Docker, jamais `.env` | Variable d'environnement, **obligatoire** |
+| `SUBNETORY_ENCRYPTION_KEY` | Secret Docker, jamais `.env` | Variable d'environnement |
+| `SUBNETORY_BACKUP_ENCRYPTION_KEY` | Secret Docker, jamais `.env` | Variable d'environnement, optionnelle |
+| `POSTGRES_PASSWORD` | Secret Docker (compose dev uniquement, service `db` embarqué) | Sans objet |
+| `HOST_PORT` | `.env`, non sensible, défaut `8080` | Sans objet |
+| `SERVER_PORT` | `.env`, non sensible, défaut `8080` | Variable d'environnement, défaut `8080` |
+| `POSTGRES_USER` | `.env`, non sensible, défaut `subnetory` | Sans objet |
+| `SPRING_DATASOURCE_URL` | `.env`, non sensible (prod, PostgreSQL externe) | Variable d'environnement, **obligatoire** |
+| `SPRING_DATASOURCE_USERNAME` | `.env`, non sensible (prod, PostgreSQL externe) | Variable d'environnement, **obligatoire** |
+| `SUBNETORY_LDAP_ENABLED` | `.env`, non sensible, `false` par défaut | Variable d'environnement |
 
-Voir `.env.example` pour la liste complète incluant les valeurs LDAP de démarrage.
+Copier `.env.example` vers `.env` uniquement pour les valeurs non sensibles ci-dessus ; les secrets sont générés par `scripts/init-compose.sh`/`.ps1`, jamais placés dans `.env`. Voir `.env.example` pour la liste complète incluant les valeurs LDAP de démarrage.
 
 ---
 
@@ -274,7 +285,7 @@ backend/
 │   │   ├── java/dev/subnetory/
 │   │   └── resources/
 │   │       ├── application.yml
-│   │       ├── db/migration/    ← Migrations Flyway (V1 à V4+)
+│   │       ├── db/migration/    ← Migrations Flyway (V1 à V21)
 │   │       ├── static/assets/
 │   │       └── templates/
 │   └── test/
