@@ -8,6 +8,8 @@ This repository (`Subnetory/subnetory`) is where releases are published: tagged 
 
 External contributions are still welcome directly on this repository. Open your pull request here as usual; once reviewed and accepted, it's integrated internally and included in the next sync, at which point it becomes part of this repository's history like any other change. You don't need to interact with the internal repository at all.
 
+**About Dependabot**: you won't find a `.github/dependabot.yml` here, even though it's active on the internal repository. Dependabot opens pull requests directly against the repository it's configured on; on a one-way, squash-synced mirror like this one, a Dependabot PR merged here would exist only on this repository and get silently overwritten by the next sync from internal, giving false confidence that a dependency was actually updated. Dependency updates are tracked internally instead, on the repository that's the actual source of truth, and flow here through the normal sync like any other change. This repository's CI still independently scans every push and pull request for known vulnerabilities (the `dependency-scan` job, Trivy against both the Maven dependency tree and the built Docker image) — that coverage isn't affected by the above.
+
 ## Before you start
 
 For anything beyond a small, obvious fix (typo, broken link, off-by-one in a doc), please open an issue first to discuss the change before writing code. This avoids wasted effort on a pull request that doesn't fit the project's direction — the guiding constraints are incremental steps, no unnecessary complexity, and every change must keep the app fully working.

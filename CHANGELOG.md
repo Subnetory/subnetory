@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+* Diagnostic d'integrite `context_id`/`site_id` (04/08/2026) : `backend/scripts/check-context-integrity.ps1` (+ `.sql` associes) detecte les incoherences residuelles possibles sur une instance mise a jour depuis avant les correctifs v0.8.1 (deplacement Site/VLAN) et v0.8.2 (deplacement Subnet) — six categories couvertes, rapport de lecture seule par defaut, `-Fix` corrige les quatre categories sans ambiguite (le reste demande un arbitrage manuel). Voir `backend/docs/ADMIN_GUIDE.md`, section "Diagnostic d'integrite context_id/site_id".
+
 ## [0.8.3] - 2026-08-04
 
 ### Fixed

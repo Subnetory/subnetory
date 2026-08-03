@@ -316,6 +316,25 @@ Reference complete des endpoints (schemas de requete/reponse) : Swagger UI `/swa
 
 Deploiement Kubernetes : chart `charts/subnetory`, cle `backupApp` dans `values.yaml` (PVC dediee, ConfigMap). La combinaison `backup.enabled=true` et `backupApp.enabled=true` est rejetee au rendu du chart (`helm template` echoue volontairement).
 
+## Diagnostic d'integrite context_id/site_id (04/08/2026)
+
+Avant les correctifs v0.8.1 (deplacement d'un Site ou d'un VLAN) et v0.8.2 (deplacement d'un Subnet), rien n'empechait de changer le contexte d'un Site, le site d'un VLAN, ou le contexte/site/CIDR d'un Subnet alors que des sous-reseaux ou des adresses existaient encore en dessous. `Subnet` et `Address` stockent leur propre `context_id`/`site_id`, jamais resynchronise automatiquement — ces enfants gardaient alors leurs anciennes valeurs. Depuis ces correctifs, ce type de deplacement est bloque tant que des enfants existent (409), donc aucune nouvelle incoherence ne peut apparaitre ; une instance mise a jour depuis une version anterieure peut neanmoins avoir des incoherences residuelles en base.
+
+`backend/scripts/check-context-integrity.ps1` diagnostique ces six categories (rapport de lecture seule par defaut) :
+
+```powershell
+cd backend/scripts
+.\check-context-integrity.ps1
+```
+
+Sur une instance qui n'a jamais transite par ces bugs, aucune ligne ne doit remonter. `-Fix` corrige automatiquement les categories sans ambiguite (contexte d'un Subnet realigne sur son Site/VLAN, contexte/site d'une Address realigne sur son Subnet — exactement ce que fait deja le code applicatif a chaque ecriture) :
+
+```powershell
+.\check-context-integrity.ps1 -Fix
+```
+
+Demande confirmation (taper `OUI`) avant d'ecrire ; `-Fix -Force` saute la confirmation. Une sauvegarde prealable (`backup-postgres.ps1`) est recommandee avant toute correction sur une instance de production. Deux categories (incoherence entre un Subnet et son parent, contexte ou containment CIDR) restent affichees mais jamais corrigees automatiquement : l'ambiguite sur laquelle des deux entites est en tort demande un arbitrage manuel. Detail des requetes SQL : `backend/scripts/check-context-integrity.sql` et `fix-context-integrity.sql`.
+
 ## Revocation JWT API
 
 Depuis le Sprint 2.26, les tokens JWT de l'API REST sont revocables avant leur expiration naturelle.
