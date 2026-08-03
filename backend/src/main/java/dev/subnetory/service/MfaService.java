@@ -158,6 +158,12 @@ public class MfaService {
     /**
      * Verifie un code de recuperation et le consomme (marque comme utilise)
      * s'il correspond. Chaque code n'est utilisable qu'une seule fois.
+     *
+     * <p>Consommation atomique (audit 03/08/2026, correctif MOYEN) : la
+     * mise a jour passe par {@link MfaRecoveryCodeRepository#markUsedIfUnused}
+     * (clause {@code and usedAt is null}) plutot que par un {@code save()}
+     * sur l'entite chargee, pour que deux authentifications concurrentes ne
+     * puissent jamais toutes les deux reussir a consommer le meme code.</p>
      */
     @Transactional
     public boolean verifyAndConsumeRecoveryCode(User user, String code) {
@@ -167,9 +173,8 @@ public class MfaService {
         List<MfaRecoveryCode> unused = recoveryCodeRepository.findUnusedByUserId(user.getId());
         for (MfaRecoveryCode candidate : unused) {
             if (passwordEncoder.matches(code, candidate.getCodeHash())) {
-                candidate.setUsedAt(OffsetDateTime.now());
-                recoveryCodeRepository.save(candidate);
-                return true;
+                int updated = recoveryCodeRepository.markUsedIfUnused(candidate.getId(), OffsetDateTime.now());
+                return updated == 1;
             }
         }
         return false;

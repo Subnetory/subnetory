@@ -1,0 +1,13 @@
+# Overlay utilise uniquement par le job de smoke test post-release dans
+# .github/workflows/release.yml (audit 03/08/2026, correctif "smoke test
+# post-release"). Remplace l'image construite localement par l'image GHCR
+# fraichement publiee sous le tag de la release en cours, pour verifier que
+# cette image demarre et repond reellement — pas seulement que le chart
+# Helm ou la doc *affirment* le bon tag (c'est exactement ce controle qui
+# manquait quand v0.8.1 a ete publiee avec un chart encore aligne sur
+# v0.8.0). Jamais utilise en developpement local ; SUBNETORY_SMOKE_IMAGE
+# est fourni par le workflow.
+services:
+  app:
+    image: ${SUBNETORY_SMOKE_IMAGE}
+    pull_policy: always

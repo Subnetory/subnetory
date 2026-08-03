@@ -12,10 +12,15 @@ import java.util.Locale;
 /**
  * Validation défensive des fichiers d'import avant leur passage aux parseurs.
  *
- * <p>La taille maximale acceptée suit la même propriété que le multipart Spring
- * ({@code spring.servlet.multipart.max-file-size}) afin de conserver une source
- * unique de vérité : changer cette propriété change aussi bien la limite Spring
- * que la limite applicative de ce validateur.</p>
+ * <p>Limite propre ({@code subnetory.import.max-file-size}, audit 03/08/2026,
+ * correctif MOYEN) : ce validateur réutilisait auparavant
+ * {@code spring.servlet.multipart.max-file-size}, dimensionnée à 200MB pour
+ * les dumps de sauvegarde importés en base — un compte {@code ROLE_IP}
+ * pouvait donc faire charger en mémoire un XLSX jusqu'à 200MB, que
+ * {@link org.apache.poi.xssf.usermodel.XSSFWorkbook} (non-streaming) charge
+ * intégralement en mémoire pour le parser. Une limite bien plus basse,
+ * indépendante de celle des sauvegardes, suffit largement pour un import
+ * d'adresses IP.</p>
  */
 @Component
 public class ImportFileValidator {
@@ -23,7 +28,7 @@ public class ImportFileValidator {
     private final long maxBytes;
 
     public ImportFileValidator(
-            @Value("${spring.servlet.multipart.max-file-size:5MB}") DataSize maxFileSize) {
+            @Value("${subnetory.import.max-file-size:10MB}") DataSize maxFileSize) {
         this.maxBytes = maxFileSize.toBytes();
     }
 

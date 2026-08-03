@@ -2,13 +2,13 @@
 
 ## Portée
 
-Ce document enregistre les versions réellement utilisées pour valider le chart Helm, initialement pour le Sprint 2.31 le 22 juillet 2026, puis remises à jour au fil des releases (dernière mise à jour : 03/08/2026, release `v0.8.0`). Il ne constitue pas une promesse de compatibilité avec toutes les versions intermédiaires, distributions Kubernetes, architectures ou implémentations CNI/CSI. Le job CI `helm-smoke` (`.github/workflows/ci.yml`) revalide cette matrice à chaque push contre les valeurs par défaut courantes du chart.
+Ce document enregistre les versions réellement utilisées pour valider le chart Helm, initialement pour le Sprint 2.31 le 22 juillet 2026, puis remises à jour au fil des releases (dernière mise à jour : 03/08/2026, release `v0.8.2`). Il ne constitue pas une promesse de compatibilité avec toutes les versions intermédiaires, distributions Kubernetes, architectures ou implémentations CNI/CSI. Le job CI `helm-smoke` (`.github/workflows/ci.yml`) revalide cette matrice à chaque push contre les valeurs par défaut courantes du chart — les versions d'infrastructure (Kubernetes, Helm, kind, kubectl, PostgreSQL) ci-dessous ne changent donc qu'en cas de mise à jour explicite de ces outils, indépendamment du numéro de version applicative.
 
 ## Matrice validée
 
 | Composant | Version ou image validée | Portée |
 |---|---|---|
-| Chart Subnetory | `0.1.3` | Application `0.8.0` |
+| Chart Subnetory | `0.1.4` | Application `0.8.2` |
 | Kubernetes | `1.34.8` | Cluster de smoke test réel |
 | Plancher déclaré par le chart | `>=1.34.0-0` | Refus Helm sous ce plancher |
 | Helm | `3.21.0` | `lint`, `template`, `install`, `test`, `upgrade`, `rollback`, `uninstall` |
@@ -16,7 +16,7 @@ Ce document enregistre les versions réellement utilisées pour valider le chart
 | Image de nœud kind | `kindest/node:v1.34.8@sha256:02722c2dedddcfc00febf5d27fbeb9b7b2c14294c82109ff4a85d89ac9ba3256` | Digest obligatoire pour reproduire le test |
 | kubectl | `1.34.8` | Aligné sur le cluster de test |
 | PostgreSQL inclus | `postgres:17.10-alpine3.23` | Tag de patch épinglé |
-| Image applicative | `ghcr.io/subnetory/subnetory:v0.8.0` (défaut du chart) ou build local | Image publique publiée par le workflow de release, désormais le défaut de `image.repository`/`image.tag` dans `values.yaml` |
+| Image applicative | `ghcr.io/subnetory/subnetory:v0.8.2` (défaut du chart) ou build local | Image publique publiée par le workflow de release, désormais le défaut de `image.repository`/`image.tag` dans `values.yaml` |
 | Java observé dans l'image | Temurin `21.0.11` | Démarrage applicatif du smoke test |
 | Architecture testée | `linux/amd64` | Docker Desktop et runner GitHub Actions validé |
 

@@ -1,6 +1,6 @@
 # Subnetory — Guide utilisateur MVP
 
-> Version : 0.8.0
+> Version : 0.8.2
 > Public : administrateurs réseau, équipes IT
 
 ---

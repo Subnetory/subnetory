@@ -84,6 +84,56 @@ public class ClientIpResolver {
                             + "proxy), ou desactivez trusted-proxy si aucun reverse proxy "
                             + "de confiance n'est en place.");
         }
+        for (String entry : trustedProxyCidrs) {
+            validateCidrEntry(entry);
+        }
+    }
+
+    /**
+     * Audit 03/08/2026, correctif MOYEN : {@link #matchesCidrOrExact} ne
+     * validait pas que le prefixe CIDR restait entre 0 et 32. Avec un
+     * prefixe hors bornes comme {@code /33} ou un prefixe negatif, le calcul
+     * du masque ({@code 0xFFFFFFFFL << (32 - prefix)}) subit un decalage de
+     * bits en dehors de la plage attendue par un {@code long} Java (le
+     * decalage est modulo 64, pas sature a zero) et peut produire un masque
+     * valant 0 — auquel cas n'importe quelle adresse "correspond" au CIDR,
+     * traitant potentiellement toute connexion directe comme un proxy de
+     * confiance. Valider ici, au demarrage, plutot qu'au moment de chaque
+     * requete : {@code trusted-proxy-cidrs} est une valeur de configuration
+     * fournie par l'operateur, jamais par le client, donc pas exploitable a
+     * distance, mais une faute de frappe dans la configuration ne doit pas
+     * degrader silencieusement la protection.
+     */
+    private void validateCidrEntry(String entry) {
+        if (!entry.contains("/")) {
+            if (ipv4ToLong(entry) < 0) {
+                throw new IllegalStateException(
+                        "subnetory.security.trusted-proxy-cidrs contient une entree "
+                                + "invalide : '" + entry + "' n'est pas une adresse IPv4 valide.");
+            }
+            return;
+        }
+        String[] parts = entry.split("/", 2);
+        String network = parts[0];
+        int prefix;
+        try {
+            prefix = Integer.parseInt(parts[1]);
+        } catch (NumberFormatException e) {
+            throw new IllegalStateException(
+                    "subnetory.security.trusted-proxy-cidrs contient une entree "
+                            + "invalide : '" + entry + "' n'a pas un prefixe numerique.");
+        }
+        if (prefix < 0 || prefix > 32) {
+            throw new IllegalStateException(
+                    "subnetory.security.trusted-proxy-cidrs contient une entree "
+                            + "invalide : '" + entry + "' a un prefixe hors bornes (attendu "
+                            + "entre 0 et 32 pour de l'IPv4).");
+        }
+        if (ipv4ToLong(network) < 0) {
+            throw new IllegalStateException(
+                    "subnetory.security.trusted-proxy-cidrs contient une entree "
+                            + "invalide : '" + entry + "' n'a pas une adresse reseau IPv4 valide.");
+        }
     }
 
     public String resolve(HttpServletRequest request) {

@@ -177,6 +177,51 @@ class LoginRateLimiterTest {
         assertThat(limiter.getFailureCountByUsername(username)).isZero();
     }
 
+    /**
+     * Regression (audit du 03/08/2026, correctif MOYEN) : {@code
+     * failureCount++} sur l'objet {@link LoginRateLimiter} mutable partage
+     * n'etait pas atomique malgre le {@link java.util.concurrent.ConcurrentHashMap}
+     * sous-jacent (celui-ci ne protege que ses propres operations, pas
+     * l'objet qu'il contient). Des echecs concurrents sur la meme IP
+     * pouvaient donc perdre des incrementations. Ce test lance
+     * {@code LOCK_THRESHOLD} echecs en parallele sur la meme IP et verifie
+     * qu'aucun n'est perdu : le compteur final doit valoir exactement
+     * {@code LOCK_THRESHOLD}, pas moins.
+     */
+    @Test
+    void recordFailure_concurrentCallsOnSameKey_neverLosesAnIncrement() throws InterruptedException {
+        MutableClock clock = new MutableClock();
+        LoginRateLimiter limiter = new LoginRateLimiter(clock);
+        int callers = LoginRateLimiter.LOCK_THRESHOLD;
+
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(callers);
+        java.util.concurrent.CyclicBarrier barrier = new java.util.concurrent.CyclicBarrier(callers);
+        try {
+            java.util.List<java.util.concurrent.Future<?>> futures = new java.util.ArrayList<>();
+            for (int i = 0; i < callers; i++) {
+                futures.add(pool.submit(() -> {
+                    try {
+                        barrier.await();
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                    limiter.recordFailure(IP);
+                }));
+            }
+            for (var future : futures) {
+                try {
+                    future.get();
+                } catch (java.util.concurrent.ExecutionException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        } finally {
+            pool.shutdown();
+        }
+
+        assertThat(limiter.getFailureCount(IP)).isEqualTo(callers);
+    }
+
     private static final class MutableClock extends Clock {
         private Instant instant = Instant.parse("2026-06-01T00:00:00Z");
 

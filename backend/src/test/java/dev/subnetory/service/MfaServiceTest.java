@@ -22,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -133,16 +134,38 @@ class MfaServiceTest {
     void verifyAndConsumeRecoveryCode_matchingCode_marksUsedAndReturnsTrue() {
         String rawCode = "abcd-efgh-ijkl-mnop";
         MfaRecoveryCode stored = new MfaRecoveryCode();
+        stored.setId(42L);
         stored.setUserId(1L);
         stored.setCodeHash(passwordEncoder.encode(rawCode));
         stored.setCreatedAt(OffsetDateTime.now());
         when(recoveryCodeRepository.findUnusedByUserId(1L)).thenReturn(List.of(stored));
+        when(recoveryCodeRepository.markUsedIfUnused(eq(42L), any())).thenReturn(1);
 
         boolean result = service.verifyAndConsumeRecoveryCode(user, rawCode);
 
         assertThat(result).isTrue();
-        assertThat(stored.getUsedAt()).isNotNull();
-        verify(recoveryCodeRepository).save(stored);
+        verify(recoveryCodeRepository).markUsedIfUnused(eq(42L), any());
+    }
+
+    /**
+     * Regression (audit du 03/08/2026, correctif MOYEN) : si
+     * {@code markUsedIfUnused} renvoie 0 lignes affectees (un autre appelant
+     * concurrent a deja consomme ce code entre la lecture et cette mise a
+     * jour), le code doit etre traite comme invalide, pas comme accepte.
+     */
+    @Test
+    void verifyAndConsumeRecoveryCode_concurrentlyAlreadyConsumed_returnsFalse() {
+        String rawCode = "abcd-efgh-ijkl-mnop";
+        MfaRecoveryCode stored = new MfaRecoveryCode();
+        stored.setId(42L);
+        stored.setUserId(1L);
+        stored.setCodeHash(passwordEncoder.encode(rawCode));
+        when(recoveryCodeRepository.findUnusedByUserId(1L)).thenReturn(List.of(stored));
+        when(recoveryCodeRepository.markUsedIfUnused(eq(42L), any())).thenReturn(0);
+
+        boolean result = service.verifyAndConsumeRecoveryCode(user, rawCode);
+
+        assertThat(result).isFalse();
     }
 
     @Test
@@ -155,7 +178,7 @@ class MfaServiceTest {
         boolean result = service.verifyAndConsumeRecoveryCode(user, "wrong-code-1234");
 
         assertThat(result).isFalse();
-        verify(recoveryCodeRepository, never()).save(any());
+        verify(recoveryCodeRepository, never()).markUsedIfUnused(any(), any());
     }
 
     @Test

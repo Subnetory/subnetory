@@ -13,6 +13,9 @@ jobs:
   release:
     runs-on: ubuntu-latest
 
+    outputs:
+      image_name: ${{ steps.image.outputs.name }}
+
     steps:
       # Actions tierces epinglees sur leur commit SHA complet, jamais un tag
       # mutable (audit 03/08/2026) : un tag comme "@v7" peut etre re-pousse
@@ -20,6 +23,14 @@ jobs:
       # compromission du depot, cf. l'incident aquasecurity/trivy-action de
       # mars 2026 documente dans ci.yml). Le SHA, lui, est immuable.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # Garde-fou (audit 03/08/2026) : v0.8.1 a ete publiee avec un pom.xml
+      # encore en -SNAPSHOT et un chart Helm pointant vers l'image v0.8.0 par
+      # defaut, sans qu'aucune verification automatique ne l'empeche. Refuse
+      # desormais de construire quoi que ce soit si le depot n'est pas
+      # coherent avec le tag pousse. Voir scripts/verify-release-consistency.sh.
+      - name: Verify release consistency
+        run: bash scripts/verify-release-consistency.sh "$GITHUB_REF_NAME"
 
       - name: Set up JDK 21
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
@@ -80,3 +91,46 @@ jobs:
         with:
           generate_release_notes: true
           files: backend/target/subnetory-*.jar
+
+  # Smoke test post-release (audit 03/08/2026) : v0.8.1 a ete publiee avec
+  # un chart Helm dont l'image par defaut pointait encore vers v0.8.0, sans
+  # que rien ne le detecte automatiquement — le job "helm-smoke" de ci.yml
+  # construit une image locale, il ne tire jamais l'image reellement
+  # publiee. Ce job pull l'image GHCR qui vient d'etre publiee sous le tag
+  # de cette release (pas "latest", le tag exact) via le meme
+  # docker-compose.yml que l'installation reelle, et verifie qu'elle
+  # demarre et repond effectivement. N'annule pas la release si elle
+  # echoue (deja publiee), mais le fait apparaitre clairement en rouge.
+  post-release-smoke:
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Generate local Compose secrets
+        run: bash scripts/init-compose.sh
+
+      - name: Pull and start the just-published image
+        env:
+          SUBNETORY_SMOKE_IMAGE: ${{ needs.release.outputs.image_name }}:${{ github.ref_name }}
+        run: |
+          docker compose -f backend/docker-compose.yml -f backend/docker-compose.release-smoke.yml up -d --no-build
+
+      - name: Wait for readiness
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/actuator/health/readiness 2>/dev/null | grep -q '"status":"UP"'; then
+              echo "Image publiee prete apres $((i * 5))s."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "L'image publiee n'est jamais devenue prete (readiness KO apres 150s)." >&2
+          docker compose -f backend/docker-compose.yml -f backend/docker-compose.release-smoke.yml logs >&2
+          exit 1
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f backend/docker-compose.yml -f backend/docker-compose.release-smoke.yml down -v

@@ -115,25 +115,43 @@ public class LoginRateLimiter {
         return moreSevere(ipDecision, usernameDecision);
     }
 
+    /**
+     * Increment non-atomique corrige (audit 03/08/2026, correctif MOYEN) :
+     * {@link ConcurrentHashMap} ne garantit la thread-safety que de ses
+     * propres operations (get/put/computeIfAbsent), pas de l'objet mutable
+     * {@link LoginAttempt} qu'il contient. Deux requetes concurrentes sur la
+     * meme cle (IP ou nom d'utilisateur) pouvaient donc perdre des
+     * incrementations de {@code failureCount++} (lecture-modification-
+     * ecriture non atomique), diluant artificiellement le seuil de
+     * verrouillage anti-bruteforce sous forte concurrence. La section
+     * critique est desormais synchronisee par instance de
+     * {@code LoginAttempt} (une par cle, jamais partagee entre cles — pas de
+     * contention entre IP/utilisateurs differents), et ses champs sont
+     * {@code volatile} pour que les lectures hors de ce verrou (
+     * {@link #isLocked}, {@link #getRemainingLockSeconds}, les getters de
+     * test) voient toujours la derniere valeur ecrite.
+     */
     private RateLimitDecision recordFailure(Map<String, LoginAttempt> bucket, String key) {
         cleanupExpiredEntries(bucket);
 
         Instant now = Instant.now(clock);
 
         LoginAttempt attempt = bucket.computeIfAbsent(key, ignored -> new LoginAttempt());
-        attempt.failureCount++;
-        attempt.lastFailureAt = now;
+        synchronized (attempt) {
+            attempt.failureCount++;
+            attempt.lastFailureAt = now;
 
-        if (attempt.failureCount >= LOCK_THRESHOLD) {
-            attempt.lockedUntil = now.plus(LOCK_DURATION);
-            return RateLimitDecision.locked(LOCK_DURATION);
+            if (attempt.failureCount >= LOCK_THRESHOLD) {
+                attempt.lockedUntil = now.plus(LOCK_DURATION);
+                return RateLimitDecision.locked(LOCK_DURATION);
+            }
+
+            if (attempt.failureCount >= DELAY_THRESHOLD) {
+                return RateLimitDecision.delayed(DELAY_DURATION);
+            }
+
+            return RateLimitDecision.allowed();
         }
-
-        if (attempt.failureCount >= DELAY_THRESHOLD) {
-            return RateLimitDecision.delayed(DELAY_DURATION);
-        }
-
-        return RateLimitDecision.allowed();
     }
 
     private static RateLimitDecision moreSevere(RateLimitDecision a, RateLimitDecision b) {
@@ -221,9 +239,14 @@ public class LoginRateLimiter {
     }
 
     private static final class LoginAttempt {
-        private int failureCount;
-        private Instant lastFailureAt;
-        private Instant lockedUntil;
+        // volatile : les ecritures se font sous synchronized(this) dans
+        // recordFailure, mais isLocked/getRemainingLockSeconds/les getters
+        // de test lisent ces champs sans prendre ce verrou — volatile
+        // garantit qu'ils voient la derniere valeur ecrite plutot qu'une
+        // copie mise en cache par thread.
+        private volatile int failureCount;
+        private volatile Instant lastFailureAt;
+        private volatile Instant lockedUntil;
     }
 
     public record RateLimitDecision(boolean delayed, boolean locked, Duration waitDuration) {

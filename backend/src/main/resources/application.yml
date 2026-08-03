@@ -97,6 +97,19 @@ subnetory:
   scan:
     timeout-seconds: ${SUBNETORY_SCAN_TIMEOUT:60}
     nmap-path: ${SUBNETORY_SCAN_NMAP_PATH:nmap}
+  import:
+    # Limite propre aux imports CSV/XLSX d'adresses (audit 03/08/2026,
+    # correctif MOYEN) : dev.subnetory.util.ImportFileValidator reutilisait
+    # jusqu'ici spring.servlet.multipart.max-file-size (200MB, dimensionne
+    # pour les dumps de sauvegarde importes en base de donnees), ce qui
+    # permettait a un compte ROLE_IP de faire charger en memoire un XLSX
+    # jusqu'a 200MB (org.apache.poi.xssf.usermodel.XSSFWorkbook n'est pas
+    # streaming). Une liste d'adresses IP, meme volumineuse, tient tres
+    # largement dans cette limite bien plus basse ; le multipart Spring
+    # (spring.servlet.multipart.max-file-size ci-dessus) reste la limite
+    # haute partagee par toutes les routes, celle-ci s'applique en plus,
+    # specifiquement a l'import CSV/XLSX.
+    max-file-size: ${SUBNETORY_IMPORT_MAX_FILE_SIZE:10MB}
   backup:
     # Sauvegarde de la base (Phase 7 audit, 31/07/2026). Valeurs par defaut
     # tant qu'aucune configuration n'est enregistree via /admin/backup —
