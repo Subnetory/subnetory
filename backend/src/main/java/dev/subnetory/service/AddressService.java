@@ -90,9 +90,16 @@ public class AddressService {
                 .toList();
     }
 
+    /**
+     * Filtre également par le contexte propre de l'adresse (audit 03/08/2026,
+     * correctif BLOQUANT, même raison que {@code SubnetService#findBySite}) :
+     * non appelée actuellement depuis un contrôleur, corrigée par précaution.
+     */
     public Page<AddressResponse> findBySubnet(Long subnetId, Pageable pageable) {
         subnetService.getEntityById(subnetId);
-        return addressRepository.findBySubnetId(subnetId, pageable).map(this::toResponse);
+        var allowedIds = contextAccessService.allowedContextIds();
+        if (allowedIds.isEmpty()) return Page.empty(pageable);
+        return addressRepository.findBySubnetIdAndContextIdIn(subnetId, allowedIds, pageable).map(this::toResponse);
     }
 
     public AddressResponse findById(Long id) {

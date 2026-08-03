@@ -11,13 +11,21 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.lang.reflect.Field;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -158,5 +166,53 @@ class SubnetServiceTest {
         assertThatThrownBy(() -> service.update(1L, request))
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("cycle");
+    }
+
+    /**
+     * Regression (audit du 03/08/2026, correctif BLOQUANT) : {@code
+     * findBySite}/{@code findByVlan} n'autorisaient l'acces qu'au contexte
+     * <em>actuel</em> du site/VLAN parent, jamais au contexte propre de
+     * chaque sous-reseau retourne. Un sous-reseau reste associe a un ancien
+     * contexte (site deplace sans que ses sous-reseaux ne le suivent)
+     * pouvait donc etre renvoye a un utilisateur qui n'a pas acces a cet
+     * ancien contexte. Ces deux methodes doivent desormais filtrer par le
+     * contexte propre du sous-reseau, pas seulement par celui du parent.
+     */
+    @Test
+    void findBySite_filtersByOwnContextOfEachSubnet_notJustParentSiteContext() {
+        Pageable pageable = PageRequest.of(0, 20);
+        when(contextAccessService.allowedContextIds()).thenReturn(List.of(1L));
+        when(subnetRepository.findBySiteIdAndContextIdIn(eq(10L), eq(List.of(1L)), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(subnetWith(1L, "10.0.0.0/24", null))));
+
+        var page = service.findBySite(10L, pageable);
+
+        assertThat(page.getContent()).hasSize(1);
+        verify(subnetRepository, never()).findBySiteId(anyLong(), any());
+    }
+
+    @Test
+    void findBySite_noAllowedContexts_returnsEmptyWithoutQuerying() {
+        Pageable pageable = PageRequest.of(0, 20);
+        when(contextAccessService.allowedContextIds()).thenReturn(List.of());
+
+        var page = service.findBySite(10L, pageable);
+
+        assertThat(page.getContent()).isEmpty();
+        verify(subnetRepository, never()).findBySiteIdAndContextIdIn(any(), any(), any());
+    }
+
+    @Test
+    void findByVlan_filtersByOwnContextOfEachSubnet_notJustParentVlanContext() {
+        Pageable pageable = PageRequest.of(0, 20);
+        when(vlanService.getEntityById(50L)).thenReturn(new dev.subnetory.domain.Vlan());
+        when(contextAccessService.allowedContextIds()).thenReturn(List.of(1L));
+        when(subnetRepository.findByVlanIdAndContextIdIn(eq(50L), eq(List.of(1L)), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(subnetWith(1L, "10.0.0.0/24", null))));
+
+        var page = service.findByVlan(50L, pageable);
+
+        assertThat(page.getContent()).hasSize(1);
+        verify(subnetRepository, never()).findByVlanId(anyLong(), any());
     }
 }

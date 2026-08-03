@@ -1,8 +1,13 @@
 replicaCount: 1
 
 image:
-  repository: subnetory
-  tag: "0.8.0"
+  # Image publique officielle (audit 03/08/2026) : les valeurs par defaut
+  # doivent correspondre a ce que le workflow de release publie reellement
+  # sur GHCR, pour qu'un "helm install" sans surcharge fonctionne. Pour un
+  # cluster sans acces sortant a ghcr.io, voir backend/docs/INSTALL_KUBERNETES.md
+  # (Options B/C) pour construire et charger l'image localement.
+  repository: ghcr.io/subnetory/subnetory
+  tag: "v0.8.0"
   pullPolicy: IfNotPresent
   imagePullSecrets: []
 

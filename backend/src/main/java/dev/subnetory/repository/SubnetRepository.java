@@ -78,6 +78,22 @@ public interface SubnetRepository extends JpaRepository<Subnet, Long> {
 
     Page<Subnet> findBySiteId(Long siteId, Pageable pageable);
 
+    /**
+     * Sous-réseaux d'un site, filtrés par le contexte propre du sous-réseau
+     * (audit 03/08/2026, correctif BLOQUANT) : {@link #findBySiteId(Long, Pageable)}
+     * seul n'autorise l'accès que via le contexte <em>actuel</em> du site, pas
+     * via le {@code context_id} propre de chaque sous-réseau retourné. Comme
+     * {@link dev.subnetory.service.SiteService#update} peut faire changer le
+     * contexte d'un site, un sous-réseau existant peut rester associé à
+     * l'ancien contexte (site_id inchangé, context_id non resynchronisé) —
+     * sans ce filtre, un utilisateur limité au nouveau contexte du site
+     * recevrait des sous-réseaux appartenant en réalité à l'ancien contexte.
+     * Utilisée par l'API et le contrôleur web ; la variante sans filtre reste
+     * disponible pour les usages internes qui ne dépendent pas d'un
+     * utilisateur (aucun actuellement).
+     */
+    Page<Subnet> findBySiteIdAndContextIdIn(Long siteId, Collection<Long> contextIds, Pageable pageable);
+
     Page<Subnet> findByContextId(Long contextId, Pageable pageable);
 
     Page<Subnet> findByContextIdIn(Collection<Long> contextIds, Pageable pageable);
@@ -87,6 +103,20 @@ public interface SubnetRepository extends JpaRepository<Subnet, Long> {
     /** Sous-réseaux d'un VLAN donné (navigation drill-down VLAN → subnets). */
     Page<Subnet> findByVlanId(Long vlanId, Pageable pageable);
 
+    /**
+     * Variante filtrée par contexte propre du sous-réseau, même raison que
+     * {@link #findBySiteIdAndContextIdIn} ci-dessus (audit 03/08/2026,
+     * correctif BLOQUANT) — s'applique ici à un VLAN déplacé vers un autre
+     * site (donc potentiellement un autre contexte).
+     */
+    Page<Subnet> findByVlanIdAndContextIdIn(Long vlanId, Collection<Long> contextIds, Pageable pageable);
+
+    /** Utilisé pour bloquer le changement de contexte d'un site qui a encore des sous-réseaux. */
+    boolean existsBySiteId(Long siteId);
+
+    /** Utilisé pour bloquer le changement de site d'un VLAN qui a encore des sous-réseaux. */
+    boolean existsByVlanId(Long vlanId);
+
     // --- Non-paginés (export CSV — Sprint 2.8) ---
 
     /**
@@ -94,6 +124,13 @@ public interface SubnetRepository extends JpaRepository<Subnet, Long> {
      * Utilisé par l'export CSV {@code GET /api/v1/subnets/export/csv?siteId=}.
      */
     List<Subnet> findBySiteId(Long siteId);
+
+    /**
+     * Variante filtrée par contexte propre du sous-réseau, même raison que
+     * {@link #findBySiteIdAndContextIdIn} ci-dessus (audit 03/08/2026,
+     * correctif BLOQUANT), pour l'export CSV.
+     */
+    List<Subnet> findBySiteIdAndContextIdIn(Long siteId, Collection<Long> contextIds);
 
     /**
      * Retourne tous les subnets d'un contexte, sans pagination.

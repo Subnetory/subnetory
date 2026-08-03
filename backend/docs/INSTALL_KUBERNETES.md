@@ -35,7 +35,7 @@ Toutes les commandes suivantes sont exécutées depuis la racine du dépôt.
 
 ### Option A — image officielle GHCR
 
-Si le cluster cible peut atteindre `ghcr.io`, utiliser directement l'image publiée par le workflow de release. Le package étant public, aucun `imagePullSecrets` n'est nécessaire :
+Si le cluster cible peut atteindre `ghcr.io`, utiliser directement l'image publiée par le workflow de release. Le package étant public, aucun `imagePullSecrets` n'est nécessaire. Ce sont les valeurs par défaut du chart (audit 03/08/2026) — un `helm install` sans surcharge utilise déjà cette image :
 
 ```yaml
 image:
@@ -46,19 +46,17 @@ image:
 
 ### Option B — cluster kind et build local
 
-Pour un cluster `kind` sans accès sortant à `ghcr.io`, construire puis charger l'image localement :
+Pour un cluster `kind` sans accès sortant à `ghcr.io`, construire puis charger l'image localement, puis surcharger explicitement `image.repository`/`image.tag` (les valeurs par défaut du chart pointent vers GHCR depuis l'Option A ci-dessus) :
 
 ```powershell
 docker build --tag subnetory:0.8.0 .\backend
 kind load docker-image subnetory:0.8.0 --name NOM_DU_CLUSTER
 ```
 
-Les valeurs par défaut du chart utilisent déjà :
-
 ```yaml
 image:
   repository: subnetory
-  tag: 0.8.0
+  tag: "0.8.0"
   pullPolicy: IfNotPresent
 ```
 

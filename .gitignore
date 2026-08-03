@@ -88,3 +88,5 @@ terraform.tfstate.*
 
 # Subnetory database backups
 /backups/
+*.dump
+*.sql.gz

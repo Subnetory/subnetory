@@ -49,9 +49,18 @@ public class SubnetService {
         return subnetRepository.findByContextIdIn(allowedIds, pageable).map(this::toResponse);
     }
 
+    /**
+     * Filtre également par le contexte propre du sous-réseau (audit 03/08/2026,
+     * correctif BLOQUANT) : {@code siteService.getEntityById(siteId)} vérifie
+     * l'accès au contexte <em>actuel</em> du site, ce qui ne suffit pas si un
+     * sous-réseau existant est resté associé à un ancien contexte après un
+     * changement de contexte du site (voir {@link SubnetRepository#findBySiteIdAndContextIdIn}).
+     */
     public Page<SubnetResponse> findBySite(Long siteId, Pageable pageable) {
         siteService.getEntityById(siteId);
-        return subnetRepository.findBySiteId(siteId, pageable).map(this::toResponse);
+        var allowedIds = contextAccessService.allowedContextIds();
+        if (allowedIds.isEmpty()) return Page.empty(pageable);
+        return subnetRepository.findBySiteIdAndContextIdIn(siteId, allowedIds, pageable).map(this::toResponse);
     }
 
     public Page<SubnetResponse> findByContext(Long contextId, Pageable pageable) {
@@ -59,10 +68,17 @@ public class SubnetService {
         return subnetRepository.findByContextId(contextId, pageable).map(this::toResponse);
     }
 
-    /** Navigation drill-down VLAN → subnets (audit du 31/07/2026). */
+    /**
+     * Navigation drill-down VLAN → subnets (audit du 31/07/2026). Filtre
+     * également par le contexte propre du sous-réseau (audit 03/08/2026,
+     * correctif BLOQUANT), même raison que {@link #findBySite} ci-dessus,
+     * pour un VLAN déplacé vers un autre site.
+     */
     public Page<SubnetResponse> findByVlan(Long vlanId, Pageable pageable) {
         vlanService.getEntityById(vlanId);
-        return subnetRepository.findByVlanId(vlanId, pageable).map(this::toResponse);
+        var allowedIds = contextAccessService.allowedContextIds();
+        if (allowedIds.isEmpty()) return Page.empty(pageable);
+        return subnetRepository.findByVlanIdAndContextIdIn(vlanId, allowedIds, pageable).map(this::toResponse);
     }
 
     public SubnetResponse findById(Long id) {
@@ -85,7 +101,11 @@ public class SubnetService {
     public List<SubnetResponse> findAllForExport(Long siteId, Long contextId) {
         if (siteId != null) {
             siteService.getEntityById(siteId);
-            return subnetRepository.findBySiteId(siteId).stream()
+            // Filtre par contexte propre du sous-réseau, même raison que
+            // findBySite (audit 03/08/2026, correctif BLOQUANT).
+            var allowedIds = contextAccessService.allowedContextIds();
+            if (allowedIds.isEmpty()) return List.of();
+            return subnetRepository.findBySiteIdAndContextIdIn(siteId, allowedIds).stream()
                     .map(this::toResponse)
                     .toList();
         }

@@ -1,0 +1,41 @@
+version: 2
+
+updates:
+  # Dependances Maven du backend.
+  # PR ouvertes uniquement : le merge reste une decision manuelle, revue au cas
+  # par cas (voir backend/docs/README.md, section "Actions GitHub tierces").
+  - package-ecosystem: "maven"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    groups:
+      maven-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Actions GitHub utilisees dans .github/workflows/*.yml.
+  # Une mise a jour proposee ici ne doit jamais etre mergee sans verifier que
+  # la nouvelle reference reste un commit SHA complet (pas un tag mutable).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "chore(ci)"
+
+  # Image de base du Dockerfile applicatif (backend/Dockerfile).
+  - package-ecosystem: "docker"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"

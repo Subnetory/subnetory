@@ -6,6 +6,7 @@ import dev.subnetory.dto.VlanRequest;
 import dev.subnetory.dto.VlanResponse;
 import dev.subnetory.exception.ConflictException;
 import dev.subnetory.exception.ResourceNotFoundException;
+import dev.subnetory.repository.SubnetRepository;
 import dev.subnetory.repository.VlanRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -21,13 +22,16 @@ public class VlanService {
     private final VlanRepository vlanRepository;
     private final SiteService siteService;
     private final ContextAccessService contextAccessService;
+    private final SubnetRepository subnetRepository;
 
     public VlanService(VlanRepository vlanRepository,
                        SiteService siteService,
-                       ContextAccessService contextAccessService) {
+                       ContextAccessService contextAccessService,
+                       SubnetRepository subnetRepository) {
         this.vlanRepository = vlanRepository;
         this.siteService = siteService;
         this.contextAccessService = contextAccessService;
+        this.subnetRepository = subnetRepository;
     }
 
     public Page<VlanResponse> findAll(Pageable pageable) {
@@ -83,6 +87,18 @@ public class VlanService {
 		if (changed && vlanRepository.existsByVidAndSiteId(requestedVid, request.siteId())) {
 			throw new ConflictException(
 					"VLAN " + request.vid() + " already exists on site " + request.siteId());
+		}
+
+		// Audit 03/08/2026, correctif BLOQUANT : les sous-reseaux stockent
+		// leur propre site_id/context_id, jamais resynchronise si le VLAN
+		// est deplace vers un autre site apres coup (voir la meme logique
+		// sur SiteService#update). Bloque tant qu'une migration explicite
+		// du graphe n'est pas implementee.
+		if (!Objects.equals(vlan.getSite().getId(), request.siteId())
+				&& subnetRepository.existsByVlanId(id)) {
+			throw new ConflictException(
+					"Impossible de changer le site d'un VLAN qui contient encore des "
+							+ "sous-reseaux. Deplacez ou supprimez d'abord ses sous-reseaux.");
 		}
 
 		Site site = siteService.getEntityById(request.siteId());

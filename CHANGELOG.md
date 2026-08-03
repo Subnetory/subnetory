@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 * `backend/README.md` (03/08/2026, relecture post-publication) : la section de déploiement production indiquait `SPRING_DATASOURCE_PASSWORD` dans `.env`, alors que `docker-compose.prod.yml` ne lit même pas cette variable depuis l'environnement — le mot de passe vient exclusivement du secret Docker `backend/secrets/postgres_password`. Tableau des variables d'environnement reformulé par mode de déploiement (Docker Compose vs JAR standalone) au lieu d'une liste unique trompeuse. Référence obsolète aux migrations Flyway "V1 à V4+" corrigée en "V1 à V21".
 * `CONTRIBUTING.md` (03/08/2026) : deux renvois vers la section "Project rules" du README, supprimée entre-temps, corrigés. Ajout d'une section expliquant que ce dépôt public est synchronisé depuis un dépôt de développement interne, et que les pull requests externes déposées ici sont bien acceptées et intégrées au prochain sync.
 * `release.yml` (03/08/2026) : le workflow de publication construisait le JAR avec `package -DskipTests`, ce qui aurait publié un JAR et une image GHCR même depuis un commit dont les tests ou la couverture JaCoCo échouent. Remplacé par `clean verify`.
+* **Fuite entre contextes lors du déplacement d'un site ou d'un VLAN (03/08/2026, correctif BLOQUANT)** : les sous-réseaux stockent leur propre `context_id`/`site_id`, jamais resynchronisés après coup. Déplacer un site vers un autre contexte (`SiteService.update`), ou un VLAN vers un autre site (`VlanService.update`), laissait les sous-réseaux existants associés à l'ancien contexte ; `SubnetService.findBySite`/`findByVlan` n'autorisaient l'accès que via le contexte *actuel* du parent, pas via le contexte propre de chaque sous-réseau retourné — un utilisateur limité au nouveau contexte pouvait ainsi recevoir des sous-réseaux appartenant en réalité à l'ancien. Corrigé sur deux plans : `SiteService.update`/`VlanService.update` refusent désormais tout changement de contexte/site tant que des sous-réseaux existent encore (le graphe n'est pas migré automatiquement) ; `SubnetService.findBySite`/`findByVlan`/`findAllForExport` filtrent en plus par le contexte propre de chaque sous-réseau (défense en profondeur, protège aussi un éventuel état déjà incohérent en base). Même correctif appliqué par précaution à `AddressService.findBySubnet`, non câblée sur aucun contrôleur actuellement. Les VLAN ne sont pas concernés (pas de `context_id` propre, toujours dérivé en direct du site).
 
 ## [0.8.0] - 2026-08-03
 
@@ -214,10 +215,10 @@ Première version pensée comme point de départ public propre : `v0.7.0` reste 
 * Basic secured GUI with Thymeleaf.
 * Docker packaging and GitHub Actions CI/CD foundations.
 
-[Unreleased]: https://github.com/Subnetory/subnetory/compare/v0.6.0...HEAD
-[0.6.0]: https://github.com/Subnetory/subnetory/releases/tag/v0.6.0
-[0.5.0]: https://github.com/Subnetory/subnetory/releases/tag/v0.5.0
-[0.4.0]: https://github.com/Subnetory/subnetory/releases/tag/v0.4.0
-[0.3.0]: https://github.com/Subnetory/subnetory/releases/tag/v0.3.0
-[0.2.0]: https://github.com/Subnetory/subnetory/releases/tag/v0.2.0
-[0.1.0]: https://github.com/Subnetory/subnetory/releases/tag/v0.1.0
+[Unreleased]: https://github.com/Subnetory/subnetory/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/Subnetory/subnetory/releases/tag/v0.8.0
+
+<!-- v0.7.0 et les versions antérieures (sections ci-dessus) sont restées
+     internes : aucun tag correspondant sur le dépôt public, v0.8.0 est le
+     premier point de départ public. Pas de lien de comparaison possible
+     pour ces entrées. -->

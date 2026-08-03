@@ -23,6 +23,16 @@ public interface AddressRepository
 
     Page<Address> findBySubnetId(Long subnetId, Pageable pageable);
 
+    /**
+     * Variante filtrée par contexte propre de l'adresse (audit 03/08/2026,
+     * correctif BLOQUANT, même raison que
+     * {@link SubnetRepository#findBySiteIdAndContextIdIn}) : non appelée
+     * actuellement ({@link dev.subnetory.service.AddressService#findBySubnet}
+     * n'est câblée sur aucun contrôleur), mais ajoutée par précaution avant
+     * qu'elle ne le devienne sans que ce correctif soit reproduit.
+     */
+    Page<Address> findBySubnetIdAndContextIdIn(Long subnetId, Collection<Long> contextIds, Pageable pageable);
+
     List<Address> findByHostname(String hostname);
 
     List<Address> findByHostnameAndContextIdIn(String hostname, Collection<Long> contextIds);

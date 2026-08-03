@@ -7,6 +7,7 @@ import dev.subnetory.dto.SiteResponse;
 import dev.subnetory.exception.ConflictException;
 import dev.subnetory.exception.ResourceNotFoundException;
 import dev.subnetory.repository.SiteRepository;
+import dev.subnetory.repository.SubnetRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -19,13 +20,16 @@ public class SiteService {
     private final SiteRepository siteRepository;
     private final NetworkContextService contextService;
     private final ContextAccessService contextAccessService;
+    private final SubnetRepository subnetRepository;
 
     public SiteService(SiteRepository siteRepository,
                        NetworkContextService contextService,
-                       ContextAccessService contextAccessService) {
+                       ContextAccessService contextAccessService,
+                       SubnetRepository subnetRepository) {
         this.siteRepository = siteRepository;
         this.contextService = contextService;
         this.contextAccessService = contextAccessService;
+        this.subnetRepository = subnetRepository;
     }
 
     public Page<SiteResponse> findAll(Pageable pageable) {
@@ -88,6 +92,18 @@ public class SiteService {
             throw new ConflictException("Site with code '" + normalizedCode + "' already exists");
         }
         NetworkContext context = contextService.getEntityById(request.contextId());
+        // Audit 03/08/2026, correctif BLOQUANT : les sous-reseaux stockent
+        // leur propre context_id (jamais resynchronise apres coup). Changer
+        // le contexte d'un site qui a encore des sous-reseaux les laisserait
+        // associes a l'ancien contexte, exposant une fuite entre perimetres
+        // (voir SubnetRepository#findBySiteIdAndContextIdIn). Bloque tant
+        // qu'une migration explicite du graphe n'est pas implementee.
+        if (!site.getContext().getId().equals(context.getId())
+                && subnetRepository.existsBySiteId(id)) {
+            throw new ConflictException(
+                    "Impossible de changer le contexte d'un site qui contient encore des "
+                            + "sous-reseaux. Deplacez ou supprimez d'abord ses sous-reseaux.");
+        }
         site.setName(request.name());
         site.setCode(normalizedCode);
         site.setContext(context);
