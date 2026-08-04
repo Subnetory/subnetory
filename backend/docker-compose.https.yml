@@ -34,14 +34,17 @@ services:
       # (`docker network inspect <projet>_default`).
       - SUBNETORY_SECURITY_TRUSTED_PROXY=true
       - SUBNETORY_SECURITY_TRUSTED_PROXY_CIDRS=${SUBNETORY_TRUSTED_PROXY_CIDRS:-172.16.0.0/12}
-      # Correctif securite MOYENNE (02/08/2026) : sans cette variable,
-      # Spring ignore le X-Forwarded-Proto: https envoye par Caddy, donc
-      # request.isSecure() reste faux cote app et le cookie de session
-      # n'obtient jamais l'attribut Secure (voir application.yml et
-      # HTTPS_REVERSE_PROXY.md, section 4). "framework" est la valeur
-      # recommandee par Spring Boot pour un reverse proxy de confiance
-      # unique en amont.
-      - SERVER_FORWARD_HEADERS_STRATEGY=framework
+      # SERVER_FORWARD_HEADERS_STRATEGY volontairement absent (correctif
+      # securite MOYENNE, audit externe 04/08/2026) : "framework" active
+      # l'auto-configuration Spring Boot standard de ForwardedHeaderFilter,
+      # qui reecrit request.isSecure()/getRemoteAddr() pour N'IMPORTE QUELLE
+      # connexion, sans jamais verifier SUBNETORY_SECURITY_TRUSTED_PROXY_CIDRS
+      # ci-dessus — rendant cette verification inoperante. Remplace par
+      # TrustAwareForwardedHeaderFilter (SecurityConfig), qui applique la
+      # meme reecriture (y compris X-Forwarded-Proto: https envoye par
+      # Caddy, donc l'attribut Secure du cookie de session, voir
+      # HTTPS_REVERSE_PROXY.md section 4) mais seulement pour les connexions
+      # dont l'adresse TCP directe correspond aux CIDR ci-dessus.
 
   caddy:
     image: caddy:2.11-alpine

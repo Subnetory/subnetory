@@ -44,6 +44,18 @@ secrets:
 #   - externalDatabaseCidrs : uniquement necessaire si externalDatabase.enabled
 #     est utilise (base PostgreSQL hors cluster) — CIDR du serveur externe.
 # Voir backend/docs/KUBERNETES_OPERATIONS.md avant d'activer.
+#
+# ingressFrom (correctif securite MOYENNE, audit externe 04/08/2026) :
+# restreint l'entree applicative au controleur Ingress plutot qu'a
+# n'importe quel pod du cluster. Decommentez et adaptez le
+# namespaceSelector au namespace reel de votre controleur Ingress (exemple
+# ci-dessous pour nginx-ingress, label standard "kubernetes.io/metadata.name"
+# pose automatiquement sur tout namespace par Kubernetes) :
+# networkPolicy:
+#   ingressFrom:
+#     - namespaceSelector:
+#         matchLabels:
+#           kubernetes.io/metadata.name: ingress-nginx
 networkPolicy:
   enabled: true
   allowedScanCidrs: []

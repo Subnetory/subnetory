@@ -173,6 +173,30 @@ public class ClientIpResolver {
     }
 
     /**
+     * Expose la meme decision de confiance que {@link #resolve} (correctif
+     * securite MOYENNE, audit externe 04/08/2026), pour
+     * {@code dev.subnetory.security.TrustAwareForwardedHeaderFilter} : ce
+     * filtre doit decider, avant que quoi que ce soit d'autre ne touche la
+     * requete, si {@code X-Forwarded-*} peut etre applique a
+     * {@code getRemoteAddr()}/{@code isSecure()} (via
+     * {@code org.springframework.web.filter.ForwardedHeaderFilter}).
+     *
+     * <p>Sans cette coordination, activer
+     * {@code server.forward-headers-strategy=framework} enregistrerait
+     * cette reecriture de maniere INCONDITIONNELLE (Spring Boot), avant
+     * meme que cette classe ne s'execute — {@link #resolve} recevrait alors
+     * une {@code remoteAddr} deja falsifiee par le client, rendant sa
+     * propre verification {@code trusted-proxy-cidrs} inoperante (elle
+     * comparerait la valeur revendiquee par le client contre elle-meme).</p>
+     *
+     * @param remoteAddr l'adresse TCP directe, lue AVANT toute reecriture
+     *                    (jamais falsifiable par le client)
+     */
+    public boolean isRequestFromTrustedProxy(String remoteAddr) {
+        return trustedProxyEnabled && isFromTrustedProxy(trim(remoteAddr));
+    }
+
+    /**
      * Verifie si l'IP source directe appartient a la liste des proxys de confiance.
      * Supporte les IP exactes et les prefixes CIDR IPv4. En cas de format
      * inattendu, renvoie false (fail-safe : on ne fait pas confiance).

@@ -141,6 +141,12 @@ subnetory:
     # Import d'un fichier .dump externe (audit 01/08/2026, POST /admin/backup/import).
     # Doit rester <= spring.servlet.multipart.max-file-size ci-dessus.
     import-max-size-bytes: ${SUBNETORY_BACKUP_IMPORT_MAX_SIZE_BYTES:209715200}
+    # Taille maximale des messages de diagnostic (stdout/stderr) de
+    # pg_dump/pg_restore (correctif securite FAIBLE, second audit externe
+    # 04/08/2026) — meme mecanisme que subnetory.scan.max-output-bytes pour
+    # Nmap. N'affecte pas le fichier de sauvegarde lui-meme (ecrit/lu
+    # directement sur disque par pg_dump/pg_restore, jamais via stdout).
+    max-output-bytes: ${SUBNETORY_BACKUP_MAX_OUTPUT_BYTES:10485760}
     encryption:
       # Chiffrement au repos des fichiers .dump (audit 01/08/2026, backlog #13) :
       # AES-256-GCM + HMAC-SHA256, cle derivee par PBKDF2 a partir de cette
@@ -213,20 +219,29 @@ logging:
 server:
   shutdown: graceful
   port: ${SERVER_PORT:8080}
-  # Correctif securite MOYENNE (02/08/2026) : par defaut Spring/Tomcat
-  # ignorent X-Forwarded-Proto, donc request.isSecure() renvoie toujours
-  # false derriere un reverse proxy qui termine le TLS (overlay
-  # docker-compose.https.yml / Caddy, voir HTTPS_REVERSE_PROXY.md). Deux
-  # consequences concretes sans ce correctif : le cookie de session
-  # n'obtient jamais l'attribut Secure (Tomcat ne l'ajoute que si la
-  # requete est vue comme securisee), et les URLs absolues generees par
-  # Spring (redirections) restent en http:// meme derriere HTTPS.
-  # "none" par defaut : safe pour le mode HTTP direct (docker-compose.yml
-  # de base, sans proxy) ou une valeur usurpee de X-Forwarded-Proto n'a
-  # aucun sens a etre prise en compte. L'overlay HTTPS positionne
-  # explicitement SERVER_FORWARD_HEADERS_STRATEGY=framework, en coherence
-  # avec SUBNETORY_SECURITY_TRUSTED_PROXY deja active pour ClientIpResolver
-  # dans ce meme overlay (cf. docker-compose.https.yml).
+  # Correctif securite MOYENNE (02/08/2026), REVU 04/08/2026 (audit
+  # externe) : par defaut Spring/Tomcat ignorent X-Forwarded-Proto, donc
+  # request.isSecure() renvoie toujours false derriere un reverse proxy qui
+  # termine le TLS (overlay docker-compose.https.yml / Caddy, Ingress K8s —
+  # voir HTTPS_REVERSE_PROXY.md). Sans correction : le cookie de session
+  # n'obtient jamais l'attribut Secure, et les URLs absolues generees par
+  # Spring restent en http:// meme derriere HTTPS.
+  #
+  # Reste volontairement a "none" ici, y compris quand
+  # SUBNETORY_SECURITY_TRUSTED_PROXY est actif : positionner "framework"
+  # activerait l'auto-configuration Spring Boot standard de
+  # ForwardedHeaderFilter, qui reecrit inconditionnellement
+  # getRemoteAddr()/isSecure() pour TOUTE requete, sans jamais verifier
+  # trusted-proxy-cidrs ci-dessous (audit externe 04/08/2026, correctif
+  # MOYEN) — un client direct pourrait alors forger sa propre IP/scheme,
+  # contournant le rate limiting et faussant le journal d'audit.
+  # TrustAwareForwardedHeaderFilter (SecurityConfig,
+  # dev.subnetory.security) fait le meme travail que ForwardedHeaderFilter,
+  # mais seulement pour les connexions dont l'adresse TCP directe
+  # correspond a SUBNETORY_SECURITY_TRUSTED_PROXY_CIDRS (meme verification
+  # que ClientIpResolver ci-dessous). Ne JAMAIS positionner
+  # SERVER_FORWARD_HEADERS_STRATEGY=framework : cela enregistrerait ce
+  # mecanisme non verifie EN PLUS du filtre ci-dessus.
   forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:none}
   servlet:
     session:

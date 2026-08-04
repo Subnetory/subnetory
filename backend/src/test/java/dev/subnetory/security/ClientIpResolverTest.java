@@ -216,6 +216,36 @@ class ClientIpResolverTest {
         assertThat(resolver.resolve(request)).isEqualTo("2001:db8::1");
     }
 
+    // -------------------------------------------------------
+    // isRequestFromTrustedProxy() — expose (audit externe 04/08/2026) pour
+    // TrustAwareForwardedHeaderFilter, qui doit prendre la meme decision de
+    // confiance avant de laisser ForwardedHeaderFilter reecrire la requete.
+    // -------------------------------------------------------
+
+    @Test
+    void isRequestFromTrustedProxy_proxyModeDisabled_alwaysFalse() {
+        // Meme si l'adresse correspondrait a un CIDR, le mode proxy doit
+        // rester le premier interrupteur : desactive, aucune adresse n'est
+        // jamais un "proxy de confiance".
+        var resolver = new ClientIpResolver(false, "10.0.0.0/8");
+
+        assertThat(resolver.isRequestFromTrustedProxy("10.1.2.3")).isFalse();
+    }
+
+    @Test
+    void isRequestFromTrustedProxy_matchingCidr_true() {
+        var resolver = new ClientIpResolver(true, "10.0.0.0/8");
+
+        assertThat(resolver.isRequestFromTrustedProxy("10.1.2.3")).isTrue();
+    }
+
+    @Test
+    void isRequestFromTrustedProxy_nonMatchingAddress_false() {
+        var resolver = new ClientIpResolver(true, "10.0.0.0/8");
+
+        assertThat(resolver.isRequestFromTrustedProxy("203.0.113.7")).isFalse();
+    }
+
     @Test
     void resolve_proxyMode_emptyCidrList_trustsAnyDirectConnection() {
         // Documente le comportement fail-open de isFromTrustedProxy() quand

@@ -14,7 +14,11 @@ spec:
     - Ingress
     - Egress
   ingress:
-    - ports:
+    - {{- if .Values.networkPolicy.ingressFrom }}
+      from:
+        {{- toYaml .Values.networkPolicy.ingressFrom | nindent 8 }}
+      {{- end }}
+      ports:
         - protocol: TCP
           port: {{ .Values.application.serverPort }}
   egress:

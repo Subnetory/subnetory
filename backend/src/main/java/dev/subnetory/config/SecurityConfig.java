@@ -1,11 +1,13 @@
 package dev.subnetory.config;
 
 import dev.subnetory.security.ApiRateLimitingFilter;
+import dev.subnetory.security.ClientIpResolver;
 import dev.subnetory.security.LoginRateLimitingFilter;
 import dev.subnetory.security.MandatoryPasswordChangeFilter;
 import dev.subnetory.security.MfaChallengeFilter;
 import dev.subnetory.security.RestoreMaintenanceFilter;
 import dev.subnetory.security.RevokedTokenValidator;
+import dev.subnetory.security.TrustAwareForwardedHeaderFilter;
 import dev.subnetory.security.UserTokenInvalidationValidator;
 import dev.subnetory.security.RateLimitingAuthenticationFailureHandler;
 import dev.subnetory.security.RateLimitingAuthenticationSuccessHandler;
@@ -23,6 +25,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpMethod;
@@ -113,7 +116,8 @@ public class SecurityConfig {
 
     @Bean
     @Order(0)
-    public SecurityFilterChain apiLogoutFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain apiLogoutFilterChain(
+            HttpSecurity http, RestoreMaintenanceFilter restoreMaintenanceFilter) throws Exception {
         // Le endpoint logout decode manuellement le Bearer token sans le validateur
         // de revocation afin de rester idempotent : deux logout successifs du
         // meme token doivent retourner 204. Tous les autres endpoints API passent
@@ -124,6 +128,17 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .headers(configureSecurityHeaders())
+                // Correctif securite MOYENNE (04/08/2026, second audit externe) :
+                // cette chaine dediee (Order 0, distincte de apiFilterChain
+                // ci-dessous) n'etait pas couverte par RestoreMaintenanceFilter —
+                // /api/v1/auth/logout pouvait donc toujours inserer une
+                // revocation JWT pendant une restauration en cours.
+                // AuthorizationFilter est toujours present dans une chaine
+                // Spring Security, quelle que soit sa configuration : ancre
+                // stable independamment des filtres realises specifiquement
+                // pour cette chaine minimale.
+                .addFilterBefore(restoreMaintenanceFilter,
+                        org.springframework.security.web.access.intercept.AuthorizationFilter.class)
                 .build();
     }
 
@@ -207,6 +222,33 @@ public class SecurityConfig {
         FilterRegistrationBean<RestoreMaintenanceFilter> registration =
                 new FilterRegistrationBean<>(restoreMaintenanceFilter);
         registration.setEnabled(false);
+        return registration;
+    }
+
+    /**
+     * Remplace l'auto-configuration Spring Boot de {@code ForwardedHeaderFilter}
+     * (correctif securite MOYENNE, audit externe 04/08/2026) — voir la
+     * javadoc de {@link TrustAwareForwardedHeaderFilter} pour le detail du
+     * probleme (getRemoteAddr() reecrit sans verification si
+     * {@code server.forward-headers-strategy=framework} est positionne) et
+     * du correctif. {@code Ordered.HIGHEST_PRECEDENCE} : meme rang que
+     * l'auto-configuration Spring Boot remplacee, pour s'executer avant la
+     * chaine de securite (FilterChainProxy) et tout autre filtre
+     * applicatif — {@code ClientIpResolver} et le reste de l'application ne
+     * doivent jamais voir {@code getRemoteAddr()} deja reecrit par une
+     * source non verifiee.
+     *
+     * <p>Cette classe n'est PAS un {@code @Component} (contrairement a
+     * {@code ApiRateLimitingFilter}/{@code RestoreMaintenanceFilter}
+     * ci-dessus) : construite directement ici, elle evite tout risque de
+     * double auto-enregistrement Spring Boot a desactiver.</p>
+     */
+    @Bean
+    public FilterRegistrationBean<TrustAwareForwardedHeaderFilter> trustAwareForwardedHeaderFilterRegistration(
+            ClientIpResolver clientIpResolver) {
+        FilterRegistrationBean<TrustAwareForwardedHeaderFilter> registration =
+                new FilterRegistrationBean<>(new TrustAwareForwardedHeaderFilter(clientIpResolver));
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
         return registration;
     }
 
@@ -309,6 +351,17 @@ public class SecurityConfig {
                         // conserverait en memoire les autorites/roles d'avant la
                         // restauration jusqu'a son expiration naturelle.
                         .sessionRegistry(sessionRegistry)
+                        // Correctif UX (04/08/2026, constate en test manuel apres
+                        // restauration) : sans expiredUrl, une session marquee
+                        // expiree par le SessionRegistry (ConcurrentSessionFilter,
+                        // y compris via SessionInvalidationService#expireAllSessions
+                        // apres une restauration) affiche le texte brut par defaut
+                        // de Spring Security ("This session has been expired...",
+                        // non traduit, sans navigation) au lieu de rediriger vers
+                        // une page normale. Reutilise la meme cible que
+                        // invalidSessionUrl ci-dessus : les deux cas se resolvent de
+                        // la meme facon pour l'utilisateur (se reconnecter).
+                        .expiredUrl("/login?expired")
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/assets/**", "/error", "/login").permitAll()

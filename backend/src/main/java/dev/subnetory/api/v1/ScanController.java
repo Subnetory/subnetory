@@ -94,6 +94,10 @@ public class ScanController {
             // (nombre de scans Nmap concurrents), pas l'indisponibilite de
             // l'outil lui-meme.
             case TOO_MANY_CONCURRENT_SCANS -> HttpStatus.TOO_MANY_REQUESTS.value();
+            // 503, comme RestoreMaintenanceFilter (correctif securite
+            // FAIBLE, second audit externe 04/08/2026) : meme semantique,
+            // une restauration a demarre pendant ce scan deja accepte.
+            case RESTORE_IN_PROGRESS -> HttpStatus.SERVICE_UNAVAILABLE.value();
         };
     }
 
@@ -111,6 +115,7 @@ public class ScanController {
             case EXECUTION_FAILED    -> "Scan Execution Failed";
             case PARSE_ERROR         -> "Scan Output Parse Error";
             case TOO_MANY_CONCURRENT_SCANS -> "Too Many Concurrent Scans";
+            case RESTORE_IN_PROGRESS -> "Restore In Progress";
         });
         pd.setProperty("timestamp", Instant.now());
         return pd;

@@ -317,6 +317,51 @@ class BackupExecutionServiceTest {
     }
 
     // -------------------------------------------------------
+    // Invalidation JWT/sessions independante (correctif securite FAIBLE,
+    // second audit externe 04/08/2026) — invoque la methode privee
+    // directement via reflection : la reproduire de bout en bout via
+    // restore() necessiterait un pg_restore reel (indisponible en CI/
+    // Testcontainers, cf. AdminBackupControllerIT), alors que le point a
+    // couvrir est purement l'independance des deux appels entre eux.
+    // -------------------------------------------------------
+
+    @Test
+    void invalidateSessionsAndTokensAfterRestore_jwtInvalidationFails_stillExpiresWebSessions() {
+        org.mockito.Mockito.doThrow(new RuntimeException("db unavailable"))
+                .when(userTokenInvalidationService).invalidateAllTokens(any(), any());
+
+        ReflectionTestUtils.invokeMethod(service, "invalidateSessionsAndTokensAfterRestore", "admin");
+
+        verify(sessionInvalidationService, times(1)).expireAllSessions();
+    }
+
+    @Test
+    void invalidateSessionsAndTokensAfterRestore_sessionExpiryFails_stillInvalidatesJwts() {
+        when(sessionInvalidationService.expireAllSessions())
+                .thenThrow(new RuntimeException("session registry unavailable"));
+
+        ReflectionTestUtils.invokeMethod(service, "invalidateSessionsAndTokensAfterRestore", "admin");
+
+        verify(userTokenInvalidationService, times(1)).invalidateAllTokens(
+                "admin", dev.subnetory.service.UserTokenInvalidationService.REASON_POST_RESTORE);
+    }
+
+    @Test
+    void invalidateSessionsAndTokensAfterRestore_bothFail_neitherExceptionPropagates() {
+        org.mockito.Mockito.doThrow(new RuntimeException("db unavailable"))
+                .when(userTokenInvalidationService).invalidateAllTokens(any(), any());
+        when(sessionInvalidationService.expireAllSessions())
+                .thenThrow(new RuntimeException("session registry unavailable"));
+
+        // Ne doit lever aucune exception : ReflectionTestUtils.invokeMethod
+        // relancerait tout RuntimeException non attrapee.
+        ReflectionTestUtils.invokeMethod(service, "invalidateSessionsAndTokensAfterRestore", "admin");
+
+        verify(userTokenInvalidationService, times(1)).invalidateAllTokens(any(), any());
+        verify(sessionInvalidationService, times(1)).expireAllSessions();
+    }
+
+    // -------------------------------------------------------
     // Titre/commentaire (audit 01/08/2026)
     // -------------------------------------------------------
 
@@ -761,5 +806,44 @@ class BackupExecutionServiceTest {
                 .hasMessageContaining("HMAC");
 
         verify(backupRunRepository, never()).save(any());
+    }
+
+    // -------------------------------------------------------
+    // Sortie pg_dump/pg_restore bornee (correctif securite FAIBLE, second
+    // audit externe 04/08/2026) — invoque runProcess directement par
+    // reflexion Java standard (pas ReflectionTestUtils.invokeMethod, qui
+    // envelopperait la BackupException verifiee dans une
+    // UndeclaredThrowableException, cf. commentaire plus haut sur
+    // encryptFile/decryptFile). nmapPath est ici l'executable java de la
+    // JVM en cours, meme technique que ScanServiceTest, pour produire une
+    // sortie sans dependre d'un vrai pg_dump/pg_restore (absent en CI/
+    // sandbox).
+    // -------------------------------------------------------
+
+    @Test
+    void runProcess_outputExceedsConfiguredLimit_failsWithClearMessage() throws Exception {
+        String javaExecutable = ProcessHandle.current().info().command()
+                .orElseThrow(() -> new IllegalStateException(
+                        "Impossible de determiner le chemin de l'executable java courant"));
+        // "java" invoque avec une option qu'il ne reconnait pas ecrit un
+        // message d'erreur sur stderr et sort en echec — largement plus que
+        // la limite volontairement minuscule fixee ci-dessous.
+        ReflectionTestUtils.setField(service, "maxOutputBytes", 5L);
+        ReflectionTestUtils.setField(service, "timeoutSeconds", 10);
+
+        java.lang.reflect.Method runProcess = BackupExecutionService.class.getDeclaredMethod(
+                "runProcess", List.class, java.util.Map.class, String.class);
+        runProcess.setAccessible(true);
+
+        assertThatThrownBy(() -> runProcess.invoke(
+                        service, List.of(javaExecutable, "--nonexistent-option"), java.util.Map.of(), "pg_dump"))
+                .isInstanceOf(java.lang.reflect.InvocationTargetException.class)
+                .satisfies(thrown -> {
+                    Throwable cause = thrown.getCause();
+                    assertThat(cause).isInstanceOf(BackupException.class);
+                    BackupException backupException = (BackupException) cause;
+                    assertThat(backupException.getReason()).isEqualTo(BackupException.Reason.EXECUTION_FAILED);
+                    assertThat(backupException.getMessage()).containsIgnoringCase("lecture de la sortie");
+                });
     }
 }

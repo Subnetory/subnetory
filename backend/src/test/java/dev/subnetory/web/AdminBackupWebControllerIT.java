@@ -183,6 +183,22 @@ class AdminBackupWebControllerIT {
     }
 
     @Test
+    @WithMockUser(roles = "BACKUP")
+    void roleBackup_updateSettings_returns403() throws Exception {
+        // Correctif securite MOYENNE (04/08/2026, second audit externe) :
+        // meme motif que roleBackup_import_returns403 — modifier la
+        // configuration de sauvegarde est desormais reserve a ROLE_ADMIN.
+        mvc.perform(post("/admin/backup/settings")
+                        .with(csrf())
+                        .param("enabled", "true")
+                        .param("cronExpression", "0 0 2 * * *")
+                        .param("retentionCount", "14"))
+                .andExpect(status().isForbidden());
+
+        verify(configurationService, never()).save(any());
+    }
+
+    @Test
     @WithMockUser(roles = "ADMIN")
     void updateSettings_invalidCron_redirectsWithFlashError() throws Exception {
         org.mockito.Mockito.doThrow(new IllegalArgumentException("Expression cron invalide."))
@@ -349,6 +365,18 @@ class AdminBackupWebControllerIT {
         verify(executionService, never()).purgeHistoryBefore(any());
     }
 
+    @Test
+    @WithMockUser(roles = "BACKUP")
+    void roleBackup_purge_returns403() throws Exception {
+        // Correctif securite MOYENNE (04/08/2026, second audit externe) :
+        // meme motif que roleBackup_import_returns403 — la purge en masse
+        // est desormais reservee a ROLE_ADMIN.
+        mvc.perform(post("/admin/backup/purge").with(csrf()).param("beforeDate", "2026-01-01"))
+                .andExpect(status().isForbidden());
+
+        verify(executionService, never()).purgeHistoryBefore(any());
+    }
+
     // -------------------------------------------------------
     // Suppression fine d'une seule sauvegarde (audit 01/08/2026)
     // -------------------------------------------------------
@@ -399,6 +427,19 @@ class AdminBackupWebControllerIT {
         verify(executionService, never()).deleteRun(anyLong());
     }
 
+    @Test
+    @WithMockUser(roles = "BACKUP")
+    void roleBackup_deleteRun_returns403() throws Exception {
+        // Correctif securite MOYENNE (04/08/2026, second audit externe) :
+        // meme motif que roleBackup_import_returns403 — la suppression fine
+        // est desormais reservee a ROLE_ADMIN.
+        mvc.perform(post("/admin/backup/runs/5/delete").with(csrf()))
+                .andExpect(status().isForbidden());
+
+        verify(executionService, never()).deleteRun(anyLong());
+        verify(executionService, never()).deleteRunCascade(anyLong());
+    }
+
     // -------------------------------------------------------
     // Confirmation de suppression (audit 01/08/2026)
     // -------------------------------------------------------
@@ -443,6 +484,17 @@ class AdminBackupWebControllerIT {
         mvc.perform(get("/admin/backup/runs/999/delete-confirm"))
                 .andExpect(status().isNotFound())
                 .andExpect(view().name("error/404"));
+    }
+
+    @Test
+    @WithMockUser(roles = "BACKUP")
+    void roleBackup_deleteConfirm_returns403() throws Exception {
+        // Correctif securite MOYENNE (04/08/2026, second audit externe),
+        // meme motif que roleBackup_restoreConfirm_returns403 : la page de
+        // confirmation suit desormais la meme restriction que le POST de
+        // suppression qu'elle mene.
+        mvc.perform(get("/admin/backup/runs/5/delete-confirm"))
+                .andExpect(status().isForbidden());
     }
 
     // -------------------------------------------------------

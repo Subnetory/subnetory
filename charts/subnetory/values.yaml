@@ -278,3 +278,25 @@ networkPolicy:
   enabled: false
   allowedScanCidrs: []
   externalDatabaseCidrs: []
+  # Correctif securite MOYENNE (audit externe 04/08/2026) : par defaut, la
+  # regle d'entree applicative n'a pas de "from" — n'importe quel pod du
+  # cluster (tout namespace) peut atteindre le port applicatif, pas
+  # seulement le controleur Ingress. Volontairement permissif par defaut :
+  # le namespace/les labels du controleur Ingress varient selon le
+  # fournisseur/l'installation (nginx-ingress, Traefik, LoadBalancer
+  # cloud...), impossible d'en deviner un valable pour tous les clusters.
+  # Combine a TrustAwareForwardedHeaderFilter (backend/ClientIpResolver),
+  # un pod compromis ailleurs dans le cluster ne peut pas usurper l'IP
+  # client (le filtre ne fait pas confiance a ses en-tetes), mais reste
+  # capable d'atteindre directement l'application — trafic que l'Ingress
+  # etait cense filtrer en premier lieu.
+  # Renseigner ci-dessous restreint l'entree applicative a exactement ces
+  # sources (format NetworkPolicyPeer Kubernetes standard :
+  # namespaceSelector / podSelector / ipBlock, fusionne tel quel dans le
+  # manifest). Exemple pour nginx-ingress installe dans le namespace
+  # "ingress-nginx" (label standard pose par la plupart des installateurs) :
+  #   ingressFrom:
+  #     - namespaceSelector:
+  #         matchLabels:
+  #           kubernetes.io/metadata.name: ingress-nginx
+  ingressFrom: []

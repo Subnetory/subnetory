@@ -51,6 +51,7 @@ Subnetory is a young project intended primarily for internal use by small IT tea
 
 - there is no independent third-party security audit yet;
 - Kubernetes deployments are documented as single-replica, with several production concerns (Ingress, CNI, NetworkPolicies, external storage) left to the operator to qualify for their own environment;
-- dependency scanning runs in CI (see the `dependency-scan` workflow job), but no formal CVE monitoring process exists yet beyond that.
+- dependency scanning runs in CI (see the `dependency-scan` workflow job), but no formal CVE monitoring process exists yet beyond that;
+- static application security testing (SAST) of the Java source itself runs in CI since 04/08/2026 (see the `codeql` workflow job, CodeQL with the `security-extended` query pack) — findings surface under the repository's Security tab, not yet gated as a hard CI failure.
 
 If you plan to expose Subnetory beyond a trusted internal network, put it behind a reverse proxy with HTTPS termination and review the documents linked above first.

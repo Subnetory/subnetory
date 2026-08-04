@@ -34,23 +34,33 @@
 > verifie que sur son format, pas cryptographiquement.
 >
 > **Mode maintenance applicatif et invalidation post-restauration (correctif
-> securite MOYENNE, audit 04/08/2026).** Jusqu'ici, "l'arret ou l'absence
-> d'ecriture applicative pendant l'operation" (voir "Principe general"
-> ci-dessous) n'etait impose que par cette documentation, jamais par le
-> logiciel — l'application continuait d'accepter des mutations metier
-> pendant un `pg_restore` en cours. Pour le moteur integre uniquement
-> (`BackupExecutionService#restore`) : `RestoreMaintenanceGate` rejette
-> desormais (HTTP 503, `Retry-After`) toute requete de mutation (methode
-> autre que GET/HEAD/OPTIONS, hors authentification) le temps du
-> `pg_restore`. Apres un succes, tous les jetons JWT sont invalides et
-> toutes les sessions Web sont drainees, pour ne pas laisser un etat restaure
-> plus ancien de `user_token_invalidations` (table non exclue du dump,
-> contrairement a `backup_runs`/`backup_restores`) reautoriser un jeton
-> revoque depuis, ou une session Web deja ouverte garder les autorites
-> chargees avant la restauration. Les scripts PowerShell historiques
-> (`restore-postgres.ps1`) restent manuels : l'arret de l'application pendant
-> leur execution reste une precaution operationnelle a la charge de
-> l'operateur, comme decrit plus bas.
+> securite MOYENNE, audit 04/08/2026 ; durci le 04/08/2026 suite a un second
+> audit externe).** Jusqu'ici, "l'arret ou l'absence d'ecriture applicative
+> pendant l'operation" (voir "Principe general" ci-dessous) n'etait impose
+> que par cette documentation, jamais par le logiciel — l'application
+> continuait d'accepter des mutations metier pendant un `pg_restore` en
+> cours. Pour le moteur integre uniquement (`BackupExecutionService#restore`) :
+> `RestoreMaintenanceGate` rejette desormais (HTTP 503, `Retry-After`) TOUTE
+> requete de mutation (methode autre que GET/HEAD/OPTIONS) le temps du
+> `pg_restore` — SANS aucune exception, y compris pour l'authentification
+> (`/api/v1/auth/token`, `/change-password-required`, `/logout`,
+> `/logout-all`, `POST /login`) : une premiere version exemptait ces routes
+> au motif qu'elles "ne modifient pas de donnees metier", mais elles
+> ecrivent bel et bien en base (journal d'audit, etat MFA, mot de passe,
+> jetons revoques) — un second audit a releve que cette exception laissait
+> passer des ecritures pendant la restauration. Une session ou un jeton deja
+> valides AVANT la restauration continuent de fonctionner pour la
+> consultation (GET) ; seules une nouvelle authentification ou une
+> deconnexion doivent attendre la fin de l'operation. Apres un succes, tous
+> les jetons JWT sont invalides et toutes les sessions Web sont drainees,
+> pour ne pas laisser un etat restaure plus ancien de
+> `user_token_invalidations` (table non exclue du dump, contrairement a
+> `backup_runs`/`backup_restores`) reautoriser un jeton revoque depuis, ou
+> une session Web deja ouverte garder les autorites chargees avant la
+> restauration. Les scripts PowerShell historiques (`restore-postgres.ps1`)
+> restent manuels : l'arret de l'application pendant leur execution reste
+> une precaution operationnelle a la charge de l'operateur, comme decrit
+> plus bas.
 
 ## Objectif
 
@@ -71,6 +81,27 @@ Avant toute restauration, il faut confirmer :
 - l'etat courant de la base ;
 - la disponibilite d'une sauvegarde recente avant restauration ;
 - l'arret ou l'absence d'ecriture applicative pendant l'operation.
+
+## Etat des comptes et des sessions apres restauration
+
+Une restauration remplace TOUTE la base, y compris la table `users` : mots
+de passe, secrets MFA et roles reviennent exactement a leur etat au moment
+du backup restaure. Tout changement effectue apres ce backup — mot de
+passe modifie, MFA active/desactive, role modifie, compte cree ou
+supprime — est annule par la restauration, au meme titre que les donnees
+metier (contexts, sites, VLANs, subnets, adresses).
+
+Consequence concrete : apres une restauration, se reconnecter avec le mot
+de passe *actuel* peut echouer si ce mot de passe a ete change apres la
+date du backup restaure — c'est le mot de passe valide **au moment du
+backup** qu'il faut utiliser. Ce n'est pas un dysfonctionnement.
+
+Voir aussi la note "Mode maintenance applicatif et invalidation
+post-restauration" plus haut : independamment de ce qui precede, tous les
+jetons JWT et toutes les sessions Web actives sont desormais
+systematiquement invalides apres une restauration reussie (correctif
+securite MOYENNE, audit 04/08/2026) — meme un utilisateur dont le mot de
+passe est identique avant/apres devra se reconnecter.
 
 ## Environnements supportes
 
@@ -180,7 +211,10 @@ Apres restauration, verifier :
 - authentification ;
 - presence des donnees attendues ;
 - coherence des subnets, VLANs et adresses IP ;
-- execution des tests Maven.
+- execution des tests Maven ;
+- information des utilisateurs concernes si le backup restaure est
+  anterieur a un changement de mot de passe, de MFA ou de role recent
+  (voir "Etat des comptes et des sessions apres restauration" plus haut).
 
 Commandes utiles :
 
@@ -191,9 +225,10 @@ cd backend
 
 ## Validation Maven
 
-La validation finale attendue apres ce sprint reste :
+La validation finale attendue :
 
-Tests run: 486
+Tests run: N (voir le nombre de tests courant dans le dernier run CI —
+un nombre fixe ici deviendrait stale a chaque test ajoute)
 Failures: 0
 Errors: 0
 Skipped: 0

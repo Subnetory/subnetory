@@ -50,6 +50,18 @@ import org.springframework.web.multipart.MultipartFile;
  * API REST de gestion des sauvegardes (Phase 7 audit, 31/07/2026) — parité
  * complète avec l'interface web {@code /admin/backup}, conformément à
  * l'approche API-first du projet.
+ *
+ * <p><strong>Périmètre {@code ROLE_BACKUP}</strong> (resserré le 04/08/2026,
+ * second audit externe) : lecture de la configuration, déclenchement manuel,
+ * consultation de l'historique (sauvegardes et restaurations) et
+ * téléchargement — pensé pour un compte de service ou un opérateur dédié qui
+ * exécute et surveille des sauvegardes sans être administrateur. Réservées à
+ * {@code ROLE_ADMIN} : import et restauration (accès complet aux données,
+ * correctif ÉLEVÉE du 04/08/2026), ainsi que modification de la
+ * configuration, purge en masse et suppression individuelle (sabotage
+ * silencieux de la capacité de reprise après sinistre, correctif MOYENNE du
+ * 04/08/2026, second audit externe) — voir les annotations
+ * {@code @PreAuthorize} au niveau de chaque méthode concernée.</p>
  */
 @RestController
 @RequestMapping("/api/v1/admin/backup")
@@ -79,7 +91,15 @@ public class AdminBackupController {
     }
 
     @PutMapping
-    @Operation(summary = "Modifier la configuration de sauvegarde")
+    // Correctif securite MOYENNE (04/08/2026, second audit externe) : un
+    // compte ROLE_BACKUP compromis pouvait desactiver la sauvegarde
+    // planifiee, allonger/raccourcir arbitrairement la retention ou changer
+    // le cron — sabotage silencieux de la capacite de reprise apres
+    // sinistre, sans jamais toucher a la base applicative elle-meme (donc
+    // hors perimetre du correctif import/restore precedent). Reserve
+    // desormais a ROLE_ADMIN, comme import/restore.
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Modifier la configuration de sauvegarde — réservé à ROLE_ADMIN")
     public ResponseEntity<?> updateSettings(@RequestBody BackupSettingsRequest request) {
         try {
             BackupSettingsForm form = new BackupSettingsForm();
@@ -145,11 +165,18 @@ public class AdminBackupController {
     }
 
     @PostMapping("/purge")
-    @Operation(summary = "Purger définitivement l'historique avant une date",
+    // Correctif securite MOYENNE (04/08/2026, second audit externe) :
+    // suppression definitive et en masse de l'historique (lignes + fichiers
+    // .dump sur disque) — un compte ROLE_BACKUP compromis pouvait aneantir
+    // toute capacite de reprise apres sinistre en une seule requete. Reserve
+    // desormais a ROLE_ADMIN.
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Purger définitivement l'historique avant une date — réservé à ROLE_ADMIN",
             description = "Supprime les sauvegardes et restaurations strictement antérieures à beforeDate, "
                     + "ainsi que leurs fichiers .dump s'ils sont encore sur disque. Une sauvegarde encore "
                     + "référencée par une restauration conservée (plus récente que la coupure) est protégée "
-                    + "et n'est jamais supprimée, même si elle est elle-même antérieure à la date.")
+                    + "et n'est jamais supprimée, même si elle est elle-même antérieure à la date. Réservé à "
+                    + "ROLE_ADMIN (correctif sécurité MOYENNE, second audit externe 04/08/2026).")
     public BackupPurgeResponse purge(@RequestBody BackupPurgeRequest request) {
         OffsetDateTime cutoff = request.beforeDate().atStartOfDay().atOffset(ZoneOffset.UTC);
         var result = executionService.purgeHistoryBefore(cutoff);
@@ -166,12 +193,18 @@ public class AdminBackupController {
     }
 
     @DeleteMapping("/runs/{id}")
-    @Operation(summary = "Supprimer une seule sauvegarde de l'historique",
+    // Correctif securite MOYENNE (04/08/2026, second audit externe) : meme
+    // motif que /purge ci-dessus (sabotage de la capacite de reprise apres
+    // sinistre), pour la suppression fine ligne par ligne. Reserve
+    // desormais a ROLE_ADMIN.
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Supprimer une seule sauvegarde de l'historique — réservé à ROLE_ADMIN",
             description = "Suppression fine, ligne par ligne (contrairement à /purge, en masse avant une "
                     + "date). Supprime le fichier .dump s'il est encore sur disque. Refusée (409) si la "
                     + "sauvegarde est encore référencée par une restauration conservée dans l'historique, ou "
                     + "si elle est encore en cours (RUNNING) — sauf avec cascade=true, qui supprime aussi les "
-                    + "restaurations liées (voir GET .../linked-restores pour savoir lesquelles au préalable).")
+                    + "restaurations liées (voir GET .../linked-restores pour savoir lesquelles au préalable). "
+                    + "Réservé à ROLE_ADMIN (correctif sécurité MOYENNE, second audit externe 04/08/2026).")
     public ResponseEntity<?> deleteRun(@PathVariable Long id,
                                        @RequestParam(defaultValue = "false") boolean cascade) {
         try {

@@ -94,10 +94,10 @@ d'infrastructure : c'est une autorisation purement applicative, du même type qu
 existants.
 
 `ROLE_BACKUP` a été ajouté à `dev.subnetory.security.AssignableRoles` (migration Flyway V20). Un
-compte avec seulement `ROLE_BACKUP` peut déclencher/purger/supprimer des sauvegardes et consulter
-l'historique (`/admin/backup`, `/api/v1/admin/backup`) sans avoir accès au reste de
-l'administration (comptes utilisateurs, LDAP, journal d'audit) — utile pour un compte de service
-d'automatisation ou un opérateur dédié aux sauvegardes sans lui donner les pleins pouvoirs
+compte avec seulement `ROLE_BACKUP` peut déclencher des sauvegardes, consulter l'historique et
+télécharger les fichiers `.dump` (`/admin/backup`, `/api/v1/admin/backup`) sans avoir accès au
+reste de l'administration (comptes utilisateurs, LDAP, journal d'audit) — utile pour un compte de
+service d'automatisation ou un opérateur dédié aux sauvegardes sans lui donner les pleins pouvoirs
 `ROLE_ADMIN`.
 
 **Correctif sécurité ÉLEVÉE (audit 04/08/2026) : import et restauration retirés de `ROLE_BACKUP`.**
@@ -110,6 +110,17 @@ limité aux sauvegardes, sans le reste de l'administration ». `POST .../import`
 `POST .../restore` (IHM et API) exigent désormais `ROLE_ADMIN` explicitement, via
 `@PreAuthorize("hasRole('ADMIN')")` au niveau de chaque méthode concernée, en plus de la règle
 `hasAnyRole('ADMIN', 'BACKUP')` au niveau classe/URL décrite ci-dessous.
+
+**Correctif sécurité MOYENNE (second audit externe 04/08/2026) : configuration, purge et
+suppression retirées de `ROLE_BACKUP`.** Même s'il n'accédait plus aux données applicatives
+elles-mêmes (correctif ci-dessus), `ROLE_BACKUP` pouvait encore désactiver la sauvegarde planifiée,
+en altérer la rétention/le cron, ou supprimer — en masse via `/purge`, ou ligne par ligne — la
+totalité de l'historique et des fichiers `.dump` sur disque : un sabotage silencieux de la capacité
+de reprise après sinistre, exploitable sans jamais toucher à la base applicative. `PUT
+/api/v1/admin/backup`, `POST .../purge` et `DELETE .../runs/{id}` (IHM et API, y compris la page de
+confirmation de suppression) exigent désormais eux aussi `ROLE_ADMIN` explicitement. `ROLE_BACKUP`
+conserve uniquement : lecture de la configuration, déclenchement manuel, consultation de
+l'historique et téléchargement.
 
 Point non anticipé au moment de l'étude, corrigé pendant l'implémentation : la chaîne de sécurité
 web (`SecurityConfig`) verrouille `/admin/**` sur `ROLE_ADMIN` **au niveau du filtre HTTP**, avant

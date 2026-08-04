@@ -1,5 +1,6 @@
 package dev.subnetory.scan;
 
+import dev.subnetory.backup.RestoreMaintenanceGate;
 import dev.subnetory.domain.Subnet;
 import dev.subnetory.dto.BulkUpsertRequest;
 import dev.subnetory.dto.BulkUpsertResponse;
@@ -74,6 +75,7 @@ public class ScanService {
 
     private final SubnetService subnetService;
     private final AddressService addressService;
+    private final RestoreMaintenanceGate restoreMaintenanceGate;
 
     @Value("${subnetory.scan.timeout-seconds:60}")
     private int timeoutSeconds;
@@ -120,9 +122,11 @@ public class ScanService {
     private final Object perUserScanLock = new Object();
     private final Map<String, Integer> activeScansByUser = new HashMap<>();
 
-    public ScanService(SubnetService subnetService, AddressService addressService) {
+    public ScanService(SubnetService subnetService, AddressService addressService,
+                       RestoreMaintenanceGate restoreMaintenanceGate) {
         this.subnetService = subnetService;
         this.addressService = addressService;
+        this.restoreMaintenanceGate = restoreMaintenanceGate;
     }
 
     @PostConstruct
@@ -143,10 +147,21 @@ public class ScanService {
     public ScanResponse scan(Long subnetId, ScanRequest request, String currentUser)
             throws ScanException {
 
+        // Correctif securite FAIBLE (second audit externe 04/08/2026) :
+        // verification precoce, en plus de celle juste avant l'ecriture
+        // (voir plus bas) — evite de lancer un scan Nmap (potentiellement
+        // long) alors qu'une restauration est deja en cours au moment de
+        // l'appel, en plus de couvrir le cas ou elle demarre pendant le scan.
+        if (restoreMaintenanceGate.isActive()) {
+            throw new ScanException(
+                    "Une restauration de sauvegarde est en cours : les scans sont temporairement "
+                            + "indisponibles. Reessayez une fois la restauration terminee.",
+                    ScanException.Reason.RESTORE_IN_PROGRESS);
+        }
+
         Subnet subnet = subnetService.getEntityById(subnetId);
 
         validateSubnetSize(subnet.getNetwork());
-        assertNmapAvailable();
 
         String cidr = subnet.getNetwork();
         log.info("Scan started: subnet={} cidr={} user={} override={}",
@@ -155,6 +170,19 @@ public class ScanService {
         String userKey = currentUser == null || currentUser.isBlank() ? "anonymous" : currentUser;
         NmapExecution execution = executeNmapThrottled(cidr, request, userKey);
         List<NmapXmlParser.NmapHost> hosts = filterAssignableHosts(cidr, execution.hosts());
+
+        // Correctif securite FAIBLE (second audit externe 04/08/2026) : une
+        // restauration a pu demarrer PENDANT l'execution de ce scan (deja
+        // accepte avant que RestoreMaintenanceFilter ne bloque les nouvelles
+        // requetes de mutation) — voir ScanException.Reason.RESTORE_IN_PROGRESS.
+        // Verifie ici, juste avant l'ecriture, plutot qu'au debut de scan()
+        // ou le scan pourrait encore durer jusqu'a timeoutSeconds.
+        if (restoreMaintenanceGate.isActive()) {
+            throw new ScanException(
+                    "Une restauration de sauvegarde a demarre pendant ce scan : les resultats "
+                            + "ne sont pas enregistres. Relancez le scan une fois la restauration terminee.",
+                    ScanException.Reason.RESTORE_IN_PROGRESS);
+        }
 
         // Construire les entrées pour le bulk-upsert
         List<BulkUpsertRequest.BulkUpsertEntry> entries = hosts.stream()
@@ -249,6 +277,17 @@ public class ScanService {
     /**
      * Vérifie que nmap est accessible.
      * Exécute {@code nmap --version} et vérifie le code de retour.
+     *
+     * <p>Correctif sécurité FAIBLE (second audit externe 04/08/2026) : cette
+     * sonde lance elle-même un processus OS distinct. Appelée désormais
+     * seulement après acquisition des deux quotas de concurrence (par
+     * utilisateur puis global, voir {@link #executeNmapThrottled}), plutôt
+     * qu'inconditionnellement au tout début de {@link #scan}. Auparavant, un
+     * appelant déjà au-delà de sa limite de concurrence continuait quand
+     * même de déclencher un processus {@code nmap --version} avant d'être
+     * rejeté — cette sonde n'était donc jamais réellement throttlée,
+     * contournant partiellement l'objectif même du garde-fou de
+     * concurrence.</p>
      */
     private void assertNmapAvailable() throws ScanException {
         try {
@@ -288,6 +327,10 @@ public class ScanService {
                         ScanException.Reason.TOO_MANY_CONCURRENT_SCANS);
             }
             try {
+                // Correctif securite FAIBLE (second audit externe 04/08/2026) :
+                // sonde deplacee ici, APRES acquisition des deux quotas —
+                // voir la javadoc de assertNmapAvailable().
+                assertNmapAvailable();
                 return executeNmap(cidr, request);
             } finally {
                 globalScanSemaphore.release();

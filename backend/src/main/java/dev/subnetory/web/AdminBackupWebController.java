@@ -80,6 +80,9 @@ public class AdminBackupWebController {
     }
 
     @PostMapping("/settings")
+    // Correctif securite MOYENNE (04/08/2026, second audit externe), meme
+    // motif que AdminBackupController#updateSettings : reserve a ROLE_ADMIN.
+    @PreAuthorize("hasRole('ADMIN')")
     public String updateSettings(@ModelAttribute("backupForm") BackupSettingsForm form,
                                  RedirectAttributes flash,
                                  Locale locale) {
@@ -128,6 +131,9 @@ public class AdminBackupWebController {
     // ── Purge manuelle explicite de l'historique ─────────────────────────
 
     @PostMapping("/purge")
+    // Correctif securite MOYENNE (04/08/2026, second audit externe), meme
+    // motif que AdminBackupController#purge : reserve a ROLE_ADMIN.
+    @PreAuthorize("hasRole('ADMIN')")
     public String purge(@RequestParam("beforeDate") LocalDate beforeDate, RedirectAttributes flash, Locale locale) {
         OffsetDateTime cutoff = beforeDate.atStartOfDay().atOffset(ZoneOffset.UTC);
         var result = executionService.purgeHistoryBefore(cutoff);
@@ -145,6 +151,12 @@ public class AdminBackupWebController {
     // plus tot le meme jour).
 
     @GetMapping("/runs/{id}/delete-confirm")
+    // Correctif securite MOYENNE (04/08/2026, second audit externe) : le
+    // POST de suppression ci-dessous est reserve a ROLE_ADMIN ; restreindre
+    // aussi la page de confirmation evite d'exposer ce parcours a
+    // ROLE_BACKUP pour n'aboutir qu'a un 403 au clic (meme logique que
+    // restore-confirm).
+    @PreAuthorize("hasRole('ADMIN')")
     public String deleteConfirm(@PathVariable Long id, Model model, Locale locale) {
         BackupRun run = backupRunRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("BackupRun", id));
@@ -159,6 +171,9 @@ public class AdminBackupWebController {
     }
 
     @PostMapping("/runs/{id}/delete")
+    // Correctif securite MOYENNE (04/08/2026, second audit externe), meme
+    // motif que AdminBackupController#deleteRun : reserve a ROLE_ADMIN.
+    @PreAuthorize("hasRole('ADMIN')")
     public String deleteRun(@PathVariable Long id,
                             @RequestParam(defaultValue = "false") boolean cascade,
                             RedirectAttributes flash,

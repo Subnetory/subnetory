@@ -85,17 +85,15 @@ SUBNETORY_SECURITY_TRUSTED_PROXY_CIDRS: 172.16.0.0/12   # plage IPAM Docker par 
 
 Le sous-réseau `172.16.0.0/12` couvre la plage privée que Docker alloue par défaut à ses réseaux Compose. Cette valeur reste sûre dans ce contexte précis : le seul chemin réseau vers l'application est le réseau Compose interne du même hôte Docker (non exposé publiquement), donc un attaquant externe ne peut pas y présenter une IP source dans cette plage. Si le réseau Docker réel utilise une autre plage, ajuster via la variable d'environnement `SUBNETORY_TRUSTED_PROXY_CIDRS` avant de démarrer.
 
-## 4bis. Pourquoi `forward-headers-strategy` est aussi obligatoire
+## 4bis. Comment le scheme HTTPS est propagé jusqu'à l'application
 
-Distinct du point précédent (qui ne concerne que la résolution d'IP côté `ClientIpResolver`) : sans `server.forward-headers-strategy: framework`, Spring/Tomcat ignore l'en-tête `X-Forwarded-Proto: https` envoyé par Caddy et considère toujours la requête comme non sécurisée en interne (`request.isSecure()` renvoie `false`). Conséquence concrète : le cookie de session Spring Security n'obtient jamais l'attribut `Secure` (Tomcat ne l'ajoute que si la requête est vue comme sécurisée), et les URLs absolues générées par l'application (redirections) restent en `http://` même derrière HTTPS.
+Distinct du point précédent (qui ne concerne que la résolution d'IP côté `ClientIpResolver`) : sans traitement de `X-Forwarded-Proto: https` envoyé par Caddy, Spring/Tomcat considère toujours la requête comme non sécurisée en interne (`request.isSecure()` renvoie `false`). Conséquence concrète : le cookie de session Spring Security n'obtient jamais l'attribut `Secure`, et les URLs absolues générées par l'application (redirections) restent en `http://` même derrière HTTPS.
 
-L'overlay active donc également :
+**Mise à jour (audit externe 04/08/2026, correctif MOYEN) :** ce document recommandait auparavant `SERVER_FORWARD_HEADERS_STRATEGY: framework`. Cette variable est désormais volontairement absente de `docker-compose.https.yml` : elle activait l'auto-configuration Spring Boot standard de `ForwardedHeaderFilter`, qui réécrit `getRemoteAddr()`/`isSecure()` pour **n'importe quelle** connexion, sans jamais vérifier `SUBNETORY_SECURITY_TRUSTED_PROXY_CIDRS` (point 4 ci-dessus) — rendant cette vérification inopérante face à un client qui atteindrait directement le conteneur applicatif.
 
-```yaml
-SERVER_FORWARD_HEADERS_STRATEGY: framework
-```
+À la place, `TrustAwareForwardedHeaderFilter` (`dev.subnetory.security`, câblé dans `SecurityConfig`) applique la même réécriture que `ForwardedHeaderFilter`, mais uniquement pour les connexions dont l'adresse TCP directe correspond à `SUBNETORY_SECURITY_TRUSTED_PROXY_CIDRS` — la même vérification, appliquée une seule fois, avant que quoi que ce soit d'autre ne touche la requête. Aucune variable d'environnement supplémentaire n'est nécessaire : ce filtre est actif par défaut et se base uniquement sur `SUBNETORY_SECURITY_TRUSTED_PROXY`/`_CIDRS`, déjà positionnées au point précédent.
 
-Cette variable est propre à l'overlay HTTPS : `docker-compose.yml` seul (mode HTTP direct, sans Caddy) reste en `none` par défaut, ce qui est correct — aucun proxy de confiance en amont dans ce mode, un `X-Forwarded-Proto` usurpé n'a pas de sens à être pris en compte.
+**Ne jamais positionner `SERVER_FORWARD_HEADERS_STRATEGY=framework`** (ni dans cet overlay, ni dans le chart Helm) : cela réactiverait le mécanisme non vérifié en plus du filtre ci-dessus.
 
 ## 5. Persistance des certificats
 

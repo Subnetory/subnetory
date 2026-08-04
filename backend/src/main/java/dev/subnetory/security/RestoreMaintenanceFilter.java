@@ -18,19 +18,51 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
  * Mode maintenance applicatif pendant une restauration (correctif securite
- * MOYENNE, audit 04/08/2026) — voir {@link RestoreMaintenanceGate} pour le
+ * MOYENNE, audit 04/08/2026 ; exemptions retirees le 04/08/2026 suite a un
+ * second audit externe) — voir {@link RestoreMaintenanceGate} pour le
  * contexte complet.
  *
  * <p>Rejette (503) toute requete de mutation (methode HTTP autre que GET/
- * HEAD/OPTIONS) tant qu'une restauration est active, a l'exception de
- * l'authentification (login/logout/token) — se deconnecter ou obtenir un
- * nouveau jeton ne modifie aucune donnee metier et ne doit jamais rester
- * bloque par une restauration en cours.</p>
+ * HEAD/OPTIONS) tant qu'une restauration est active — SANS AUCUNE
+ * exception, y compris pour {@code /api/v1/auth/token},
+ * {@code /api/v1/auth/change-password-required},
+ * {@code /api/v1/auth/logout}, {@code /api/v1/auth/logout-all} et le
+ * formulaire {@code POST /login}. Ces endpoints exemptaient initialement
+ * l'authentification au motif qu'elle "ne modifie aucune donnee metier",
+ * mais ils ecrivent bel et bien en base (journal d'audit d'authentification,
+ * etat MFA, compteur anti-bruteforce, mot de passe, jetons revoques,
+ * horodatage d'invalidation) — {@code pg_restore --single-transaction} rend
+ * ces ecritures inoffensives sur le fond (elles restent bloquees derriere
+ * les verrous de la transaction de restauration plutot que de corrompre
+ * quoi que ce soit), mais un appel qui reste en attente jusqu'a la fin
+ * (potentiellement longue) de la restauration, sans jamais avoir ete
+ * clairement rejete, est une mauvaise experience et un signal trompeur.
+ * Un utilisateur deja connecte (session Web existante ou JWT deja emis)
+ * n'est pas affecte : consulter l'application en lecture (GET) continue de
+ * fonctionner normalement, seule une NOUVELLE authentification ou une
+ * deconnexion doit attendre la fin de la restauration.</p>
  *
- * <p>Positionne dans les deux chaines de securite qui acceptent des
- * mutations (API JWT et Web Thymeleaf, voir {@code SecurityConfig}) — la
- * chaine OpenAPI/Swagger est en lecture seule et n'a pas besoin d'etre
- * couverte.</p>
+ * <p>Positionne dans toutes les chaines de securite qui acceptent des
+ * mutations (API JWT, deconnexion API et Web Thymeleaf, voir
+ * {@code SecurityConfig}) — la chaine OpenAPI/Swagger est en lecture seule
+ * et n'a pas besoin d'etre couverte.</p>
+ *
+ * <p><strong>Limite connue et acceptee :</strong> ce filtre ne rejette que
+ * les NOUVELLES requetes recues apres l'activation du mode maintenance. Une
+ * requete de mutation deja acceptee (passee ce filtre) juste avant
+ * l'activation continue de s'executer normalement jusqu'a son terme — elle
+ * n'est pas interrompue ni "drainee". Un tel handler peut alors ecrire en
+ * base pendant que {@code pg_restore --single-transaction} est en cours ; il
+ * reste bloque derriere les verrous de la transaction de restauration (pas
+ * de corruption), ce qui degrade au pire sa latence. Pour une application
+ * mono-instance avec une fenetre de restauration typiquement breve, drainer
+ * les requetes en vol (attendre leur fin, ou les annuler proprement, avant
+ * de lancer {@code pg_restore}) a ete juge disproportionne au regard du
+ * risque residuel — voir aussi le garde-fou dedie et documente pour le cas
+ * particulier des scans Nmap ({@code ScanService#scan},
+ * {@code ScanException.Reason#RESTORE_IN_PROGRESS}), le seul chemin
+ * identifie ou une ecriture tardive apres une longue execution etait
+ * silencieuse plutot que simplement ralentie.</p>
  */
 @Component
 public class RestoreMaintenanceFilter extends OncePerRequestFilter {
@@ -54,24 +86,12 @@ public class RestoreMaintenanceFilter extends OncePerRequestFilter {
                                      FilterChain filterChain)
             throws ServletException, IOException {
 
-        if (!gate.isActive() || SAFE_METHODS.contains(request.getMethod()) || isExempt(request)) {
+        if (!gate.isActive() || SAFE_METHODS.contains(request.getMethod())) {
             filterChain.doFilter(request, response);
             return;
         }
 
         writeServiceUnavailable(response);
-    }
-
-    private boolean isExempt(HttpServletRequest request) {
-        String uri = request.getRequestURI();
-        if (uri == null) {
-            return false;
-        }
-        String contextPath = request.getContextPath();
-        String path = (contextPath != null && !contextPath.isEmpty() && uri.startsWith(contextPath))
-                ? uri.substring(contextPath.length())
-                : uri;
-        return path.startsWith("/api/v1/auth/") || path.equals("/login") || path.equals("/logout");
     }
 
     private void writeServiceUnavailable(HttpServletResponse response) throws IOException {

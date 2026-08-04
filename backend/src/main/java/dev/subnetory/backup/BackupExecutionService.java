@@ -124,6 +124,22 @@ public class BackupExecutionService {
     private long importMaxSizeBytes;
 
     /**
+     * Taille maximale acceptee pour la sortie stdout/stderr de pg_dump/
+     * pg_restore (correctif securite FAIBLE, second audit externe
+     * 04/08/2026) : {@code readAllBytes()} n'avait jusqu'ici aucune limite —
+     * meme constat et meme remede que {@code ScanService#maxOutputBytes}
+     * pour Nmap. Le contenu du dump lui-meme ne transite jamais par ce
+     * canal (pg_dump ecrit directement sur disque via {@code --file=...},
+     * pg_restore lit depuis un fichier) : seuls les messages de diagnostic
+     * (verbeux, erreurs) y transitent, normalement tres en-deca de cette
+     * limite — mais rien n'empechait jusqu'ici qu'un comportement inattendu
+     * fasse croitre la consommation memoire du process applicatif sans
+     * borne.
+     */
+    @Value("${subnetory.backup.max-output-bytes:10485760}")
+    private long maxOutputBytes;
+
+    /**
      * Clé de chiffrement des sauvegardes (audit 01/08/2026, backlog #13).
      * Volontairement jamais stockée en base ni modifiable depuis l'IHM —
      * même conclusion que {@code DB_PASSWORD_ROTATION_FEASIBILITY.md} :
@@ -501,18 +517,37 @@ public class BackupExecutionService {
      * doit jamais faire passer une restauration reussie pour un echec (les
      * donnees metier sont deja restaurees a ce stade) — journalise et avale
      * l'erreur plutot que de la propager.
+     *
+     * <p>Correctif securite FAIBLE (second audit externe 04/08/2026) : les
+     * deux invalidations sont independantes (JWT via {@code
+     * user_token_invalidations} en base, sessions Web via le registre en
+     * memoire) et n'ont aucune raison de se conditionner l'une l'autre. Un
+     * seul bloc try/catch autour des deux appels faisait pourtant echouer
+     * silencieusement la seconde (sessions Web) des que la premiere (JWT)
+     * levait une exception — laissant les sessions Web deja ouvertes
+     * conserver les autorites chargees avant la restauration, en plus de
+     * l'echec JWT deja journalise. Chaque invalidation dispose desormais de
+     * son propre try/catch : l'echec de l'une n'empeche jamais la tentative
+     * de l'autre.</p>
      */
     private void invalidateSessionsAndTokensAfterRestore(String performedBy) {
         try {
             userTokenInvalidationService.invalidateAllTokens(
                     performedBy, dev.subnetory.service.UserTokenInvalidationService.REASON_POST_RESTORE);
-            int expiredSessions = sessionInvalidationService.expireAllSessions();
-            log.warn("Post-restore invalidation: all JWTs invalidated, {} web session(s) expired.",
-                    expiredSessions);
+            log.warn("Post-restore invalidation: all JWTs invalidated.");
         } catch (RuntimeException e) {
-            log.error("Post-restore invalidation (JWT/sessions) failed — restore itself succeeded, "
-                    + "but stale credentials issued before the restore may remain valid until they "
-                    + "expire naturally: {}", e.getMessage(), e);
+            log.error("Post-restore JWT invalidation failed — restore itself succeeded, but stale "
+                    + "JWTs issued before the restore may remain valid until they expire naturally: {}",
+                    e.getMessage(), e);
+        }
+
+        try {
+            int expiredSessions = sessionInvalidationService.expireAllSessions();
+            log.warn("Post-restore invalidation: {} web session(s) expired.", expiredSessions);
+        } catch (RuntimeException e) {
+            log.error("Post-restore Web session invalidation failed — restore itself succeeded, but "
+                    + "Web sessions already open before the restore may keep authorities loaded before "
+                    + "it: {}", e.getMessage(), e);
         }
     }
 
@@ -1093,8 +1128,8 @@ public class BackupExecutionService {
                     BackupException.Reason.EXECUTION_FAILED);
         }
 
-        CompletableFuture<byte[]> stdoutFuture = readAllBytesAsync(process.getInputStream());
-        CompletableFuture<byte[]> stderrFuture = readAllBytesAsync(process.getErrorStream());
+        CompletableFuture<byte[]> stdoutFuture = readAllBytesAsync(process.getInputStream(), maxOutputBytes);
+        CompletableFuture<byte[]> stderrFuture = readAllBytesAsync(process.getErrorStream(), maxOutputBytes);
 
         try {
             boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
@@ -1134,14 +1169,36 @@ public class BackupExecutionService {
         }
     }
 
-    private static CompletableFuture<byte[]> readAllBytesAsync(InputStream stream) {
+    /**
+     * Lit un flux dans un thread separe, borne a {@code maxBytes}
+     * (correctif securite FAIBLE, second audit externe 04/08/2026) — voir
+     * {@link #maxOutputBytes}. Meme pattern que {@code
+     * ScanService#readAllBytesAsync}/{@code readBounded}.
+     */
+    private static CompletableFuture<byte[]> readAllBytesAsync(InputStream stream, long maxBytes) {
         return CompletableFuture.supplyAsync(() -> {
             try (stream) {
-                return stream.readAllBytes();
+                return readBounded(stream, maxBytes);
             } catch (Exception e) {
                 throw new CompletionException(e);
             }
         });
+    }
+
+    private static byte[] readBounded(InputStream in, long maxBytes) throws IOException {
+        java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+        byte[] chunk = new byte[8192];
+        long total = 0;
+        int read;
+        while ((read = in.read(chunk)) != -1) {
+            total += read;
+            if (total > maxBytes) {
+                throw new IOException(
+                        "pg_dump/pg_restore output exceeded the configured limit of " + maxBytes + " bytes.");
+            }
+            buffer.write(chunk, 0, read);
+        }
+        return buffer.toByteArray();
     }
 
     // -------------------------------------------------------

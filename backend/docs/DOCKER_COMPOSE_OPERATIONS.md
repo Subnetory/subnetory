@@ -126,7 +126,7 @@ docker compose logs --tail 200 app
 
 Ne pas utiliser `docker compose down -v` pendant une mise à jour.
 
-Flyway reste la source de vérité du schéma et applique automatiquement les migrations présentes. Pour le Sprint 2.30, l'état attendu est V9.
+Flyway reste la source de vérité du schéma et applique automatiquement les migrations présentes (`backend/src/main/resources/db/migration/`, V1 à V21 au 04/08/2026 — ce nombre augmente à chaque migration ajoutée, se référer au contenu du répertoire plutôt qu'à ce document pour l'état exact courant).
 
 ## Sauvegarde PostgreSQL autonome
 

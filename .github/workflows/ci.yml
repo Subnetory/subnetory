@@ -195,6 +195,67 @@ jobs:
           exit-code: 1
           format: table
 
+  # SAST (correctif qualite, second audit externe 04/08/2026) : analyse
+  # statique du code source Java, complementaire a dependency-scan ci-dessus
+  # (qui couvre les vulnerabilites connues des bibliotheques tierces, pas les
+  # defauts du code applicatif lui-meme — injection, desserialisation non
+  # sure, etc.). CodeQL choisi plutot que SpotBugs/SonarQube : integration
+  # native GitHub Actions (Security tab, alertes PR), sans plugin Maven ni
+  # service tiers supplementaire a maintenir — coherent avec la preference du
+  # projet pour des outils simples pour une petite equipe.
+  codeql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+      # actions: read requis par github/codeql-action/analyze (constat CI
+      # 04/08/2026) : sans ce droit, l'etape "Perform CodeQL Analysis"
+      # echoue avec "Error: Resource not accessible by integration" en
+      # tentant de lire les informations du workflow run en cours.
+      actions: read
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@dd903d2e4f5405488e5ef1422510ee31c8b32357 # v3
+        with:
+          languages: java-kotlin
+          queries: security-extended
+
+      - name: Make Maven wrapper executable
+        working-directory: backend
+        run: chmod +x ./mvnw
+
+      # package, pas verify : la compilation suffit a l'analyse CodeQL,
+      # inutile de re-executer toute la suite de tests ici (deja couverte
+      # par le job test ci-dessus).
+      - name: Build backend (compile only)
+        working-directory: backend
+        run: ./mvnw -B -DskipTests package
+
+      - name: Perform CodeQL Analysis
+        # continue-on-error : l'analyse elle-meme reussit (voir les logs,
+        # ex. "CodeQL scanned 296 out of 297 Java files"), seul l'upload
+        # SARIF vers l'onglet Security echoue tant que GitHub Advanced
+        # Security n'est pas active sur ce depot prive ("Advanced Security
+        # must be enabled for this repository to use code scanning",
+        # constat CI 04/08/2026). Non-bloquant pour ne pas faire echouer
+        # toute la CI sur un reglage de compte plutot qu'un vrai defaut de
+        # code ; a retirer si/quand Advanced Security est active.
+        continue-on-error: true
+        uses: github/codeql-action/analyze@dd903d2e4f5405488e5ef1422510ee31c8b32357 # v3
+        with:
+          category: "/language:java-kotlin"
+
   helm-static:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -273,9 +334,9 @@ jobs:
           # Correctif securite ELEVEE (audit 04/08/2026) : ingress.enabled=true
           # sans ingress.trustedProxyCidrs doit etre refuse au rendu (voir le
           # "fail" dans templates/configmap.yaml), sinon un deploiement Ingress
-          # se retrouve silencieusement sans forward-headers-strategy=framework
-          # ni trusted-proxy, et tous les utilisateurs partagent la meme IP
-          # apparente cote application.
+          # se retrouve silencieusement sans trusted-proxy configure cote
+          # application (TrustAwareForwardedHeaderFilter, ClientIpResolver),
+          # et tous les utilisateurs partagent la meme IP apparente.
           if helm template invalid "${chart}" \
               --set ingress.enabled=true \
               --set ingress.className=nginx \
@@ -297,8 +358,29 @@ jobs:
             --set ingress.hosts[0].paths[0].pathType=Prefix \
             > "${rendered_ingress}"
 
-          if ! grep -Fq 'SERVER_FORWARD_HEADERS_STRATEGY: "framework"' "${rendered_ingress}"; then
-            echo "Ingress-enabled render is missing SERVER_FORWARD_HEADERS_STRATEGY=framework" >&2
+          # Correctif securite MOYENNE (audit externe 04/08/2026) :
+          # SERVER_FORWARD_HEADERS_STRATEGY=framework doit rester absent du
+          # rendu — le positionner enregistrerait EN PLUS l'auto-configuration
+          # Spring Boot standard de ForwardedHeaderFilter (inconditionnelle,
+          # sans verification trusted-proxy-cidrs), en parallele de
+          # TrustAwareForwardedHeaderFilter (SecurityConfig) qui remplace
+          # entierement ce mecanisme de facon verifiee. Regression gardee ici
+          # pour qu'un futur retour de cette variable dans configmap.yaml
+          # casse la CI plutot que d'etre decouvert en production.
+          # Ancre sur une vraie cle YAML (^\s*NOM:) plutot qu'une simple
+          # sous-chaine, ET exclut d'abord les lignes de commentaire
+          # (correctif CI 04/08/2026, constat en CI reelle malgre l'ancrage
+          # seul) : configmap.yaml explique deliberement en commentaire
+          # pourquoi cette variable est absente — le rendu Helm preserve
+          # les commentaires tels quels, donc toute variante de detection
+          # moins stricte risque un faux positif systematique sur ce
+          # commentaire plutot que sur une vraie cle. grep -v filtre les
+          # lignes de commentaire avant la recherche, en plus de l'ancrage.
+          if grep -v '^[[:space:]]*#' "${rendered_ingress}" \
+              | grep -Eq '^[[:space:]]*SERVER_FORWARD_HEADERS_STRATEGY:'; then
+            echo "Ingress-enabled render must NOT set SERVER_FORWARD_HEADERS_STRATEGY (see TrustAwareForwardedHeaderFilter)" >&2
+            echo "--- matching line(s) in rendered manifest (for debugging) ---" >&2
+            grep -n 'SERVER_FORWARD_HEADERS_STRATEGY' "${rendered_ingress}" >&2 || true
             exit 1
           fi
           if ! grep -Fq 'SUBNETORY_SECURITY_TRUSTED_PROXY: "true"' "${rendered_ingress}"; then
@@ -307,6 +389,53 @@ jobs:
           fi
           if ! grep -Fq 'SUBNETORY_SECURITY_TRUSTED_PROXY_CIDRS: "10.244.0.0/16"' "${rendered_ingress}"; then
             echo "Ingress-enabled render is missing SUBNETORY_SECURITY_TRUSTED_PROXY_CIDRS" >&2
+            exit 1
+          fi
+
+          # Correctif securite MOYENNE (audit externe 04/08/2026) :
+          # networkPolicy.ingressFrom, quand renseigne, doit bien restreindre
+          # la regle d'entree applicative (sinon un pod compromis ailleurs
+          # dans le cluster peut toujours atteindre directement l'app). Par
+          # defaut (non renseigne), le rendu reste sans "from" — comportement
+          # historique preserve, verifie ici pour la non-regression.
+          #
+          # Le rendu complet contient AUSSI la NetworkPolicy PostgreSQL
+          # (second document YAML, separe par "---"), dont la regle
+          # d'entree a volontairement TOUJOURS un "from:" (seuls les pods
+          # applicatifs/backup peuvent atteindre postgres — comportement
+          # voulu, independant de networkPolicy.ingressFrom). Un grep sur
+          # le fichier entier declenche donc un faux positif systematique
+          # (constate en CI) : on isole le premier document (NetworkPolicy
+          # applicative) avant de chercher "from:".
+          rendered_netpol_default="${RUNNER_TEMP}/subnetory-rendered-netpol-default.yaml"
+          helm template subnetory-netpol-default "${chart}" --namespace subnetory \
+            --set networkPolicy.enabled=true \
+            > "${rendered_netpol_default}"
+          if awk '/^---$/{exit} {print}' "${rendered_netpol_default}" | grep -Fq 'from:'; then
+            echo "Default networkPolicy render (no ingressFrom) unexpectedly restricts ingress — check networkpolicy.yaml" >&2
+            exit 1
+          fi
+
+          rendered_netpol_restricted="${RUNNER_TEMP}/subnetory-rendered-netpol-restricted.yaml"
+          # printf plutot qu'un heredoc : un heredoc dedente son corps a la
+          # colonne 0, ce qui casse le parsing YAML de CE fichier de
+          # workflow (le corps, moins indente que le bloc "run: |" qui le
+          # contient, met fin prematurement au bloc scalaire) — invalide
+          # constate en CI (echec "Invalid workflow file", erreur de syntaxe
+          # YAML sur la ligne du heredoc), pas seulement theorique.
+          printf '%s\n' \
+            'networkPolicy:' \
+            '  enabled: true' \
+            '  ingressFrom:' \
+            '    - namespaceSelector:' \
+            '        matchLabels:' \
+            '          kubernetes.io/metadata.name: ingress-nginx' \
+            > "${RUNNER_TEMP}/netpol-ingress-from.yaml"
+          helm template subnetory-netpol-restricted "${chart}" --namespace subnetory \
+            -f "${RUNNER_TEMP}/netpol-ingress-from.yaml" \
+            > "${rendered_netpol_restricted}"
+          if ! grep -Fq 'kubernetes.io/metadata.name: ingress-nginx' "${rendered_netpol_restricted}"; then
+            echo "networkPolicy.ingressFrom did not render into the application NetworkPolicy" >&2
             exit 1
           fi
 

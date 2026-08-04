@@ -24,10 +24,22 @@ data:
   {{- if .Values.ingress.enabled }}
   # Correctif securite ELEVEE (audit 04/08/2026) : voir les commentaires
   # au-dessus de "trustedProxyCidrs" sous "ingress:" dans values.yaml et
-  # ClientIpResolver pour le detail du modele de confiance. Ces trois
-  # variables reproduisent, pour l'Ingress, ce que docker-compose.https.yml
-  # positionne deja pour l'overlay Caddy.
-  SERVER_FORWARD_HEADERS_STRATEGY: "framework"
+  # ClientIpResolver pour le detail du modele de confiance. Ces variables
+  # reproduisent, pour l'Ingress, ce que docker-compose.https.yml positionne
+  # deja pour l'overlay Caddy.
+  #
+  # La variable d'environnement equivalant a server.forward-headers-strategy
+  # est volontairement absente ici (correctif securite MOYENNE, audit
+  # externe 04/08/2026) : la positionner a "framework" enregistrerait EN
+  # PLUS l'auto-configuration Spring Boot standard de
+  # ForwardedHeaderFilter, qui reecrit getRemoteAddr()/isSecure() pour
+  # N'IMPORTE QUELLE connexion sans jamais verifier
+  # trusted-proxy-cidrs — rendant inoperante la verification ci-dessous.
+  # TrustAwareForwardedHeaderFilter (SecurityConfig) remplace entierement ce
+  # mecanisme : il applique la meme reecriture, mais seulement pour les
+  # connexions dont l'adresse TCP directe correspond a
+  # SUBNETORY_SECURITY_TRUSTED_PROXY_CIDRS ci-dessous — donc sans jamais
+  # positionner cette variable.
   SUBNETORY_SECURITY_TRUSTED_PROXY: "true"
   SUBNETORY_SECURITY_TRUSTED_PROXY_CIDRS: {{ join "," .Values.ingress.trustedProxyCidrs | quote }}
   {{- end }}

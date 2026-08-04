@@ -1,5 +1,6 @@
 package dev.subnetory.scan;
 
+import dev.subnetory.backup.RestoreMaintenanceGate;
 import dev.subnetory.domain.Subnet;
 import dev.subnetory.service.AddressService;
 import dev.subnetory.service.SubnetService;
@@ -46,10 +47,12 @@ class ScanServiceTest {
     @Mock AddressService addressService;
 
     ScanService service;
+    RestoreMaintenanceGate restoreMaintenanceGate;
 
     @BeforeEach
     void setUp() {
-        service = new ScanService(subnetService, addressService);
+        restoreMaintenanceGate = new RestoreMaintenanceGate();
+        service = new ScanService(subnetService, addressService, restoreMaintenanceGate);
         String javaExecutable = ProcessHandle.current().info().command()
                 .orElseThrow(() -> new IllegalStateException(
                         "Impossible de determiner le chemin de l'executable java courant"));
@@ -204,5 +207,74 @@ class ScanServiceTest {
                 .satisfies(e -> assertThat(((ScanException) e).getReason())
                         .isEqualTo(ScanException.Reason.EXECUTION_FAILED))
                 .hasMessageContaining("nmap output");
+    }
+
+    // -------------------------------------------------------
+    // Sonde nmap --version deplacee apres les quotas (correctif securite
+    // FAIBLE, second audit externe 04/08/2026)
+    // -------------------------------------------------------
+
+    @Test
+    void scan_globalSemaphoreExhausted_neverProbesNmapAvailability() throws Exception {
+        when(subnetService.getEntityById(1L)).thenReturn(sampleSubnet(1L, "10.0.0.0/24"));
+        // nmapPath pointe vers un chemin inexistant : si assertNmapAvailable()
+        // etait encore appelee AVANT le controle de concurrence (comportement
+        // avant correctif), elle echouerait avec TOOL_NOT_AVAILABLE. Le fait
+        // d'obtenir TOO_MANY_CONCURRENT_SCANS a la place prouve que le quota
+        // est verifie en premier, sans jamais lancer ce process de sonde.
+        ReflectionTestUtils.setField(service, "nmapPath", "/no/such/nmap/binary/here");
+        Semaphore semaphore = globalSemaphore();
+        semaphore.acquire(3);
+
+        ScanRequest request = new ScanRequest("nmap", false);
+
+        assertThatThrownBy(() -> service.scan(1L, request, "grace"))
+                .isInstanceOf(ScanException.class)
+                .satisfies(e -> assertThat(((ScanException) e).getReason())
+                        .isEqualTo(ScanException.Reason.TOO_MANY_CONCURRENT_SCANS));
+
+        verifyNoInteractions(addressService);
+    }
+
+    @Test
+    void scan_perUserLimitExhausted_neverProbesNmapAvailability() {
+        when(subnetService.getEntityById(1L)).thenReturn(sampleSubnet(1L, "10.0.0.0/24"));
+        ReflectionTestUtils.setField(service, "nmapPath", "/no/such/nmap/binary/here");
+        Map<String, Integer> active = new HashMap<>();
+        active.put("heidi", 1);
+        ReflectionTestUtils.setField(service, "activeScansByUser", active);
+
+        ScanRequest request = new ScanRequest("nmap", false);
+
+        assertThatThrownBy(() -> service.scan(1L, request, "heidi"))
+                .isInstanceOf(ScanException.class)
+                .satisfies(e -> assertThat(((ScanException) e).getReason())
+                        .isEqualTo(ScanException.Reason.TOO_MANY_CONCURRENT_SCANS));
+
+        verifyNoInteractions(addressService);
+    }
+
+    // -------------------------------------------------------
+    // Restauration en cours (correctif securite FAIBLE, second audit
+    // externe 04/08/2026)
+    // -------------------------------------------------------
+
+    @Test
+    void scan_restoreAlreadyInProgress_isRejectedBeforeTouchingSubnetOrNmap() {
+        // Verification precoce (avant meme la lecture du subnet) : aucun
+        // scan Nmap ne doit demarrer si une restauration est deja en cours
+        // au moment de l'appel.
+        restoreMaintenanceGate.begin();
+
+        ScanRequest request = new ScanRequest("nmap", false);
+
+        assertThatThrownBy(() -> service.scan(1L, request, "frank"))
+                .isInstanceOf(ScanException.class)
+                .satisfies(e -> assertThat(((ScanException) e).getReason())
+                        .isEqualTo(ScanException.Reason.RESTORE_IN_PROGRESS));
+
+        // Rejet immediat : ni le subnet ni l'adresse ne sont touches.
+        verifyNoInteractions(subnetService);
+        verifyNoInteractions(addressService);
     }
 }

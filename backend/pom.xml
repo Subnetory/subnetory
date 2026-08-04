@@ -227,6 +227,19 @@
                    - BRANCH >= 0.55  (baseline mesurée : 62,96 %)
                  Pas d'exclusions dans cette première version — seuil sur le bundle global,
                  transparent et aligné sur les mesures réelles.
+                 04/08/2026 (correctif qualité, second audit externe 04/08/2026) : le seuil BUNDLE
+                 seul peut masquer un paquet à fort enjeu sécurité mal couvert derrière une bonne
+                 moyenne globale — dev.subnetory.backup (sauvegarde/restauration), dev.subnetory.scan
+                 (scan réseau Nmap) et dev.subnetory.security (authentification, rate limiting, MFA,
+                 résolution d'IP client) ont donc chacun un seuil PACKAGE dédié, en plus du seuil
+                 BUNDLE global. Seuils mesurés sur la baseline 971 tests (mvn verify, 04/08/2026) :
+                   - dev.subnetory.backup   LINE >= 0.55  (baseline mesurée : 58 %)
+                   - dev.subnetory.scan     LINE >= 0.60  (mesure réelle au-dessus, marge conservée)
+                   - dev.subnetory.security LINE >= 0.60  (mesure réelle au-dessus, marge conservée)
+                 dev.subnetory.backup est le plus gros fichier du projet (BackupExecutionService,
+                 ~1575 lignes, voir backlog "refactor classes volumineuses") — seuil délibérément
+                 sous celui des deux autres paquets, à resserrer au fil des refactors futurs plutôt
+                 que de bloquer ce cycle de correctifs sur un seuil trop ambitieux d'emblée.
                  Le rapport est généré dans target/site/jacoco/index.html via mvn verify. -->
             <plugin>
                 <groupId>org.jacoco</groupId>
@@ -270,6 +283,48 @@
                                             <counter>BRANCH</counter>
                                             <value>COVEREDRATIO</value>
                                             <minimum>0.55</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                                <!-- Seuils par paquet, packages a fort enjeu securite (correctif
+                                     qualite, second audit externe 04/08/2026) — voir commentaire
+                                     ci-dessus. -->
+                                <rule>
+                                    <element>PACKAGE</element>
+                                    <includes>
+                                        <include>dev.subnetory.backup</include>
+                                    </includes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.55</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                                <rule>
+                                    <element>PACKAGE</element>
+                                    <includes>
+                                        <include>dev.subnetory.scan</include>
+                                    </includes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.60</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                                <rule>
+                                    <element>PACKAGE</element>
+                                    <includes>
+                                        <include>dev.subnetory.security</include>
+                                    </includes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.60</minimum>
                                         </limit>
                                     </limits>
                                 </rule>

@@ -27,10 +27,10 @@ Le script construit le JAR Spring Boot, crée un runtime Java 21 avec `jlink`, g
 Artefacts attendus :
 
 ```text
-dist\windows\subnetory-0.8.4-windows-x64\
-dist\windows\subnetory-0.8.4-windows-x64.zip
-dist\windows\subnetory-0.8.4-windows-x64.sha256.txt
-dist\windows\subnetory-0.8.4-windows-x64.manifest.txt
+dist\windows\subnetory-0.8.5-windows-x64\
+dist\windows\subnetory-0.8.5-windows-x64.zip
+dist\windows\subnetory-0.8.5-windows-x64.sha256.txt
+dist\windows\subnetory-0.8.5-windows-x64.manifest.txt
 ```
 
 L'absence de WiX n'empêche pas la création de l'app-image et du ZIP. L'option `-Msi` exige WiX Toolset 3.
@@ -38,8 +38,8 @@ L'absence de WiX n'empêche pas la création de l'app-image et du ZIP. L'option 
 ### 0.2 Vérifier l'intégrité
 
 ```powershell
-$zip = ".\dist\windows\subnetory-0.8.4-windows-x64.zip"
-$expected = (Get-Content ".\dist\windows\subnetory-0.8.4-windows-x64.sha256.txt" | Select-Object -First 1).Split()[0]
+$zip = ".\dist\windows\subnetory-0.8.5-windows-x64.zip"
+$expected = (Get-Content ".\dist\windows\subnetory-0.8.5-windows-x64.sha256.txt" | Select-Object -First 1).Split()[0]
 $actual = (Get-FileHash $zip -Algorithm SHA256).Hash
 if ($actual -ne $expected) { throw "SHA256 invalide" }
 ```
@@ -59,7 +59,7 @@ Aucun secret en clair ne doit être ajouté au dépôt Git.
 ### 0.4 Démarrer l'application
 
 ```powershell
-.\dist\windows\subnetory-0.8.4-windows-x64\Subnetory.exe
+.\dist\windows\subnetory-0.8.5-windows-x64\Subnetory.exe
 ```
 
 URL par défaut : `http://localhost:8080`.

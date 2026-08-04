@@ -567,6 +567,18 @@
         "externalDatabaseCidrs": {
           "type": "array",
           "items": {"$ref": "#/definitions/cidr"}
+        },
+        "ingressFrom": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "namespaceSelector": {"type": "object", "additionalProperties": true},
+              "podSelector": {"type": "object", "additionalProperties": true},
+              "ipBlock": {"type": "object", "additionalProperties": true}
+            }
+          }
         }
       }
     }
