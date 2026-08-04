@@ -1,0 +1,63 @@
+name: Scheduled dependency scan
+
+# Le job "dependency-scan" de ci.yml ne se declenche que sur push/pull_request
+# (voir ci.yml) : une CVE publiee sur une dependance ou l'image de base apres
+# le dernier commit reste invisible jusqu'au prochain push, potentiellement
+# pendant des semaines sur un depot peu actif (audit 04/08/2026, correctif
+# MOYEN). Ce workflow separe reexecute le meme scan chaque semaine sur
+# l'etat courant de main, independamment de toute activite de commit.
+#
+# Duplique les etapes Trivy de ci.yml plutot que de restructurer ci.yml en
+# workflow reutilisable (workflow_call) : fichier autonome plus simple a
+# lire, au prix d'une petite duplication a garder synchronisee si le scan
+# evolue (pinning Trivy, severites, etc.).
+
+on:
+  schedule:
+    # Lundi 04:00 UTC.
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # aquasecurity/trivy-action a subi une compromission de supply-chain
+      # critique (GHSA-69fq-xp46-6x23 / CVE-2026-33634, mars 2026) : 76 des 77
+      # tags historiques du depot avaient ete force-pousses vers des commits
+      # malveillants. Epinglage strict sur le commit SHA de la release
+      # immutable et signee v0.36.0 (posterieure a l'incident) — voir
+      # backend/docs/README.md, section "Actions GitHub tierces".
+      - name: Scan Maven dependencies (source)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: backend
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: 1
+          format: table
+
+      - name: Build Docker image for scanning
+        run: docker build -t subnetory:dependency-scan backend
+
+      # Scan de l'image construite : paquets OS (eclipse-temurin/alpine) et
+      # dependances Maven embarquees dans le JAR Spring Boot executable.
+      # Couverture complementaire au scan "fs" ci-dessus, qui ne resout pas
+      # toujours l'arbre transitif complet sans artefact construit.
+      - name: Scan Docker image (OS packages + embedded JAR)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: subnetory:dependency-scan
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: 1
+          format: table

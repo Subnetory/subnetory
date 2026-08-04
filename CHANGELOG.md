@@ -6,9 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-08-04
+
 ### Added
 
 * Diagnostic d'integrite `context_id`/`site_id` (04/08/2026) : `backend/scripts/check-context-integrity.ps1` (+ `.sql` associes) detecte les incoherences residuelles possibles sur une instance mise a jour depuis avant les correctifs v0.8.1 (deplacement Site/VLAN) et v0.8.2 (deplacement Subnet) — six categories couvertes, rapport de lecture seule par defaut, `-Fix` corrige les quatre categories sans ambiguite (le reste demande un arbitrage manuel). Voir `backend/docs/ADMIN_GUIDE.md`, section "Diagnostic d'integrite context_id/site_id".
+* `.github/workflows/scheduled-dependency-scan.yml` (04/08/2026, correctif MOYEN) : `dependency-scan` (Trivy) ne se declenchait que sur push/pull_request — une CVE publiee apres le dernier commit restait invisible jusqu'au prochain push. Nouveau workflow independant, cron hebdomadaire (lundi 04:00 UTC), reutilisant les memes etapes.
+* `scripts/verify-pom-version-freshness.sh` (04/08/2026, correctif FAIBLE) : nouveau garde-fou CI (job `version-hygiene`, `ci.yml`) qui echoue si `backend/pom.xml` porte une version non-SNAPSHOT correspondant a un tag deja publie mais que HEAD a avance depuis — exactement l'erreur commise a chaque release precedente cette session (v0.8.1, v0.8.2, v0.8.3 : `main` restait a la version exacte du tag apres publication, sans jamais rebasculer vers la prochaine `-SNAPSHOT`).
+
+### Fixed
+
+* **Contournement du rate limiting MFA cote Web (04/08/2026, correctif ELEVE)** : `RateLimitingAuthenticationSuccessHandler`, invoque par Spring Security immediatement apres validation du mot de passe (avant toute verification du second facteur), remettait inconditionnellement a zero le compteur `LoginRateLimiter` et journalisait `LOGIN_SUCCESS` — meme quand le compte a le MFA active et que la connexion n'est donc pas terminee. Un attaquant connaissant le mot de passe pouvait alterner re-soumission du formulaire de login (reset gratuit du compteur) et un essai de code TOTP (`MfaChallengeWebController`, qui n'incremente le compteur que sur code invalide), sans jamais atteindre le seuil de verrouillage sur le second facteur. Le parcours API (`POST /api/v1/auth/token`) n'etait pas concerne, il applique deja le bon principe. Corrige : le reset et l'audit de succes sont desormais differes jusqu'a la verification effective du MFA, effectues par `MfaChallengeWebController#verify` sur code valide. Test de regression multi-cycles ajoute (`MfaLoginBypassRegressionTest`), reproduisant l'alternance jusqu'au verrouillage effectif sur les deux composants reels.
+* Rotation `--force` des Secrets Helm (04/08/2026, correctif MOYEN) : `init-helm-secrets.sh`/`.ps1` ne repassaient que `jwt-secret` et `postgres-password` a `kubectl replace` (remplacement complet, pas un patch) — une rotation `--force` effacait silencieusement `encryption-key`/`backup-encryption-key` s'ils existaient deja, rendant illisibles les secrets LDAP/MFA et les sauvegardes deja chiffrees sous ces cles. Les deux scripts relisent desormais les cles existantes et preservent telles quelles celles non explicitement regenerees par l'appel en cours.
+* Lien casse dans `INSTALL_KUBERNETES.md` : pointait vers `README.md#release-workflow` (ancre inexistante) au lieu de `README.md#current-release`.
+* `SECURITY_FIXES.md` (04/08/2026) : document reste fige a Sprint 2.29, ne mentionnait aucun des huit correctifs appliques depuis (H4/H5, M6 a M11). Section, tableau recapitulatif et liste des fichiers modifies mis a jour.
+* `backend/scripts/check-context-integrity.ps1` (04/08/2026, correctif FAIBLE) : le mot de passe PostgreSQL transitait via `-e PGPASSWORD=...` dans les arguments de `docker exec`, visible par tout autre processus local le temps de l'execution (`ps`/`docker top`). Lu desormais directement a l'interieur du conteneur depuis `/run/secrets/postgres_password` (deja monte par Docker Compose), jamais transmis en argument depuis l'hote.
 
 ## [0.8.3] - 2026-08-04
 
@@ -244,7 +256,8 @@ Première version pensée comme point de départ public propre : `v0.7.0` reste 
 * Basic secured GUI with Thymeleaf.
 * Docker packaging and GitHub Actions CI/CD foundations.
 
-[Unreleased]: https://github.com/Subnetory/subnetory/compare/v0.8.3...HEAD
+[Unreleased]: https://github.com/Subnetory/subnetory/compare/v0.8.4...HEAD
+[0.8.4]: https://github.com/Subnetory/subnetory/releases/tag/v0.8.4
 [0.8.3]: https://github.com/Subnetory/subnetory/releases/tag/v0.8.3
 [0.8.2]: https://github.com/Subnetory/subnetory/releases/tag/v0.8.2
 [0.8.1]: https://github.com/Subnetory/subnetory/releases/tag/v0.8.1

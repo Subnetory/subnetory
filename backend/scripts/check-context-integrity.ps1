@@ -21,8 +21,14 @@
 # Prerequis :
 #   - Docker Desktop installe et demarre
 #   - Le conteneur db doit etre actif (backend-db-1 par defaut)
-#   - Le fichier backend/secrets/postgres_password doit exister
-#     (genere par scripts/init-compose.ps1 ou .sh)
+#
+# Mot de passe PostgreSQL (audit post-release 04/08/2026, correctif FAIBLE) :
+# lu DEPUIS L'INTERIEUR du conteneur, directement sur /run/secrets/postgres_password
+# (deja monte par Docker Compose pour le service "db" — voir backend/docker-compose.yml).
+# Jamais transmis en argument de "docker exec" : un argument de ligne de
+# commande est visible par tout autre processus local via "ps"/"docker top"
+# le temps de l'execution, contrairement a une valeur lue par le conteneur
+# lui-meme sur un fichier qu'il a deja le droit de lire.
 #
 # Ne corrige (avec -Fix) que les categories sans ambiguite (context_id/site_id
 # d'un Subnet realigne sur son Site/VLAN, d'une Address realignee sur son
@@ -37,8 +43,7 @@ param(
     [switch]$Force,
     [string]$Container = "backend-db-1",
     [string]$DbName = "subnetory",
-    [string]$DbUser = "subnetory",
-    [string]$SecretsFile = ""
+    [string]$DbUser = "subnetory"
 )
 
 Set-StrictMode -Version Latest
@@ -59,23 +64,6 @@ function Assert-ContainerRunning {
 }
 
 Write-Log "=== Subnetory - Diagnostic d'integrite context_id/site_id ==="
-
-# Resoudre le fichier de secret (backend/secrets/postgres_password par defaut,
-# relatif a ce script : backend/scripts/../secrets/postgres_password)
-if ($SecretsFile -eq "") {
-    $SecretsFile = Join-Path $PSScriptRoot "..\secrets\postgres_password"
-}
-if (-not (Test-Path $SecretsFile)) {
-    Write-Log "Fichier de secret introuvable : $SecretsFile" "ERROR"
-    Write-Log "Lancer scripts/init-compose.ps1 (ou .sh) au prealable, ou utiliser -SecretsFile." "ERROR"
-    exit 1
-}
-$pgPassword = (Get-Content $SecretsFile -Raw -Encoding UTF8).Trim()
-if ([string]::IsNullOrWhiteSpace($pgPassword)) {
-    Write-Log "Le fichier de secret '$SecretsFile' est vide." "ERROR"
-    exit 1
-}
-Write-Log "Mot de passe PostgreSQL lu depuis $SecretsFile"
 
 try {
     docker info *>$null
@@ -99,15 +87,15 @@ $fixSql = Join-Path $sqlDir "fix-context-integrity.sql"
 
 function Invoke-PsqlFile {
     param([string]$SqlPath)
+    # Le mot de passe est lu par le shell DANS le conteneur (fichier de
+    # secret deja monte par Compose), jamais passe en argument de "docker
+    # exec" cote hote — voir le commentaire d'en-tete du fichier.
+    $shellCommand = 'PGPASSWORD="$(cat /run/secrets/postgres_password)" psql --username={0} --dbname={1} -v ON_ERROR_STOP=1 -f -' -f $DbUser, $DbName
     $psqlArgs = @(
         "exec", "-i",
-        "-e", "PGPASSWORD=$pgPassword",
         $Container,
-        "psql",
-        "--username=$DbUser",
-        "--dbname=$DbName",
-        "-v", "ON_ERROR_STOP=1",
-        "-f", "-"
+        "sh", "-c",
+        $shellCommand
     )
     Get-Content $SqlPath -Raw -Encoding UTF8 | & docker @psqlArgs
     return $LASTEXITCODE
@@ -145,8 +133,6 @@ try {
 } catch {
     Write-Log "Echec : $($_.Exception.Message)" "ERROR"
     exit 1
-} finally {
-    Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
 }
 
 Write-Log "Termine."

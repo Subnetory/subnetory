@@ -7,7 +7,7 @@ image:
   # cluster sans acces sortant a ghcr.io, voir backend/docs/INSTALL_KUBERNETES.md
   # (Options B/C) pour construire et charger l'image localement.
   repository: ghcr.io/subnetory/subnetory
-  tag: "v0.8.3"
+  tag: "v0.8.4"
   pullPolicy: IfNotPresent
   imagePullSecrets: []
 

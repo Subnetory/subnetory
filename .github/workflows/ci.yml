@@ -66,6 +66,25 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  # Garde-fou (audit 04/08/2026, correctif FAIBLE) : v0.8.1/v0.8.2/v0.8.3 ont
+  # chacune laisse backend/pom.xml a la version exacte du tag deja publie
+  # apres que main a continue d'avancer, sans jamais rebasculer vers la
+  # prochaine -SNAPSHOT — un JAR construit depuis main annoncait alors la
+  # meme version qu'une release deja publiee, avec un contenu different. Voir
+  # scripts/verify-pom-version-freshness.sh. fetch-depth: 0 necessaire pour
+  # voir tous les tags (le clone superficiel par defaut ne les recupere pas).
+  version-hygiene:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Verify pom.xml is not stale relative to an existing tag
+        run: bash scripts/verify-pom-version-freshness.sh
+
   compose-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 45

@@ -51,13 +51,51 @@ function Set-KubernetesSecretFromFiles {
     param(
         [Parameter(Mandatory = $true)][string]$Name,
         [Parameter(Mandatory = $true)][string[]]$FromFileArguments,
-        [Parameter(Mandatory = $true)][bool]$Exists
+        [Parameter(Mandatory = $true)][bool]$Exists,
+        [Parameter(Mandatory = $true)][string]$TemporaryRoot
     )
+
+    $preserveArguments = @()
+
+    if ($Exists) {
+        # Preserve les cles deja presentes dans le Secret mais non
+        # regenerees par cet appel (ex. encryption-key,
+        # backup-encryption-key ajoutees par une precedente activation du
+        # chiffrement LDAP/MFA ou des sauvegardes) : "kubectl replace"
+        # remplace le Secret dans son integralite, ce n'est pas un patch.
+        # Sans reinjecter ces cles telles quelles, une rotation -Force les
+        # effacerait silencieusement, rendant illisibles les secrets
+        # LDAP/MFA et les sauvegardes deja chiffrees sous ces cles (audit
+        # 04/08/2026, correctif MOYEN).
+        $regeneratedKeys = $FromFileArguments | ForEach-Object {
+            (($_ -replace '^--from-file=', '') -split '=', 2)[0]
+        }
+
+        $existingKeysRaw = & $Kubectl get secret $Name `
+            --namespace $Namespace `
+            --output 'go-template={{range $k, $v := .data}}{{$k}}{{"\n"}}{{end}}'
+        $existingKeys = ($existingKeysRaw -join "`n") -split "`n" | Where-Object { $_ -ne "" }
+
+        foreach ($key in $existingKeys) {
+            if ($regeneratedKeys -contains $key) {
+                continue
+            }
+            $preservePath = Join-Path $TemporaryRoot "preserve-$Name-$key"
+            $template = "go-template={{index .data `"$key`" | base64decode}}"
+            $value = (& $Kubectl get secret $Name --namespace $Namespace --output $template) -join ""
+            [System.IO.File]::WriteAllText($preservePath, $value, [System.Text.UTF8Encoding]::new($false))
+            $preserveArguments += "--from-file=$key=$preservePath"
+        }
+
+        if ($preserveArguments.Count -gt 0) {
+            Write-Host "Secret '$Name' : $($preserveArguments.Count) cle(s) existante(s) preservee(s) telle(s) quelle(s)."
+        }
+    }
 
     $arguments = @(
         "create", "secret", "generic", $Name,
         "--namespace", $Namespace
-    ) + $FromFileArguments
+    ) + $FromFileArguments + $preserveArguments
 
     if ($Exists) {
         & $Kubectl @arguments --dry-run=client --output yaml |
@@ -111,6 +149,7 @@ try {
     Set-KubernetesSecretFromFiles `
         -Name $RuntimeSecretName `
         -Exists $runtimeExists `
+        -TemporaryRoot $temporaryRoot `
         -FromFileArguments @(
             "--from-file=jwt-secret=$jwtPath",
             "--from-file=postgres-password=$postgresPath"
@@ -119,6 +158,7 @@ try {
     Set-KubernetesSecretFromFiles `
         -Name $BootstrapSecretName `
         -Exists $bootstrapExists `
+        -TemporaryRoot $temporaryRoot `
         -FromFileArguments @(
             "--from-file=admin-default-password=$adminPath"
         )

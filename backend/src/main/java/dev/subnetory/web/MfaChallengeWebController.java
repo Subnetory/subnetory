@@ -107,7 +107,12 @@ public class MfaChallengeWebController {
             return "auth/login-mfa";
         }
 
+        // Reset du compteur ET audit LOGIN_SUCCESS effectues ICI, pas dans
+        // RateLimitingAuthenticationSuccessHandler (correctif audit
+        // 04/08/2026, faille HAUTE) : la connexion n'est reellement terminee
+        // qu'a cet instant, une fois le second facteur verifie.
         loginRateLimiter.recordSuccess(ipAddress, username);
+        authAuditService.recordLoginSuccess(username, ipAddress, userAgent);
         session.setAttribute(MfaChallengeFilter.SESSION_MFA_VERIFIED, Boolean.TRUE);
         return "redirect:/";
     }

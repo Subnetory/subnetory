@@ -99,6 +99,10 @@ class MfaChallengeWebControllerTest {
         assertThat(view).isEqualTo("redirect:/");
         assertThat(session.getAttribute(MfaChallengeFilter.SESSION_MFA_VERIFIED)).isEqualTo(Boolean.TRUE);
         verify(loginRateLimiter).recordSuccess("127.0.0.1", "jdoe");
+        // Correctif audit 04/08/2026, faille HAUTE : l'audit LOGIN_SUCCESS a
+        // desormais lieu ici (une fois le second facteur verifie), plus dans
+        // RateLimitingAuthenticationSuccessHandler.
+        verify(authAuditService).recordLoginSuccess("jdoe", "127.0.0.1", null);
     }
 
     @Test

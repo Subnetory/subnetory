@@ -9,7 +9,7 @@ Cette procédure installe Subnetory avec le chart `charts/subnetory` en mode mon
 
 Le chart impose `replicaCount: 1`. Il ne fournit ni haute disponibilité applicative, ni opérateur PostgreSQL.
 
-Une image officielle est publiée sur GHCR à chaque tag `v*` (voir [README.md](../../README.md#release-workflow)). Le dépôt et son package GHCR sont publics depuis la `v0.8.0` : la récupérer ne nécessite aucune authentification. Pour un cluster sans accès sortant à `ghcr.io` (cluster `kind` local isolé, registre d'entreprise fermé), l'image doit être construite et rendue accessible aux nœuds autrement — voir les options ci-dessous.
+Une image officielle est publiée sur GHCR à chaque tag `v*` (voir [README.md](../../README.md#current-release)). Le dépôt et son package GHCR sont publics depuis la `v0.8.0` : la récupérer ne nécessite aucune authentification. Pour un cluster sans accès sortant à `ghcr.io` (cluster `kind` local isolé, registre d'entreprise fermé), l'image doit être construite et rendue accessible aux nœuds autrement — voir les options ci-dessous.
 
 ## Prérequis
 
@@ -40,7 +40,7 @@ Si le cluster cible peut atteindre `ghcr.io`, utiliser directement l'image publi
 ```yaml
 image:
   repository: ghcr.io/subnetory/subnetory
-  tag: v0.8.3
+  tag: v0.8.4
   pullPolicy: IfNotPresent
 ```
 
@@ -49,14 +49,14 @@ image:
 Pour un cluster `kind` sans accès sortant à `ghcr.io`, construire puis charger l'image localement, puis surcharger explicitement `image.repository`/`image.tag` (les valeurs par défaut du chart pointent vers GHCR depuis l'Option A ci-dessus) :
 
 ```powershell
-docker build --tag subnetory:0.8.3 .\backend
-kind load docker-image subnetory:0.8.3 --name NOM_DU_CLUSTER
+docker build --tag subnetory:0.8.4 .\backend
+kind load docker-image subnetory:0.8.4 --name NOM_DU_CLUSTER
 ```
 
 ```yaml
 image:
   repository: subnetory
-  tag: "0.8.3"
+  tag: "0.8.4"
   pullPolicy: IfNotPresent
 ```
 
@@ -67,7 +67,7 @@ Pour un autre cluster, construire l'image, la publier dans le registre privé au
 ```yaml
 image:
   repository: registry.example.internal/subnetory/subnetory
-  tag: 0.8.3
+  tag: 0.8.4
   pullPolicy: IfNotPresent
   imagePullSecrets:
     - name: registry-credentials

@@ -6,7 +6,7 @@ Subnetory is a lightweight IP address management platform focused on clean infra
 
 ## Current release
 
-- Current released version: `v0.8.3`
+- Current released version: `v0.8.4`
 - Latest milestone: MFA, backup lifecycle (import/delete/purge/labels), backup encryption enabled by default, dependency scanning, optional HTTPS reverse-proxy overlay, generalized API rate limiting
 - Publication status: merged on `main` and validated by GitHub Actions
 - Backend stack: Java 21, Spring Boot, PostgreSQL, Flyway, Thymeleaf, Docker
@@ -56,8 +56,8 @@ pwsh.exe -File .\scripts\make-jpackage.ps1
 
 Generated artifacts:
 
-- `dist/windows/subnetory-0.8.3-windows-x64/`;
-- `dist/windows/subnetory-0.8.3-windows-x64.zip`;
+- `dist/windows/subnetory-0.8.4-windows-x64/`;
+- `dist/windows/subnetory-0.8.4-windows-x64.zip`;
 - SHA256 and manifest files.
 
 At first login, the local `admin` account must replace its bootstrap password.

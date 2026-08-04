@@ -111,18 +111,64 @@ new_base64url_secret 32 >"$postgres_path"
 new_base64url_secret 24 >"$admin_path"
 chmod 600 "$jwt_path" "$postgres_path" "$admin_path"
 
+is_key_being_regenerated() {
+  local key="$1"
+  shift
+  local arg
+  for arg in "$@"; do
+    if [[ "$arg" == "--from-file=$key="* ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 set_secret_from_files() {
   local name="$1"
   local exists="$2"
   shift 2
 
   if [[ "$exists" == "true" ]]; then
+    # Preserve les cles deja presentes dans le Secret mais non regenerees
+    # par cet appel (ex. encryption-key, backup-encryption-key ajoutees par
+    # une precedente activation du chiffrement LDAP/MFA ou des sauvegardes) :
+    # "kubectl replace" remplace le Secret dans son integralite, ce n'est
+    # pas un patch. Sans reinjecter ces cles telles quelles, une rotation
+    # --force les effacerait silencieusement, rendant illisibles les
+    # secrets LDAP/MFA et les sauvegardes deja chiffrees sous ces cles
+    # (audit 04/08/2026, correctif MOYEN).
+    local preserve_args=()
+    local existing_keys
+    existing_keys=$("$kubectl_command" get secret "$name" \
+      --namespace "$namespace" \
+      --output go-template='{{range $k, $v := .data}}{{$k}}{{"\n"}}{{end}}')
+
+    local key
+    while IFS= read -r key; do
+      [[ -z "$key" ]] && continue
+      if is_key_being_regenerated "$key" "$@"; then
+        continue
+      fi
+      local preserve_path="$temporary_root/preserve-$name-$key"
+      "$kubectl_command" get secret "$name" \
+        --namespace "$namespace" \
+        --output "go-template={{index .data \"$key\" | base64decode}}" \
+        >"$preserve_path"
+      chmod 600 "$preserve_path"
+      preserve_args+=("--from-file=$key=$preserve_path")
+    done <<<"$existing_keys"
+
     "$kubectl_command" create secret generic "$name" \
       --namespace "$namespace" \
       "$@" \
+      "${preserve_args[@]}" \
       --dry-run=client \
       --output yaml |
       "$kubectl_command" replace --filename - >/dev/null
+
+    if ((${#preserve_args[@]} > 0)); then
+      echo "Secret '$name' : ${#preserve_args[@]} cle(s) existante(s) preservee(s) telle(s) quelle(s)." >&2
+    fi
   else
     "$kubectl_command" create secret generic "$name" \
       --namespace "$namespace" \

@@ -1,10 +1,14 @@
 # Subnetory — Correctifs de sécurité appliqués
 
 > Document de suivi des correctifs de sécurité appliqués au projet Subnetory.
-> Base historique : v0.3.0 (commit f722f42). Dernière mise à jour : Sprint 2.29.
+> Base historique : v0.3.0 (commit f722f42). Dernière mise à jour : 04/08/2026 (v0.8.4).
 > Correction du 30/07/2026 : F5 et F6, listés ci-dessous comme « reportés » depuis Sprint 2.29,
 > sont en réalité déjà implémentés dans le code (voir détail plus bas) — ce document n'avait
 > pas été remis à jour depuis. Aucun autre écart identifié entre ce document et le code réel.
+> Correction du 04/08/2026 : le document était resté figé à Sprint 2.29 alors que huit
+> correctifs supplémentaires (H4 à H5, M6 à M11) avaient été appliqués depuis sans jamais être
+> journalisés ici — écart repéré par un audit externe. Voir `CHANGELOG.md` pour l'historique
+> complet par version ; ce document reste le résumé orienté sécurité.
 >
 > Vérification de référence :
 >
@@ -13,7 +17,8 @@
 > .\mvnw.cmd test
 > ```
 >
-> Résultat attendu après clôture Sprint 2.29 : 552 tests, 0 failure, 0 error, 0 skipped.
+> Résultat attendu après v0.8.4 : voir le nombre de tests courant dans le dernier run CI
+> (`test` job, `.github/workflows/ci.yml`) — ce document ne fige plus un chiffre daté.
 
 ---
 
@@ -37,6 +42,14 @@
 | F7 | Faible   | Rate limiting généralisé sur `/api/v1/**`                          | `ApiRateLimiter.java`, `ApiRateLimitingFilter.java`, `SecurityConfig.java`, `application.yml`                          | Faible (seuil relevé en profil test)     |
 | F8 | Faible   | Authentification à deux facteurs (MFA/TOTP) optionnelle             | `MfaService.java`, `MfaLoginChallengeService.java`, `MfaChallengeFilter.java`, `AuthController.java`, `SecurityConfig.java`, `V14__add_mfa_support.sql` | Moyen (authentification Web + API)       |
 | —  | —        | Retrait du `.env` (secrets dev) de l'archive                       | `.env` supprimé                                                                                                       | Aucune (gitignoré)                       |
+| H4 | Élevé    | Contournement du rate limiting MFA côté Web (04/08/2026)            | `RateLimitingAuthenticationSuccessHandler.java`, `MfaChallengeWebController.java`                                     | Faible (tests dédiés ajoutés)            |
+| H5 | Élevé    | Fuite entre contextes au déplacement d'un Site/VLAN (03/08/2026)    | `SiteService.java`, `VlanService.java`, `SubnetService.java`, `AddressService.java`                                   | Faible (tests dédiés ajoutés)            |
+| M6 | Moyen    | Rotation `--force` des Secrets Helm effaçait les clés de chiffrement (04/08/2026) | `init-helm-secrets.sh`, `init-helm-secrets.ps1`                                                          | Nulle (scripts hors app)                 |
+| M7 | Moyen    | Compteur `LoginRateLimiter` non atomique sous concurrence (03/08/2026) | `LoginRateLimiter.java`                                                                                            | Nulle (test de concurrence ajouté)       |
+| M8 | Moyen    | Préfixe CIDR de confiance non validé (0–32) dans `ClientIpResolver` (03/08/2026) | `ClientIpResolver.java`                                                                                    | Nulle                                    |
+| M9 | Moyen    | Limite d'import CSV/XLSX partagée avec celle des sauvegardes (03/08/2026) | `ImportFileValidator.java`, `application.yml`                                                                   | Nulle                                    |
+| M10 | Moyen   | Consommation non atomique d'un code de récupération MFA (03/08/2026) | `MfaService.java`, `MfaRecoveryCodeRepository.java`                                                                  | Nulle (test dédié ajouté)                |
+| M11 | Moyen   | Déplacement d'un sous-réseau sans garde-fou context/site/CIDR (03/08/2026) | `SubnetService.java`, `AddressRepository.java`, `SubnetRepository.java`                                         | Faible (tests dédiés ajoutés)            |
 
 ---
 
@@ -354,6 +367,60 @@ Limite connue : l'approche par exact-match ne détecte pas toutes les variantes,
 
 ---
 
+### H4 — Contournement du rate limiting MFA côté Web
+
+**Avant :** `RateLimitingAuthenticationSuccessHandler`, invoqué par Spring Security immédiatement après validation du mot de passe (avant toute vérification du second facteur), remettait inconditionnellement à zéro le compteur `LoginRateLimiter` et journalisait `LOGIN_SUCCESS` — même quand le compte a le MFA activé et que la connexion n'est donc pas terminée. `MfaChallengeWebController` n'incrémentait le compteur qu'en cas de code TOTP invalide. Un attaquant connaissant le mot de passe pouvait alterner « re-soumission du formulaire de login » (reset gratuit du compteur) et « un essai de code TOTP », sans jamais atteindre le seuil de verrouillage sur le second facteur — brute-force TOTP illimité avec un mot de passe compromis. Le parcours API (`POST /api/v1/auth/token`) n'était pas concerné : il applique déjà le bon principe (reset différé après validation MFA effective).
+
+**Après :** `RateLimitingAuthenticationSuccessHandler` interroge `MfaLoginChallengeService.isRequired(username)` ; si le MFA est requis, le reset du compteur et l'audit `LOGIN_SUCCESS` sont différés jusqu'à la vérification effective du second facteur, désormais effectués par `MfaChallengeWebController#verify` sur code valide — même principe que côté API.
+
+Tests ajoutés : régression multi-cycles (`MfaLoginBypassRegressionTest`) reproduisant l'alternance « login valide → code MFA invalide » jusqu'au seuil de verrouillage sur les deux composants réels (pas de mock du rate limiter), plus des tests unitaires ciblés sur chaque composant.
+
+---
+
+### H5 — Fuite entre contextes lors du déplacement d'un Site ou d'un VLAN
+
+Voir `CHANGELOG.md`, section `[0.8.1]`, entrée « Fuite entre contextes lors du déplacement d'un site ou d'un VLAN » pour le détail complet (cause, correctif en deux plans, portée). Résumé : `Subnet`/`Address` stockent leur propre `context_id`, jamais resynchronisé après un changement de contexte du `Site` ou de site du `VLAN` parent ; corrigé en bloquant ces changements tant que des sous-réseaux existent encore, et en filtrant en plus par le contexte propre de chaque sous-réseau retourné (défense en profondeur).
+
+---
+
+### M6 — Rotation Helm `--force` effaçait les clés de chiffrement optionnelles
+
+**Avant :** `init-helm-secrets.sh`/`.ps1`, en mode `--force`, remplaçait intégralement (`kubectl replace`, pas un patch) le Secret runtime avec uniquement `jwt-secret` et `postgres-password`. Si le Secret contenait déjà `encryption-key` (chiffrement des secrets LDAP/MFA en base) ou `backup-encryption-key` (chiffrement des sauvegardes), une rotation effaçait ces clés silencieusement — secrets LDAP/MFA et sauvegardes déjà chiffrées devenus illisibles.
+
+**Après :** avant tout remplacement, le script relit les clés déjà présentes dans le Secret existant et réinjecte telles quelles celles qui ne sont pas explicitement régénérées par l'appel en cours.
+
+---
+
+### M7 — `LoginRateLimiter` : compteur non atomique sous concurrence
+
+Voir `CHANGELOG.md`, section `[0.8.2]`. Section critique désormais synchronisée par instance de tentative (une par clé IP/utilisateur), champs `volatile` pour la visibilité hors verrou. Test de concurrence ajouté (plusieurs threads sur la même clé, aucun incrément perdu).
+
+---
+
+### M8 — `ClientIpResolver` : préfixe CIDR de confiance non validé
+
+Voir `CHANGELOG.md`, section `[0.8.2]`. Un préfixe hors bornes (`/33`, négatif) pouvait produire un masque à 0 via décalage de bits modulo 64, traitant toute IP comme proxy de confiance — exploitable uniquement via une faute de configuration opérateur, désormais refusé au démarrage.
+
+---
+
+### M9 — Limite d'import CSV/XLSX partagée avec celle des sauvegardes
+
+Voir `CHANGELOG.md`, section `[0.8.2]`. `ImportFileValidator` réutilisait la limite `spring.servlet.multipart.max-file-size` (200 Mo, dimensionnée pour les dumps de sauvegarde) pour les imports CSV/XLSX, alors qu'`XSSFWorkbook` (Apache POI, non-streaming) charge tout le fichier en mémoire. Nouvelle propriété dédiée `subnetory.import.max-file-size` (défaut 10 Mo).
+
+---
+
+### M10 — Consommation non atomique d'un code de récupération MFA
+
+Voir `CHANGELOG.md`, section `[0.8.2]`. Lecture puis `save()` séparés permettaient à deux authentifications concurrentes de consommer toutes deux le même code à usage unique. `MfaRecoveryCodeRepository.markUsedIfUnused` effectue désormais une mise à jour conditionnelle atomique (`UPDATE ... WHERE used_at IS NULL`).
+
+---
+
+### M11 — Déplacement d'un sous-réseau sans garde-fou context/site/CIDR
+
+Voir `CHANGELOG.md`, section `[0.8.1]`, entrée « Déplacement d'un sous-réseau sans garde-fou ». `SubnetService.update` refuse désormais tout changement de contexte/site/CIDR si le sous-réseau a encore des adresses, et tout changement de contexte/CIDR s'il a encore des sous-réseaux enfants.
+
+---
+
 ### Retrait du `.env`
 
 Le fichier `.env`, présent dans certaines copies de travail mais déjà ignoré par Git, contenait des secrets de développement en clair.
@@ -433,6 +500,16 @@ backend/src/main/java/dev/subnetory/security/MfaChallengeFilter.java            
 backend/src/main/java/dev/subnetory/domain/MfaRecoveryCode.java                        (F8)
 backend/src/main/resources/db/migration/V14__add_mfa_support.sql                       (F8)
 backend/.env                                                                          (supprimé de l'archive)
+backend/src/main/java/dev/subnetory/web/MfaChallengeWebController.java                (H4)
+scripts/init-helm-secrets.sh                                                          (M6)
+scripts/init-helm-secrets.ps1                                                         (M6)
+backend/src/main/java/dev/subnetory/repository/MfaRecoveryCodeRepository.java         (M10)
+backend/src/main/java/dev/subnetory/service/SubnetService.java                        (M11)
+backend/src/main/java/dev/subnetory/repository/AddressRepository.java                 (M11)
+backend/src/main/java/dev/subnetory/repository/SubnetRepository.java                  (M11)
+backend/src/main/java/dev/subnetory/service/SiteService.java                          (H5)
+backend/src/main/java/dev/subnetory/service/VlanService.java                          (H5)
+backend/src/main/java/dev/subnetory/util/ImportFileValidator.java                     (M9)
 ```
 
 Des tests unitaires et d'intégration couvrent désormais :
