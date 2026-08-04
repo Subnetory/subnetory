@@ -82,8 +82,14 @@ class BackupExecutionServiceTest {
     private final BackupConfigurationService configurationService = mock(BackupConfigurationService.class);
     private final dev.subnetory.service.AuthAuditService authAuditService =
             mock(dev.subnetory.service.AuthAuditService.class);
+    private final RestoreMaintenanceGate restoreMaintenanceGate = new RestoreMaintenanceGate();
+    private final dev.subnetory.service.UserTokenInvalidationService userTokenInvalidationService =
+            mock(dev.subnetory.service.UserTokenInvalidationService.class);
+    private final dev.subnetory.service.SessionInvalidationService sessionInvalidationService =
+            mock(dev.subnetory.service.SessionInvalidationService.class);
     private final BackupExecutionService service =
-            new BackupExecutionService(backupRunRepository, backupRestoreRepository, configurationService, authAuditService);
+            new BackupExecutionService(backupRunRepository, backupRestoreRepository, configurationService,
+                    authAuditService, restoreMaintenanceGate, userTokenInvalidationService, sessionInvalidationService);
 
     @BeforeEach
     void setUp() {
@@ -242,6 +248,72 @@ class BackupExecutionServiceTest {
 
         verify(backupRunRepository, never()).save(any());
         verify(backupRestoreRepository, never()).save(any());
+    }
+
+    // -------------------------------------------------------
+    // Mode maintenance restauration + invalidation post-restore
+    // (correctif securite MOYENNE, audit 04/08/2026)
+    //
+    // Le chemin de succes complet (pg_restore reel) n'est testable qu'avec
+    // un binaire pg_restore installe (indisponible en CI/Testcontainers,
+    // meme contrainte que AdminBackupControllerIT). Ces tests couvrent donc
+    // les chemins d'echec AVANT le pg_restore lui-meme : ils prouvent que
+    // RestoreMaintenanceGate reste inactif (jamais active a tort) et que
+    // l'invalidation post-restore n'est jamais declenchee tant que la
+    // restauration n'a pas reellement modifie la base.
+    // -------------------------------------------------------
+
+    @Test
+    void restore_confirmationMismatch_neverActivatesMaintenanceGateOrPostRestoreInvalidation() {
+        BackupRun sourceRun = new BackupRun();
+        sourceRun.setId(1L);
+        sourceRun.setStatus(BackupRun.STATUS_SUCCESS);
+        sourceRun.setFileName("subnetory-20260801-020000.dump");
+        when(backupRunRepository.findById(1L)).thenReturn(java.util.Optional.of(sourceRun));
+
+        assertThatThrownBy(() -> service.restore(1L, "wrong-name.dump", "admin"))
+                .isInstanceOf(BackupException.class)
+                .satisfies(e -> assertThat(((BackupException) e).getReason())
+                        .isEqualTo(BackupException.Reason.CONFIRMATION_MISMATCH));
+
+        assertThat(restoreMaintenanceGate.isActive()).isFalse();
+        org.mockito.Mockito.verifyNoInteractions(userTokenInvalidationService);
+        org.mockito.Mockito.verifyNoInteractions(sessionInvalidationService);
+    }
+
+    @Test
+    void restore_safetyBackupFails_neverActivatesMaintenanceGateOrPostRestoreInvalidation(@TempDir Path tempDir)
+            throws Exception {
+        ReflectionTestUtils.setField(service, "pgDumpPath", "__subnetory_pg_dump_not_found__");
+        ReflectionTestUtils.setField(service, "storagePathStr", tempDir.toString());
+        ReflectionTestUtils.setField(service, "jdbcUrl", "jdbc:postgresql://db:5432/subnetory");
+
+        Path dumpFile = tempDir.resolve("subnetory-20260801-020000.dump");
+        java.nio.file.Files.writeString(dumpFile, "dump-content");
+
+        BackupRun sourceRun = new BackupRun();
+        sourceRun.setId(2L);
+        sourceRun.setStatus(BackupRun.STATUS_SUCCESS);
+        sourceRun.setFileName(dumpFile.getFileName().toString());
+        // Checksum volontairement null : restore() ne compare l'empreinte
+        // que si elle a ete enregistree, ce qui simplifie ce test sans avoir
+        // besoin de recalculer un SHA-256 valide (le point teste ici est
+        // l'ordre begin()/echec, pas la verification d'integrite).
+        sourceRun.setChecksumSha256(null);
+        when(backupRunRepository.findById(2L)).thenReturn(java.util.Optional.of(sourceRun));
+        when(backupRunRepository.saveAndFlush(any(BackupRun.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(backupRunRepository.save(any(BackupRun.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(backupRestoreRepository.saveAndFlush(any(BackupRestore.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(backupRestoreRepository.save(any(BackupRestore.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertThatThrownBy(() -> service.restore(2L, dumpFile.getFileName().toString(), "admin"))
+                .isInstanceOf(BackupException.class)
+                .satisfies(e -> assertThat(((BackupException) e).getReason())
+                        .isEqualTo(BackupException.Reason.SAFETY_BACKUP_FAILED));
+
+        assertThat(restoreMaintenanceGate.isActive()).isFalse();
+        org.mockito.Mockito.verifyNoInteractions(userTokenInvalidationService);
+        org.mockito.Mockito.verifyNoInteractions(sessionInvalidationService);
     }
 
     // -------------------------------------------------------

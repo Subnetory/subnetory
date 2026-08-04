@@ -7,7 +7,7 @@ image:
   # cluster sans acces sortant a ghcr.io, voir backend/docs/INSTALL_KUBERNETES.md
   # (Options B/C) pour construire et charger l'image localement.
   repository: ghcr.io/subnetory/subnetory
-  tag: "v0.8.4"
+  tag: "v0.8.5"
   pullPolicy: IfNotPresent
   imagePullSecrets: []
 
@@ -72,7 +72,20 @@ service:
 application:
   serverPort: 8080
   terminationGracePeriodSeconds: 40
-  resources: {}
+  # Defauts non-vides (correctif securite MOYENNE, audit 04/08/2026) : un
+  # chart Helm sans requests/limits laisse un seul pod applicatif consommer
+  # des ressources sans borne sur ses voisins du meme cluster (a la
+  # difference de Docker Compose, qui tourne generalement isole sur son
+  # propre hote). Valeurs de depart prudentes pour une petite/moyenne
+  # instance IPAM (JVM Java 21 + Undertow/Tomcat embarque) — ajuster selon la
+  # charge reelle observee (nombre d'utilisateurs, frequence des scans Nmap).
+  resources:
+    requests:
+      cpu: 250m
+      memory: 384Mi
+    limits:
+      cpu: "1"
+      memory: 768Mi
   startupProbe:
     periodSeconds: 5
     timeoutSeconds: 3
@@ -134,7 +147,15 @@ postgresql:
     periodSeconds: 10
     timeoutSeconds: 5
     failureThreshold: 3
-  resources: {}
+  # Meme motif que application.resources ci-dessus (correctif securite
+  # MOYENNE, audit 04/08/2026).
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
 
 externalDatabase:
   enabled: false
@@ -142,7 +163,18 @@ externalDatabase:
   port: 5432
   database: subnetory
   username: subnetory
-  sslMode: prefer
+  # Correctif securite MOYENNE (audit 04/08/2026) : "prefer" se degrade
+  # silencieusement en connexion NON chiffree si le serveur PostgreSQL
+  # externe ne propose pas TLS — aucune erreur, aucun avertissement au
+  # demarrage. "require" echoue au demarrage si TLS n'est pas disponible :
+  # un operateur qui pointe par erreur vers une base sans TLS le decouvre
+  # immediatement plutot que de decouvrir plus tard que le trafic circulait
+  # en clair. Ne verifie pas l'identite du serveur (pas de protection
+  # anti-MITM) — pour cela, passer a "verify-full" et fournir le certificat
+  # CA du serveur (voir la documentation JDBC PostgreSQL pour
+  # sslrootcert/sslfactory, a ajouter a la chaine de connexion applicative
+  # si necessaire).
+  sslMode: require
 
 # --- Legacy standalone mechanism (separate CronJob pods running a shell
 # script against the postgres image) -----------------------------------
@@ -222,6 +254,25 @@ ingress:
   annotations: {}
   hosts: []
   tls: []
+  # Correctif securite ELEVEE (audit 04/08/2026) : sans cette liste, le
+  # chart ne positionnait ni SERVER_FORWARD_HEADERS_STRATEGY=framework ni
+  # SUBNETORY_SECURITY_TRUSTED_PROXY (voir ClientIpResolver et
+  # application.yml). Spring restait alors en forward-headers-strategy=none
+  # et ClientIpResolver ne lisait jamais X-Forwarded-For : tous les
+  # utilisateurs passant par l'Ingress apparaissaient avec la meme IP (celle
+  # du controleur Ingress), ce qui mutualise le rate limiting API (300
+  # req/min) et le verrouillage anti-bruteforce (10 echecs = 15 min) entre
+  # tous les utilisateurs, et empeche le cookie de session d'obtenir
+  # l'attribut Secure derriere une terminaison TLS sur l'Ingress.
+  #
+  # Obligatoire des que ingress.enabled=true : le chart refuse de rendre les
+  # manifests si cette liste est vide (voir templates/configmap.yaml).
+  # Valeur = le(s) CIDR depuis lesquels le pod applicatif voit arriver le
+  # trafic route par l'Ingress (reseau des pods du cluster la plupart du
+  # temps, parfois le reseau du controleur Ingress lui-meme selon le CNI) ;
+  # a determiner aupres de votre fournisseur Kubernetes (ex.
+  # `kubectl cluster-info dump | grep -i cluster-cidr`).
+  trustedProxyCidrs: []
 
 networkPolicy:
   enabled: false

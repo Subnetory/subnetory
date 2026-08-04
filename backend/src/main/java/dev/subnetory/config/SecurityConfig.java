@@ -4,6 +4,7 @@ import dev.subnetory.security.ApiRateLimitingFilter;
 import dev.subnetory.security.LoginRateLimitingFilter;
 import dev.subnetory.security.MandatoryPasswordChangeFilter;
 import dev.subnetory.security.MfaChallengeFilter;
+import dev.subnetory.security.RestoreMaintenanceFilter;
 import dev.subnetory.security.RevokedTokenValidator;
 import dev.subnetory.security.UserTokenInvalidationValidator;
 import dev.subnetory.security.RateLimitingAuthenticationFailureHandler;
@@ -36,6 +37,9 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.core.session.SessionRegistryImpl;
+import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
@@ -131,7 +135,8 @@ public class SecurityConfig {
     @Order(1)
     public SecurityFilterChain apiFilterChain(HttpSecurity http,
                                               @Qualifier("jwtDecoder") JwtDecoder jwtDecoder,
-                                              ApiRateLimitingFilter apiRateLimitingFilter) throws Exception {
+                                              ApiRateLimitingFilter apiRateLimitingFilter,
+                                              RestoreMaintenanceFilter restoreMaintenanceFilter) throws Exception {
         return http
                 .securityMatcher("/api/**", "/actuator/**")
                 .csrf(AbstractHttpConfigurer::disable)
@@ -159,6 +164,11 @@ public class SecurityConfig {
                 // signature sur une requete deja refusee. Complementaire au rate
                 // limiting strict de /api/v1/auth/token (correctif H2).
                 .addFilterBefore(apiRateLimitingFilter, BearerTokenAuthenticationFilter.class)
+                // Mode maintenance restauration (correctif securite MOYENNE,
+                // audit 04/08/2026) : avant le rate limiting, pour ne pas
+                // consommer de quota sur des requetes de toute facon refusees
+                // tant qu'une restauration est active. Voir RestoreMaintenanceGate.
+                .addFilterBefore(restoreMaintenanceFilter, ApiRateLimitingFilter.class)
                 .build();
     }
 
@@ -180,6 +190,51 @@ public class SecurityConfig {
                 new FilterRegistrationBean<>(apiRateLimitingFilter);
         registration.setEnabled(false);
         return registration;
+    }
+
+    /**
+     * Meme raison que {@code apiRateLimitingFilterRegistration} ci-dessus :
+     * {@code RestoreMaintenanceFilter} est un {@code @Component}, donc
+     * auto-enregistre par Spring Boot sur {@code /*} en plus de son
+     * rattachement explicite a {@code apiFilterChain} et
+     * {@code webFilterChain} — sans cette desactivation, il s'executerait
+     * jusqu'a trois fois par requete (une fois par auto-enregistrement,
+     * une fois par chaine explicite).
+     */
+    @Bean
+    public FilterRegistrationBean<RestoreMaintenanceFilter> restoreMaintenanceFilterRegistration(
+            RestoreMaintenanceFilter restoreMaintenanceFilter) {
+        FilterRegistrationBean<RestoreMaintenanceFilter> registration =
+                new FilterRegistrationBean<>(restoreMaintenanceFilter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    /**
+     * Registre explicite des sessions Web (correctif securite MOYENNE, audit
+     * 04/08/2026) : {@code maximumSessions(5)} en creait deja un en interne,
+     * mais sans reference exploitable ailleurs. Exposer ce bean permet a
+     * {@code dev.subnetory.service.SessionInvalidationService} de drainer
+     * toutes les sessions existantes apres une restauration reussie —
+     * autrement, une session Web deja ouverte conserverait en memoire les
+     * autorites/roles charges avant la restauration jusqu'a son expiration
+     * naturelle (jusqu'a 30 minutes, voir {@code server.servlet.session.timeout}).
+     */
+    @Bean
+    public SessionRegistry sessionRegistry() {
+        return new SessionRegistryImpl();
+    }
+
+    /**
+     * Necessaire pour que {@link #sessionRegistry()} soit tenu a jour quand
+     * une session HTTP expire ou est invalidee cote conteneur (sans ce
+     * publisher, seules les nouvelles connexions sont enregistrees, jamais
+     * les destructions — le registre grossirait indefiniment avec des
+     * sessions mortes).
+     */
+    @Bean
+    public HttpSessionEventPublisher httpSessionEventPublisher() {
+        return new HttpSessionEventPublisher();
     }
 
     // -------------------------------------------------------
@@ -232,6 +287,8 @@ public class SecurityConfig {
                                               RateLimitingAuthenticationFailureHandler failureHandler,
                                               RateLimitingAuthenticationSuccessHandler successHandler,
                                               LoginRateLimitingFilter loginRateLimitingFilter,
+                                              RestoreMaintenanceFilter restoreMaintenanceFilter,
+                                              SessionRegistry sessionRegistry,
                                               ObjectProvider<MandatoryPasswordChangeService>
                                                       mandatoryPasswordChangeServiceProvider,
                                               ObjectProvider<MfaLoginChallengeService>
@@ -242,6 +299,16 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                         .invalidSessionUrl("/login?expired")
                         .maximumSessions(5)
+                        // Bean explicite (correctif securite MOYENNE, audit 04/08/2026) :
+                        // sans cette reference, le SessionRegistry interne de
+                        // maximumSessions() n'est pas exploitable ailleurs dans
+                        // l'application. Necessaire pour drainer les sessions Web
+                        // existantes apres une restauration (voir
+                        // SessionInvalidationService et le bean sessionRegistry()
+                        // ci-dessous) — sans quoi une session dejà ouverte
+                        // conserverait en memoire les autorites/roles d'avant la
+                        // restauration jusqu'a son expiration naturelle.
+                        .sessionRegistry(sessionRegistry)
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/assets/**", "/error", "/login").permitAll()
@@ -277,6 +344,10 @@ public class SecurityConfig {
                                 response.sendError(HttpServletResponse.SC_FORBIDDEN))
                 )
                 .addFilterBefore(rejectUnsafeWebRequestWithoutCsrfToken(), CsrfFilter.class)
+                // Mode maintenance restauration (correctif securite MOYENNE,
+                // audit 04/08/2026) : voir RestoreMaintenanceGate / le meme
+                // filtre est cable dans apiFilterChain ci-dessus.
+                .addFilterBefore(restoreMaintenanceFilter, CsrfFilter.class)
                 .addFilterBefore(loginRateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(
                         new MandatoryPasswordChangeFilter(

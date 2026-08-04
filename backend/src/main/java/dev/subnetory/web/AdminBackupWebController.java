@@ -110,6 +110,9 @@ public class AdminBackupWebController {
     // ── Import d'une sauvegarde téléchargée ──────────────────────────────
 
     @PostMapping("/import")
+    // Correctif securite ELEVEE (audit 04/08/2026), meme motif que
+    // AdminBackupController#importBackup : reserve a ROLE_ADMIN.
+    @PreAuthorize("hasRole('ADMIN')")
     public String importBackup(@RequestParam("file") MultipartFile file,
                                Authentication auth, RedirectAttributes flash, Locale locale) {
         try {
@@ -194,6 +197,11 @@ public class AdminBackupWebController {
     // ── Restauration — jamais un simple clic ────────────────────────────
 
     @GetMapping("/runs/{id}/restore-confirm")
+    // Correctif securite ELEVEE (audit 04/08/2026) : la restauration
+    // elle-meme (POST ci-dessous) est reservee a ROLE_ADMIN ; restreindre
+    // aussi la page de confirmation evite d'exposer ce parcours a ROLE_BACKUP
+    // pour n'aboutir qu'a un 403 au clic.
+    @PreAuthorize("hasRole('ADMIN')")
     public String restoreConfirm(@PathVariable Long id, Model model, Locale locale) {
         return restoreConfirmPage(id, model, locale);
     }
@@ -209,6 +217,9 @@ public class AdminBackupWebController {
     }
 
     @PostMapping("/runs/{id}/restore")
+    // Correctif securite ELEVEE (audit 04/08/2026), meme motif que
+    // AdminBackupController#restore : reserve a ROLE_ADMIN.
+    @PreAuthorize("hasRole('ADMIN')")
     public String restore(@PathVariable Long id,
                           @RequestParam String confirmationText,
                           Authentication auth,

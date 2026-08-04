@@ -50,6 +50,7 @@ public class ScanController {
      *   <li>403 — rôle insuffisant</li>
      *   <li>404 — subnet inexistant</li>
      *   <li>408 — délai d'exécution dépassé</li>
+     *   <li>429 — trop de scans Nmap déjà en cours (globalement ou pour cet utilisateur)</li>
      *   <li>503 — nmap non installé ou inaccessible</li>
      * </ul>
      */
@@ -88,6 +89,11 @@ public class ScanController {
             case TIMEOUT -> HttpStatus.REQUEST_TIMEOUT.value();
             case TOOL_NOT_AVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE.value();
             case EXECUTION_FAILED, PARSE_ERROR -> HttpStatus.INTERNAL_SERVER_ERROR.value();
+            // Correctif securite FAIBLE/MOYEN (audit 04/08/2026) : 429, pas
+            // 503 — la ressource limitante ici est un quota applicatif
+            // (nombre de scans Nmap concurrents), pas l'indisponibilite de
+            // l'outil lui-meme.
+            case TOO_MANY_CONCURRENT_SCANS -> HttpStatus.TOO_MANY_REQUESTS.value();
         };
     }
 
@@ -104,6 +110,7 @@ public class ScanController {
             case TOOL_NOT_AVAILABLE  -> "Scan Tool Not Available";
             case EXECUTION_FAILED    -> "Scan Execution Failed";
             case PARSE_ERROR         -> "Scan Output Parse Error";
+            case TOO_MANY_CONCURRENT_SCANS -> "Too Many Concurrent Scans";
         });
         pd.setProperty("timestamp", Instant.now());
         return pd;

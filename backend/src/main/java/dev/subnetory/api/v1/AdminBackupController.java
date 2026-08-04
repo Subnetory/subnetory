@@ -117,11 +117,23 @@ public class AdminBackupController {
     }
 
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @Operation(summary = "Importer un fichier de sauvegarde (.dump)",
+    // Correctif securite ELEVEE (audit 04/08/2026) : importer un dump
+    // externe equivaut a injecter n'importe quel contenu dans la base
+    // applicative (utilisateurs, roles, associations de contextes, donnees
+    // metier) — pg_restore --list ne valide que la structure du format
+    // pg_dump, pas son contenu. La classe reste ouverte a ROLE_BACKUP pour
+    // consulter/declencher/telecharger des sauvegardes normales, mais
+    // l'import d'un dump arbitraire est reserve a ROLE_ADMIN, jamais a un
+    // compte de service limite aux sauvegardes.
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Importer un fichier de sauvegarde (.dump) — réservé à ROLE_ADMIN",
             description = "Ajoute un fichier pg_dump --format=custom externe (par exemple téléchargé "
                     + "précédemment) à l'historique comme une sauvegarde exploitable. Le format est validé "
-                    + "(pg_restore --list) avant acceptation. La restauration se fait ensuite via l'endpoint "
-                    + "/restore habituel, avec les mêmes protections.")
+                    + "(pg_restore --list) avant acceptation, mais pas le contenu : un dump préparé peut "
+                    + "modifier utilisateurs, rôles ou données métier lors d'une restauration ultérieure. "
+                    + "Réservé à ROLE_ADMIN (correctif sécurité ÉLEVÉE, audit 04/08/2026) — ROLE_BACKUP seul "
+                    + "reçoit 403. La restauration se fait ensuite via l'endpoint /restore habituel, avec les "
+                    + "mêmes protections.")
     public ResponseEntity<?> importBackup(@RequestPart("file") MultipartFile file, Authentication auth) {
         try {
             BackupRun run = executionService.importBackup(file, auth.getName());
@@ -200,8 +212,16 @@ public class AdminBackupController {
     }
 
     @PostMapping("/restore")
-    @Operation(summary = "Restaurer la base à partir d'une sauvegarde "
-            + "(nécessite confirmationText = nom exact du fichier — jamais un simple clic)")
+    // Correctif securite ELEVEE (audit 04/08/2026) : ecrase l'integralite de
+    // la base applicative (utilisateurs, roles, donnees metier) avec le
+    // contenu d'un dump — y compris un dump importe via /import ci-dessus.
+    // Reserve a ROLE_ADMIN, jamais delegue a un compte de service ROLE_BACKUP.
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Restaurer la base à partir d'une sauvegarde — réservé à ROLE_ADMIN "
+            + "(nécessite confirmationText = nom exact du fichier — jamais un simple clic)",
+            description = "Réservé à ROLE_ADMIN (correctif sécurité ÉLEVÉE, audit 04/08/2026) : ROLE_BACKUP "
+                    + "seul reçoit désormais 403. Restaurer écrase l'intégralité de la base applicative avec "
+                    + "le contenu du dump choisi.")
     public ResponseEntity<?> restore(@RequestBody BackupRestoreRequest request, Authentication auth) {
         try {
             BackupRestore result = executionService.restore(

@@ -1,6 +1,9 @@
 {{- if and .Values.backup.enabled .Values.backupApp.enabled }}
 {{- fail "backup.enabled et backupApp.enabled ne peuvent pas être true en même temps : les deux mécanismes prendraient des dumps indépendants et non coordonnés de la même base. Choisissez l'un des deux (voir les commentaires au-dessus de \"backup:\" et \"backupApp:\" dans values.yaml)." }}
 {{- end }}
+{{- if and .Values.ingress.enabled (not .Values.ingress.trustedProxyCidrs) }}
+{{- fail "ingress.enabled=true nécessite ingress.trustedProxyCidrs (liste non vide) : sans cette configuration, l'application ignore X-Forwarded-For/X-Forwarded-Proto et tous les utilisateurs derrière l'Ingress partagent la même IP apparente (rate limiting et anti-bruteforce mutualisés, cookie de session sans l'attribut Secure). Voir les commentaires au-dessus de \"trustedProxyCidrs\" sous \"ingress:\" dans values.yaml." }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -17,6 +20,16 @@ data:
   {{- else }}
   SPRING_DATASOURCE_URL: {{ printf "jdbc:postgresql://%s:%v/%s?stringtype=unspecified&sslmode=%s" .Values.externalDatabase.host .Values.externalDatabase.port .Values.externalDatabase.database .Values.externalDatabase.sslMode | quote }}
   SPRING_DATASOURCE_USERNAME: {{ .Values.externalDatabase.username | quote }}
+  {{- end }}
+  {{- if .Values.ingress.enabled }}
+  # Correctif securite ELEVEE (audit 04/08/2026) : voir les commentaires
+  # au-dessus de "trustedProxyCidrs" sous "ingress:" dans values.yaml et
+  # ClientIpResolver pour le detail du modele de confiance. Ces trois
+  # variables reproduisent, pour l'Ingress, ce que docker-compose.https.yml
+  # positionne deja pour l'overlay Caddy.
+  SERVER_FORWARD_HEADERS_STRATEGY: "framework"
+  SUBNETORY_SECURITY_TRUSTED_PROXY: "true"
+  SUBNETORY_SECURITY_TRUSTED_PROXY_CIDRS: {{ join "," .Values.ingress.trustedProxyCidrs | quote }}
   {{- end }}
   {{- if .Values.backupApp.enabled }}
   # Moteur de sauvegarde integre a l'application (Phase 7 audit, 31/07/2026) —

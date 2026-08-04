@@ -1,5 +1,6 @@
 package dev.subnetory.web;
 
+import dev.subnetory.backup.RestoreMaintenanceGate;
 import dev.subnetory.config.SecurityConfig;
 import dev.subnetory.dto.SiteResponse;
 import dev.subnetory.exception.ConflictException;
@@ -66,6 +67,9 @@ class SiteCrudWebIT {
     @MockitoBean ClientIpResolver clientIpResolver;
     @MockitoBean RateLimitingAuthenticationFailureHandler failureHandler;
     @MockitoBean RateLimitingAuthenticationSuccessHandler successHandler;
+    // Correctif securite MOYENNE (audit 04/08/2026) : RestoreMaintenanceFilter,
+    // cable dans SecurityConfig#webFilterChain, a besoin de ce bean.
+    @MockitoBean RestoreMaintenanceGate restoreMaintenanceGate;
     private SiteResponse sampleSite;
 
     @BeforeEach

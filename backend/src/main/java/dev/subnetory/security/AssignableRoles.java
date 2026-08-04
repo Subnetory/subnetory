@@ -15,6 +15,15 @@ public final class AssignableRoles {
      * Acces limite aux operations de sauvegarde (audit 01/08/2026, cf.
      * backend/docs/DB_PASSWORD_ROTATION_FEASIBILITY.md) : sans le reste de
      * l'administration (comptes, LDAP, journal d'audit), reserve a ADMIN.
+     *
+     * <p>Correctif securite ELEVEE (audit 04/08/2026) : import et
+     * restauration ({@code AdminBackupController}/{@code AdminBackupWebController})
+     * sont desormais reserves a {@link #ADMIN} malgre la regle d'URL/classe
+     * {@code hasAnyRole('ADMIN', 'BACKUP')} — un compte {@code ROLE_BACKUP}
+     * seul pouvait sinon importer puis restaurer un dump arbitraire,
+     * equivalent de fait a un acces administrateur complet des donnees.
+     * {@code ROLE_BACKUP} conserve configuration, declenchement, historique,
+     * telechargement, purge et suppression.</p>
      */
     public static final String BACKUP = "ROLE_BACKUP";
 

@@ -27,7 +27,7 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # aquasecurity/trivy-action a subi une compromission de supply-chain
       # critique (GHSA-69fq-xp46-6x23 / CVE-2026-33634, mars 2026) : 76 des 77

@@ -86,11 +86,26 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
+      # Correctif securite MOYENNE (audit 04/08/2026) : la release ne
+      # fournissait jusqu'ici qu'un JAR sans aucun moyen de verifier son
+      # integrite apres telechargement (SBOM/signature Cosign restent hors
+      # perimetre de ce correctif). SHA256SUMS.txt permet au minimum a
+      # quiconque telecharge l'asset de le verifier avec
+      # `sha256sum -c SHA256SUMS.txt`.
+      - name: Generate SHA-256 checksums for release assets
+        working-directory: backend/target
+        run: |
+          set -euo pipefail
+          sha256sum subnetory-*.jar > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
         with:
           generate_release_notes: true
-          files: backend/target/subnetory-*.jar
+          files: |
+            backend/target/subnetory-*.jar
+            backend/target/SHA256SUMS.txt
 
   # Smoke test post-release (audit 03/08/2026) : v0.8.1 a ete publiee avec
   # un chart Helm dont l'image par defaut pointait encore vers v0.8.0, sans

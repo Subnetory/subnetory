@@ -4,11 +4,13 @@ import dev.subnetory.domain.NetworkContext;
 import dev.subnetory.domain.Site;
 import dev.subnetory.dto.SiteRequest;
 import dev.subnetory.exception.ConflictException;
+import dev.subnetory.exception.ResourceNotFoundException;
 import dev.subnetory.repository.SiteRepository;
 import dev.subnetory.repository.SubnetRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -17,6 +19,8 @@ import java.lang.reflect.Field;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -106,6 +110,51 @@ class SiteServiceTest {
         var response = service.update(10L, request);
 
         assertThat(response.contextId()).isEqualTo(2L);
+    }
+
+    // -------------------------------------------------------
+    // Canal lateral 404/409 sur create() (correctif securite FAIBLE, audit
+    // 04/08/2026) : verifie l'unicite du code AVANT le controle d'acces au
+    // contexte parent permettait de distinguer, pour un contexte hors
+    // perimetre, un code de site deja pris (409) d'un code libre (404) —
+    // reveler ainsi l'existence de codes de sites en dehors du perimetre de
+    // l'utilisateur. Desormais le controle d'acces au contexte est toujours
+    // atteint en premier.
+    // -------------------------------------------------------
+
+    @Test
+    void create_contextInaccessible_throwsNotFound_evenIfCodeAlreadyExists() {
+        // contextService.getEntityById() reproduit ici exactement le
+        // comportement reel (ContextAccessService#requireAccess) : refuse de
+        // maniere identique, par ResourceNotFoundException, que le contexte
+        // soit inexistant ou simplement hors perimetre.
+        when(contextService.getEntityById(99L))
+                .thenThrow(new ResourceNotFoundException("NetworkContext", 99L));
+
+        var request = new SiteRequest("Nouveau site", "SITEA", 99L);
+
+        assertThatThrownBy(() -> service.create(request))
+                .isInstanceOf(ResourceNotFoundException.class);
+
+        // Point cle de la regression : l'unicite du code n'est jamais
+        // verifiee tant que l'acces au contexte parent n'est pas confirme,
+        // qu'un site avec ce code existe deja ou non.
+        verify(siteRepository, never()).existsByCode(anyString());
+        verify(siteRepository, never()).save(any());
+    }
+
+    @Test
+    void create_authorizesContextBeforeCheckingCodeUniqueness() {
+        when(contextService.getEntityById(1L)).thenReturn(contextA);
+        when(siteRepository.existsByCode("SITEB")).thenReturn(false);
+        when(siteRepository.save(any(Site.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var request = new SiteRequest("Site B", "SITEB", 1L);
+        service.create(request);
+
+        InOrder order = inOrder(contextService, siteRepository);
+        order.verify(contextService).getEntityById(1L);
+        order.verify(siteRepository).existsByCode("SITEB");
     }
 
     @Test

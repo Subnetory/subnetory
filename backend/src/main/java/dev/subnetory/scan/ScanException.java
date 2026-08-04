@@ -18,7 +18,13 @@ public class ScanException extends Exception {
         /** Erreur lors de l'exécution du process. */
         EXECUTION_FAILED,
         /** Erreur lors du parsing de la sortie XML. */
-        PARSE_ERROR
+        PARSE_ERROR,
+        /**
+         * Trop de scans Nmap deja en cours, globalement ou pour cet
+         * utilisateur (correctif securite FAIBLE/MOYEN, audit 04/08/2026) —
+         * voir {@code ScanService#globalScanSemaphore}/{@code activeScansByUser}.
+         */
+        TOO_MANY_CONCURRENT_SCANS
     }
 
     private final Reason reason;

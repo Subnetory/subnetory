@@ -94,11 +94,22 @@ d'infrastructure : c'est une autorisation purement applicative, du même type qu
 existants.
 
 `ROLE_BACKUP` a été ajouté à `dev.subnetory.security.AssignableRoles` (migration Flyway V20). Un
-compte avec seulement `ROLE_BACKUP` peut déclencher/importer/restaurer/purger/supprimer des
-sauvegardes (`/admin/backup`, `/api/v1/admin/backup`) sans avoir accès au reste de
+compte avec seulement `ROLE_BACKUP` peut déclencher/purger/supprimer des sauvegardes et consulter
+l'historique (`/admin/backup`, `/api/v1/admin/backup`) sans avoir accès au reste de
 l'administration (comptes utilisateurs, LDAP, journal d'audit) — utile pour un compte de service
 d'automatisation ou un opérateur dédié aux sauvegardes sans lui donner les pleins pouvoirs
 `ROLE_ADMIN`.
+
+**Correctif sécurité ÉLEVÉE (audit 04/08/2026) : import et restauration retirés de `ROLE_BACKUP`.**
+En pratique, `ROLE_BACKUP` équivalait à un accès administrateur complet aux données : importer un
+dump `pg_dump --format=custom` externe n'est validé que par `pg_restore --list` (structure du
+format, jamais le contenu), et une restauration écrase l'intégralité de la base applicative. Un
+compte `ROLE_BACKUP` seul pouvait donc préparer puis restaurer un dump modifiant utilisateurs,
+rôles, associations de contextes ou données métier — bien au-delà de l'intention initiale « accès
+limité aux sauvegardes, sans le reste de l'administration ». `POST .../import` et
+`POST .../restore` (IHM et API) exigent désormais `ROLE_ADMIN` explicitement, via
+`@PreAuthorize("hasRole('ADMIN')")` au niveau de chaque méthode concernée, en plus de la règle
+`hasAnyRole('ADMIN', 'BACKUP')` au niveau classe/URL décrite ci-dessous.
 
 Point non anticipé au moment de l'étude, corrigé pendant l'implémentation : la chaîne de sécurité
 web (`SecurityConfig`) verrouille `/admin/**` sur `ROLE_ADMIN` **au niveau du filtre HTTP**, avant

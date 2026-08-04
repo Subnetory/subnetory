@@ -1,5 +1,6 @@
 package dev.subnetory.web;
 
+import dev.subnetory.backup.RestoreMaintenanceGate;
 import dev.subnetory.config.SecurityConfig;
 import dev.subnetory.domain.NetworkContext;
 import dev.subnetory.domain.Role;
@@ -79,6 +80,9 @@ class AdminWebControllerIT {
     @MockitoBean ClientIpResolver clientIpResolver;
     @MockitoBean RateLimitingAuthenticationFailureHandler failureHandler;
     @MockitoBean RateLimitingAuthenticationSuccessHandler successHandler;
+    // Correctif securite MOYENNE (audit 04/08/2026) : RestoreMaintenanceFilter,
+    // cable dans SecurityConfig#webFilterChain, a besoin de ce bean.
+    @MockitoBean RestoreMaintenanceGate restoreMaintenanceGate;
 
     private User sampleUser;
 

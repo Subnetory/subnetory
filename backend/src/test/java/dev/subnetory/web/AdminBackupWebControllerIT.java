@@ -2,6 +2,7 @@ package dev.subnetory.web;
 
 import dev.subnetory.backup.BackupException;
 import dev.subnetory.backup.BackupExecutionService;
+import dev.subnetory.backup.RestoreMaintenanceGate;
 import dev.subnetory.config.SecurityConfig;
 import dev.subnetory.domain.BackupRestore;
 import dev.subnetory.domain.BackupRun;
@@ -82,6 +83,9 @@ class AdminBackupWebControllerIT {
     @MockitoBean ClientIpResolver clientIpResolver;
     @MockitoBean RateLimitingAuthenticationFailureHandler failureHandler;
     @MockitoBean RateLimitingAuthenticationSuccessHandler successHandler;
+    // Correctif securite MOYENNE (audit 04/08/2026) : RestoreMaintenanceFilter,
+    // cable dans SecurityConfig#webFilterChain, a besoin de ce bean.
+    @MockitoBean RestoreMaintenanceGate restoreMaintenanceGate;
 
     @TempDir Path tempDir;
 
@@ -304,6 +308,22 @@ class AdminBackupWebControllerIT {
         verify(executionService, never()).importBackup(any(), anyString());
     }
 
+    @Test
+    @WithMockUser(roles = "BACKUP")
+    void roleBackup_import_returns403() throws Exception {
+        // Correctif securite ELEVEE (audit 04/08/2026) : import reserve a
+        // ROLE_ADMIN, un compte ROLE_BACKUP seul (qui passe pourtant la
+        // regle d'URL /admin/backup/** hasAnyRole('ADMIN','BACKUP')) doit
+        // etre bloque par le @PreAuthorize("hasRole('ADMIN')") de la methode.
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "external.dump", "application/octet-stream", "dump-bytes".getBytes());
+
+        mvc.perform(multipart("/admin/backup/import").file(file).with(csrf()))
+                .andExpect(status().isForbidden());
+
+        verify(executionService, never()).importBackup(any(), anyString());
+    }
+
     // -------------------------------------------------------
     // Purge manuelle (audit 01/08/2026)
     // -------------------------------------------------------
@@ -492,6 +512,26 @@ class AdminBackupWebControllerIT {
     @WithMockUser(roles = "ADMIN")
     void restore_withoutCsrf_returns403() throws Exception {
         mvc.perform(post("/admin/backup/runs/5/restore")
+                        .param("confirmationText", "anything"))
+                .andExpect(status().isForbidden());
+
+        verify(executionService, never()).restore(anyLong(), anyString(), anyString());
+    }
+
+    @Test
+    @WithMockUser(roles = "BACKUP")
+    void roleBackup_restoreConfirm_returns403() throws Exception {
+        // Correctif securite ELEVEE (audit 04/08/2026), meme motif que
+        // roleBackup_import_returns403 ci-dessus.
+        mvc.perform(get("/admin/backup/runs/5/restore-confirm"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "BACKUP")
+    void roleBackup_restore_returns403() throws Exception {
+        mvc.perform(post("/admin/backup/runs/5/restore")
+                        .with(csrf())
                         .param("confirmationText", "anything"))
                 .andExpect(status().isForbidden());
 

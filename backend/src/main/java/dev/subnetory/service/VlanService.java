@@ -64,11 +64,21 @@ public class VlanService {
 
     @Transactional
     public VlanResponse create(VlanRequest request) {
+        // Autoriser le site parent AVANT toute verification d'unicite
+        // (correctif securite FAIBLE, audit 04/08/2026), meme motif que
+        // SiteService#create : siteService.getEntityById() refuse de maniere
+        // identique (404) que siteId soit inexistant ou hors du perimetre de
+        // l'utilisateur (cf. ContextAccessService#requireResourceAccess).
+        // Verifier l'unicite AVANT ce controle d'acces permettait de
+        // distinguer, pour un site hors perimetre, un VID deja utilise (409,
+        // avant le controle d'acces) d'un VID libre (404, une fois le
+        // controle d'acces atteint) — un canal lateral revelant quels VID
+        // sont deja pris sur un site inaccessible.
+        Site site = siteService.getEntityById(request.siteId());
         if (vlanRepository.existsByVidAndSiteId(request.vid().shortValue(), request.siteId())) {
             throw new ConflictException(
                     "VLAN " + request.vid() + " already exists on site " + request.siteId());
         }
-        Site site = siteService.getEntityById(request.siteId());
         Vlan vlan = new Vlan();
         vlan.setName(request.name());
         vlan.setVid(request.vid().shortValue());

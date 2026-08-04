@@ -12,15 +12,20 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import jakarta.annotation.PostConstruct;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -49,6 +54,10 @@ import java.util.concurrent.TimeoutException;
  *   <li>CIDR extrait de la DB, jamais d'une entrée utilisateur</li>
  *   <li>Entités externes XML désactivées dans NmapXmlParser (protection XXE)</li>
  *   <li>stdout et stderr lus en parallèle pour éviter les blocages de buffer</li>
+ *   <li>Concurrence limitée, globalement et par utilisateur (correctif
+ *       FAIBLE/MOYEN, audit 04/08/2026) — voir {@link #globalScanSemaphore}
+ *       et {@link #activeScansByUser} ; sortie Nmap bornée en taille
+ *       (voir {@link #maxOutputBytes})</li>
  * </ul>
  */
 @Service
@@ -72,9 +81,53 @@ public class ScanService {
     @Value("${subnetory.scan.nmap-path:nmap}")
     private String nmapPath;
 
+    /**
+     * Limite globale de scans Nmap simultanes (correctif securite FAIBLE/MOYEN,
+     * audit 04/08/2026) : sans elle, rien n'empeche un ou plusieurs
+     * utilisateurs de declencher un nombre illimite de processus {@code nmap}
+     * concurrents, chacun consommant CPU/reseau sur l'hote applicatif.
+     * Rejet immediat (429), pas d'attente en file — un scan est une action
+     * interactive synchrone, faire attendre indefiniment la requete HTTP
+     * derriere une file serait pire pour l'utilisateur qu'un echec net et
+     * immediat.
+     */
+    @Value("${subnetory.scan.max-concurrent:3}")
+    private int maxConcurrentScans;
+
+    /**
+     * Limite par utilisateur (correctif securite FAIBLE/MOYEN, audit
+     * 04/08/2026) : complementaire a {@link #maxConcurrentScans} — sans elle,
+     * un seul utilisateur pourrait a lui seul consommer tout le quota global,
+     * empechant les autres de lancer le moindre scan.
+     */
+    @Value("${subnetory.scan.max-concurrent-per-user:1}")
+    private int maxConcurrentScansPerUser;
+
+    /**
+     * Taille maximale acceptee pour la sortie stdout/stderr de Nmap
+     * (correctif securite FAIBLE, audit 04/08/2026) : {@code readAllBytes()}
+     * n'avait jusqu'ici aucune limite — un subnet est deja borne a /24 (254
+     * hotes) donc la sortie XML normale reste tres en-deca de cette limite,
+     * mais une version de nmap inhabituellement verbeuse ou un comportement
+     * inattendu ne doit pas pouvoir faire croitre la consommation memoire du
+     * process applicatif sans borne.
+     */
+    @Value("${subnetory.scan.max-output-bytes:10485760}")
+    private long maxOutputBytes;
+
+    private Semaphore globalScanSemaphore;
+
+    private final Object perUserScanLock = new Object();
+    private final Map<String, Integer> activeScansByUser = new HashMap<>();
+
     public ScanService(SubnetService subnetService, AddressService addressService) {
         this.subnetService = subnetService;
         this.addressService = addressService;
+    }
+
+    @PostConstruct
+    void initScanSemaphore() {
+        this.globalScanSemaphore = new Semaphore(maxConcurrentScans);
     }
 
     /**
@@ -99,7 +152,8 @@ public class ScanService {
         log.info("Scan started: subnet={} cidr={} user={} override={}",
                 subnetId, cidr, currentUser, request.override());
 
-        NmapExecution execution = executeNmap(cidr, request);
+        String userKey = currentUser == null || currentUser.isBlank() ? "anonymous" : currentUser;
+        NmapExecution execution = executeNmapThrottled(cidr, request, userKey);
         List<NmapXmlParser.NmapHost> hosts = filterAssignableHosts(cidr, execution.hosts());
 
         // Construire les entrées pour le bulk-upsert
@@ -219,6 +273,56 @@ public class ScanService {
     }
 
     // -------------------------------------------------------
+    // Limitation de concurrence — global + par utilisateur (correctif
+    // sécurité FAIBLE/MOYEN, audit 04/08/2026)
+    // -------------------------------------------------------
+
+    private NmapExecution executeNmapThrottled(String cidr, ScanRequest request, String userKey)
+            throws ScanException {
+        acquirePerUserSlot(userKey);
+        try {
+            if (!globalScanSemaphore.tryAcquire()) {
+                throw new ScanException(
+                        "Trop de scans Nmap sont déjà en cours sur cette instance (limite : "
+                                + maxConcurrentScans + "). Réessayez dans quelques instants.",
+                        ScanException.Reason.TOO_MANY_CONCURRENT_SCANS);
+            }
+            try {
+                return executeNmap(cidr, request);
+            } finally {
+                globalScanSemaphore.release();
+            }
+        } finally {
+            releasePerUserSlot(userKey);
+        }
+    }
+
+    private void acquirePerUserSlot(String userKey) throws ScanException {
+        synchronized (perUserScanLock) {
+            int current = activeScansByUser.getOrDefault(userKey, 0);
+            if (current >= maxConcurrentScansPerUser) {
+                throw new ScanException(
+                        "Vous avez déjà " + current + " scan(s) Nmap en cours (limite : "
+                                + maxConcurrentScansPerUser
+                                + "). Attendez qu'un scan se termine avant d'en lancer un nouveau.",
+                        ScanException.Reason.TOO_MANY_CONCURRENT_SCANS);
+            }
+            activeScansByUser.put(userKey, current + 1);
+        }
+    }
+
+    private void releasePerUserSlot(String userKey) {
+        synchronized (perUserScanLock) {
+            int current = activeScansByUser.getOrDefault(userKey, 0);
+            if (current <= 1) {
+                activeScansByUser.remove(userKey);
+            } else {
+                activeScansByUser.put(userKey, current - 1);
+            }
+        }
+    }
+
+    // -------------------------------------------------------
     // Exécution Nmap — Fix 1 : stdout/stderr en parallèle, timeout strict
     // -------------------------------------------------------
 
@@ -301,15 +405,35 @@ public class ScanService {
     /**
      * Lit toutes les données d'un InputStream dans un thread séparé.
      * Utilisé pour lire stdout et stderr en parallèle sans blocage.
+     *
+     * <p>Bornée à {@link #maxOutputBytes} (correctif sécurité FAIBLE, audit
+     * 04/08/2026) : {@code readAllBytes()} seul n'imposait aucune limite.</p>
      */
-    private static CompletableFuture<byte[]> readAllBytesAsync(InputStream stream) {
+    private CompletableFuture<byte[]> readAllBytesAsync(InputStream stream) {
+        long limit = maxOutputBytes;
         return CompletableFuture.supplyAsync(() -> {
             try (stream) {
-                return stream.readAllBytes();
+                return readBounded(stream, limit);
             } catch (Exception e) {
                 throw new CompletionException(e);
             }
         });
+    }
+
+    private static byte[] readBounded(InputStream in, long maxBytes) throws IOException {
+        java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+        byte[] chunk = new byte[8192];
+        long total = 0;
+        int read;
+        while ((read = in.read(chunk)) != -1) {
+            total += read;
+            if (total > maxBytes) {
+                throw new IOException(
+                        "Nmap output exceeded the configured limit of " + maxBytes + " bytes.");
+            }
+            buffer.write(chunk, 0, read);
+        }
+        return buffer.toByteArray();
     }
 
     private List<String> buildCommand(String cidr, ScanRequest request) throws ScanException {

@@ -33,4 +33,31 @@ public interface UserTokenInvalidationRepository extends JpaRepository<UserToken
         @Param("notBefore") OffsetDateTime notBefore,
         @Param("invalidatedBy") String invalidatedBy,
         @Param("reason") String reason);
+
+    /**
+     * Variante "tous les utilisateurs" de {@link #upsertNotBefore} (correctif
+     * securite MOYENNE, audit 04/08/2026) : appelee apres une restauration
+     * reussie ({@code BackupExecutionService#restore}), qui peut avoir
+     * ramene {@code user_token_invalidations} elle-meme a un etat anterieur
+     * (cette table n'est pas exclue du dump/restore, contrairement a
+     * {@code backup_runs}/{@code backup_restores}) — des jetons revoques
+     * apres la sauvegarde restauree pourraient sinon redevenir valides
+     * jusqu'a leur expiration naturelle. Un seul INSERT ... SELECT, aussi
+     * atomique que la variante mono-utilisateur.
+     */
+    @Modifying
+    @Transactional
+    @Query(value = ""
+        + "INSERT INTO user_token_invalidations (username, not_before, invalidated_at, invalidated_by, reason) "
+        + "SELECT username, :notBefore, now(), :invalidatedBy, :reason FROM users "
+        + "ON CONFLICT (username) DO UPDATE SET "
+        + "not_before = EXCLUDED.not_before, "
+        + "invalidated_at = now(), "
+        + "invalidated_by = EXCLUDED.invalidated_by, "
+        + "reason = EXCLUDED.reason"
+        + "", nativeQuery = true)
+    int upsertNotBeforeForAllUsers(
+        @Param("notBefore") OffsetDateTime notBefore,
+        @Param("invalidatedBy") String invalidatedBy,
+        @Param("reason") String reason);
 }

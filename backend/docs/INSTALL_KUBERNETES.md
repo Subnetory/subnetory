@@ -325,7 +325,21 @@ Ne jamais supprimer `subnetory-runtime-secrets` pendant l'exploitation. Un redé
 
 Le Service est `ClusterIP` par défaut. L'Ingress est désactivé et nécessite un contrôleur Ingress déjà installé. Les hôtes, chemins, annotations et références TLS restent propres au cluster cible.
 
+**`ingress.trustedProxyCidrs` est obligatoire dès que `ingress.enabled=true`** (correctif sécurité ÉLEVÉE, audit 04/08/2026) : le chart refuse de rendre les manifests si cette liste est vide. Sans elle, `SERVER_FORWARD_HEADERS_STRATEGY` et `SUBNETORY_SECURITY_TRUSTED_PROXY` ne sont jamais positionnés, donc l'application ignore `X-Forwarded-For`/`X-Forwarded-Proto` : tous les utilisateurs passant par l'Ingress apparaissent avec la même IP (celle du contrôleur Ingress), ce qui mutualise le rate limiting API et le verrouillage anti-bruteforce entre tous les utilisateurs, et empêche le cookie de session d'obtenir l'attribut `Secure` derrière une terminaison TLS sur l'Ingress. Renseigner le(s) CIDR depuis lesquels le pod applicatif voit arriver le trafic routé par l'Ingress (réseau des pods du cluster la plupart du temps ; à confirmer auprès du fournisseur Kubernetes cible).
+
 Les NetworkPolicy sont également désactivées par défaut. Leur activation doit inclure tous les réseaux que Subnetory est autorisé à scanner et, en mode externe, les CIDR de PostgreSQL. Voir `backend/docs/KUBERNETES_OPERATIONS.md` avant de les activer.
+
+## 7. Durcissement production
+
+`values.yaml` fournit des défauts raisonnablement sûrs pour une première installation sans configuration préalable (chiffrement au repos et NetworkPolicy désactivés, par exemple, pour ne pas casser un `helm install` sans Secret complet ni CIDR renseignés — voir les commentaires de chaque champ dans le fichier). `charts/subnetory/values-production.yaml` (correctif sécurité MOYENNE, audit 04/08/2026) resserre volontairement cette poignée de défauts pour un déploiement de production : chiffrement au repos (base + sauvegardes), NetworkPolicy, et un exemple pour `externalDatabase.sslMode: verify-full`. À combiner avec `values.yaml`, jamais utilisé seul, et seulement après avoir préparé les prérequis décrits en commentaire dans ce fichier (clés de chiffrement déjà présentes dans le Secret, CIDR réseau réels, etc.) :
+
+```bash
+helm install subnetory ./charts/subnetory \
+  -f charts/subnetory/values.yaml \
+  -f charts/subnetory/values-production.yaml \
+  --set ingress.hosts[0].host=subnetory.example.com \
+  --set ingress.trustedProxyCidrs={10.244.0.0/16}
+```
 
 ## Suite
 

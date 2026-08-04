@@ -32,6 +32,25 @@
 > modification survenue apres l'export est donc bien detectee dans ce cas.
 > Sans chiffrement actif, un `.dump` en clair reimporte n'est toujours
 > verifie que sur son format, pas cryptographiquement.
+>
+> **Mode maintenance applicatif et invalidation post-restauration (correctif
+> securite MOYENNE, audit 04/08/2026).** Jusqu'ici, "l'arret ou l'absence
+> d'ecriture applicative pendant l'operation" (voir "Principe general"
+> ci-dessous) n'etait impose que par cette documentation, jamais par le
+> logiciel — l'application continuait d'accepter des mutations metier
+> pendant un `pg_restore` en cours. Pour le moteur integre uniquement
+> (`BackupExecutionService#restore`) : `RestoreMaintenanceGate` rejette
+> desormais (HTTP 503, `Retry-After`) toute requete de mutation (methode
+> autre que GET/HEAD/OPTIONS, hors authentification) le temps du
+> `pg_restore`. Apres un succes, tous les jetons JWT sont invalides et
+> toutes les sessions Web sont drainees, pour ne pas laisser un etat restaure
+> plus ancien de `user_token_invalidations` (table non exclue du dump,
+> contrairement a `backup_runs`/`backup_restores`) reautoriser un jeton
+> revoque depuis, ou une session Web deja ouverte garder les autorites
+> chargees avant la restauration. Les scripts PowerShell historiques
+> (`restore-postgres.ps1`) restent manuels : l'arret de l'application pendant
+> leur execution reste une precaution operationnelle a la charge de
+> l'operateur, comme decrit plus bas.
 
 ## Objectif
 

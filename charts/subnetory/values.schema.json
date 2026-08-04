@@ -497,10 +497,14 @@
     "ingress": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["enabled", "className", "annotations", "hosts", "tls"],
+      "required": ["enabled", "className", "annotations", "hosts", "tls", "trustedProxyCidrs"],
       "properties": {
         "enabled": {"type": "boolean"},
         "className": {"type": "string"},
+        "trustedProxyCidrs": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        },
         "annotations": {
           "type": "object",
           "additionalProperties": {"type": "string"}

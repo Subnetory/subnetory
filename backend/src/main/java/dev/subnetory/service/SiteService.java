@@ -56,6 +56,21 @@ public class SiteService {
 
     @Transactional
     public SiteResponse create(SiteRequest request) {
+        // Autoriser le contexte parent AVANT toute verification d'unicite
+        // (correctif securite FAIBLE, audit 04/08/2026) : contextService.
+        // getEntityById() refuse de maniere identique (404, cf.
+        // ContextAccessService#requireAccess "sans reveler si le contexte
+        // existe reellement") que contextId soit inexistant ou simplement
+        // hors du perimetre de l'utilisateur. Verifier l'unicite du code
+        // AVANT ce controle d'acces (ordre precedent) permettait a un
+        // utilisateur sans acces a un contexte de distinguer un code de site
+        // deja pris (409 Conflict, avant meme d'atteindre le controle
+        // d'acces) d'un code libre (404 ensuite, une fois le controle
+        // d'acces atteint) — un canal lateral revelant l'existence de codes
+        // de sites en dehors de son perimetre. Desormais, un utilisateur
+        // sans acces recoit toujours 404 en premier, quel que soit l'etat du
+        // code demande.
+        NetworkContext context = contextService.getEntityById(request.contextId());
         // Normalisation avant verification d'unicite (audit 02/08/2026,
         // correctif ELEVEE) : le code est toujours stocke en majuscules
         // (site.setCode(...toUpperCase()) plus bas), mais existsByCode()
@@ -70,7 +85,6 @@ public class SiteService {
         if (siteRepository.existsByCode(normalizedCode)) {
             throw new ConflictException("Site with code '" + normalizedCode + "' already exists");
         }
-        NetworkContext context = contextService.getEntityById(request.contextId());
         Site site = new Site();
         site.setName(request.name());
         site.setCode(normalizedCode);

@@ -1,0 +1,76 @@
+# Profil de valeurs "production" (correctif securite MOYENNE, audit
+# 04/08/2026) — a combiner avec values.yaml, jamais utilise seul :
+#
+#   helm install subnetory ./charts/subnetory \
+#     -f charts/subnetory/values.yaml \
+#     -f charts/subnetory/values-production.yaml \
+#     --set ingress.hosts[0].host=subnetory.example.com \
+#     --set ingress.trustedProxyCidrs={10.244.0.0/16} \
+#     ...
+#
+# Ce fichier ne remplace PAS les valeurs par defaut de values.yaml (deja
+# raisonnablement sures — voir les commentaires de chaque champ) : il
+# resserre volontairement une poignee de defauts qui restent ouverts par
+# defaut pour ne pas casser une premiere installation "helm install" sans
+# configuration prealable (secrets pas encore en place, cluster de
+# demonstration, etc.). Chaque valeur ci-dessous EXIGE une action manuelle
+# de votre part avant de fonctionner reellement (creer un Secret, renseigner
+# un CIDR...) — ce n'est pas un simple interrupteur "mode production".
+#
+# Rien ici n'est magique : relisez chaque section, adaptez-la a votre
+# cluster, et ne l'appliquez qu'apres avoir prepare les prerequis decrits
+# dans les commentaires (Secrets, CIDR reseau, certificat CA...).
+
+# --- Chiffrement au repos ------------------------------------------------
+# Prerequis AVANT de passer ces deux flags a true : ajouter les cles
+# "encryption-key" et "backup-encryption-key" au Secret Kubernetes
+# existingSecretRuntime (meme format que jwt-secret — voir
+# backend/docs/BACKUP_ENCRYPTION.md et les commentaires de values.yaml,
+# section "secrets:"). Passer ces flags a true SANS avoir prealablement
+# ajoute les cles fera echouer le demarrage de l'application (secret
+# incomplet), c'est le comportement voulu (echec net plutot que
+# degradation silencieuse).
+secrets:
+  encryptionKeyEnabled: true
+  backupEncryptionKeyEnabled: true
+
+# --- Isolation reseau ------------------------------------------------------
+# Desactivee par defaut dans values.yaml car le scan reseau (Nmap) est une
+# fonction coeur du produit — l'activer sans lister les CIDR scannables
+# casserait cette fonctionnalite. Completez les deux listes ci-dessous avec
+# les plages reelles de votre environnement avant d'activer :
+#   - allowedScanCidrs : tous les reseaux que Subnetory doit pouvoir
+#     atteindre pour ses scans Nmap (typiquement vos plages IPAM internes) ;
+#   - externalDatabaseCidrs : uniquement necessaire si externalDatabase.enabled
+#     est utilise (base PostgreSQL hors cluster) — CIDR du serveur externe.
+# Voir backend/docs/KUBERNETES_OPERATIONS.md avant d'activer.
+networkPolicy:
+  enabled: true
+  allowedScanCidrs: []
+  externalDatabaseCidrs: []
+
+# --- Base de donnees externe (si externalDatabase.enabled: true) -----------
+# "require" (defaut de values.yaml) echoue si TLS est indisponible mais ne
+# verifie pas l'identite du serveur (pas de protection anti-MITM).
+# "verify-full" verifie en plus le certificat du serveur contre une CA de
+# confiance : necessite de fournir cette CA au driver JDBC (variable
+# PGSSLROOTCERT ou parametre sslrootcert dans l'URL JDBC, a monter en volume
+# dans le pod applicatif — non gere automatiquement par ce chart). Ne
+# decommentez que si externalDatabase.enabled est a true ET que la CA est
+# effectivement montee et accessible au pod.
+# externalDatabase:
+#   sslMode: verify-full
+
+# --- Ressources ---------------------------------------------------------
+# values.yaml fournit deja des requests/limits non vides comme point de
+# depart raisonnable pour une petite/moyenne instance. Ajustez ici selon la
+# charge reelle observee (nombre d'utilisateurs simultanes, frequence et
+# taille des scans Nmap, volume de la base) plutot que de partir de zero.
+# application:
+#   resources:
+#     requests:
+#       cpu: 500m
+#       memory: 512Mi
+#     limits:
+#       cpu: "2"
+#       memory: 1Gi

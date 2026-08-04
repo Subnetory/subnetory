@@ -21,10 +21,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           java-version: '21'
           distribution: 'temurin'
@@ -51,7 +51,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: test-results
           path: backend/target/surefire-reports/
@@ -59,7 +59,7 @@ jobs:
 
       - name: Upload JaCoCo report
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: jacoco-report
           path: backend/target/site/jacoco/
@@ -78,7 +78,7 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
@@ -90,7 +90,7 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Validate Docker Compose availability
         run: docker compose version
@@ -101,7 +101,7 @@ jobs:
 
       - name: Upload redacted Compose logs on failure
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: compose-smoke-redacted-logs
           path: ${{ runner.temp }}/subnetory-compose-smoke.redacted.log
@@ -113,7 +113,7 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Validate Docker Compose availability
         run: docker compose version
@@ -124,7 +124,7 @@ jobs:
 
       - name: Upload redacted Compose HTTPS logs on failure
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: compose-https-smoke-redacted-logs
           path: ${{ runner.temp }}/subnetory-compose-https-smoke.redacted.log
@@ -136,7 +136,7 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Pull pinned PostgreSQL image
         run: docker pull "${POSTGRES_IMAGE}"
@@ -160,7 +160,7 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # aquasecurity/trivy-action a subi une compromission de supply-chain
       # critique (GHSA-69fq-xp46-6x23 / CVE-2026-33634, mars 2026) : 76 des 77
@@ -200,7 +200,7 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install pinned Helm
         shell: bash
@@ -234,6 +234,15 @@ jobs:
           helm lint "${chart}" --strict
           helm template subnetory "${chart}" --namespace subnetory \
             > "${rendered}"
+
+          # Correctif securite MOYENNE (audit 04/08/2026) : le profil de
+          # durcissement production (secrets.*KeyEnabled, networkPolicy,
+          # voir INSTALL_KUBERNETES.md section 7) doit rester un overlay
+          # valide et se combiner sans erreur avec values.yaml.
+          helm lint "${chart}" --strict -f "${chart}/values-production.yaml"
+          helm template subnetory-production "${chart}" --namespace subnetory \
+            -f "${chart}/values-production.yaml" \
+            > /dev/null
           helm template subnetory-external "${chart}" \
             --namespace subnetory \
             --set postgresql.enabled=false \
@@ -261,6 +270,46 @@ jobs:
             exit 1
           fi
 
+          # Correctif securite ELEVEE (audit 04/08/2026) : ingress.enabled=true
+          # sans ingress.trustedProxyCidrs doit etre refuse au rendu (voir le
+          # "fail" dans templates/configmap.yaml), sinon un deploiement Ingress
+          # se retrouve silencieusement sans forward-headers-strategy=framework
+          # ni trusted-proxy, et tous les utilisateurs partagent la meme IP
+          # apparente cote application.
+          if helm template invalid "${chart}" \
+              --set ingress.enabled=true \
+              --set ingress.className=nginx \
+              --set ingress.hosts[0].host=subnetory.example.internal \
+              --set ingress.hosts[0].paths[0].path=/ \
+              --set ingress.hosts[0].paths[0].pathType=Prefix \
+              > /dev/null 2>&1; then
+            echo "Helm chart rendered an Ingress without ingress.trustedProxyCidrs (forward-headers/trusted-proxy would stay unset)" >&2
+            exit 1
+          fi
+
+          rendered_ingress="${RUNNER_TEMP}/subnetory-rendered-ingress.yaml"
+          helm template subnetory-ingress "${chart}" --namespace subnetory \
+            --set ingress.enabled=true \
+            --set ingress.className=nginx \
+            --set ingress.trustedProxyCidrs='{10.244.0.0/16}' \
+            --set ingress.hosts[0].host=subnetory.example.internal \
+            --set ingress.hosts[0].paths[0].path=/ \
+            --set ingress.hosts[0].paths[0].pathType=Prefix \
+            > "${rendered_ingress}"
+
+          if ! grep -Fq 'SERVER_FORWARD_HEADERS_STRATEGY: "framework"' "${rendered_ingress}"; then
+            echo "Ingress-enabled render is missing SERVER_FORWARD_HEADERS_STRATEGY=framework" >&2
+            exit 1
+          fi
+          if ! grep -Fq 'SUBNETORY_SECURITY_TRUSTED_PROXY: "true"' "${rendered_ingress}"; then
+            echo "Ingress-enabled render is missing SUBNETORY_SECURITY_TRUSTED_PROXY=true" >&2
+            exit 1
+          fi
+          if ! grep -Fq 'SUBNETORY_SECURITY_TRUSTED_PROXY_CIDRS: "10.244.0.0/16"' "${rendered_ingress}"; then
+            echo "Ingress-enabled render is missing SUBNETORY_SECURITY_TRUSTED_PROXY_CIDRS" >&2
+            exit 1
+          fi
+
           if grep -Eq \
               '^(kind: Secret|[[:space:]]*- name: (SUBNETORY_JWT_SECRET|SUBNETORY_ADMIN_DEFAULT_PASSWORD|SPRING_DATASOURCE_PASSWORD|POSTGRES_PASSWORD)[[:space:]]*$)' \
               "${rendered}" "${rendered_external}"; then
@@ -280,7 +329,7 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install pinned Helm, kind and kubectl
         shell: bash
@@ -341,7 +390,7 @@ jobs:
 
       - name: Upload redacted Helm logs on failure
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: helm-smoke-redacted-logs
           path: ${{ runner.temp }}/subnetory-helm-smoke.redacted.log

@@ -74,6 +74,16 @@ import org.springframework.web.multipart.MultipartFile;
  *       fichier, verifie l'empreinte SHA-256 du fichier avant de l'utiliser,
  *       et prend automatiquement une sauvegarde de securite avant toute
  *       modification (annulee si cette sauvegarde de securite echoue).</li>
+ *   <li>Mode maintenance pendant la restauration (correctif securite MOYENNE,
+ *       audit 04/08/2026) : {@link RestoreMaintenanceGate} rejette (503) les
+ *       mutations metier via {@code dev.subnetory.security.RestoreMaintenanceFilter}
+ *       le temps du {@code pg_restore} — jusque-la impose seulement par la
+ *       documentation, jamais par le logiciel. Apres un succes, tous les
+ *       jetons JWT sont invalides et toutes les sessions Web sont drainees
+ *       ({@link #invalidateSessionsAndTokensAfterRestore}), pour ne pas
+ *       laisser un etat restaure plus ancien de {@code user_token_invalidations}
+ *       ou des sessions en memoire reautoriser des identifiants deja
+ *       revoques depuis.</li>
  * </ul>
  *
  * <h3>Retention</h3>
@@ -132,16 +142,25 @@ public class BackupExecutionService {
     private final BackupRestoreRepository backupRestoreRepository;
     private final BackupConfigurationService configurationService;
     private final dev.subnetory.service.AuthAuditService authAuditService;
+    private final RestoreMaintenanceGate restoreMaintenanceGate;
+    private final dev.subnetory.service.UserTokenInvalidationService userTokenInvalidationService;
+    private final dev.subnetory.service.SessionInvalidationService sessionInvalidationService;
     private final AtomicBoolean operationInProgress = new AtomicBoolean(false);
 
     public BackupExecutionService(BackupRunRepository backupRunRepository,
                                   BackupRestoreRepository backupRestoreRepository,
                                   BackupConfigurationService configurationService,
-                                  dev.subnetory.service.AuthAuditService authAuditService) {
+                                  dev.subnetory.service.AuthAuditService authAuditService,
+                                  RestoreMaintenanceGate restoreMaintenanceGate,
+                                  dev.subnetory.service.UserTokenInvalidationService userTokenInvalidationService,
+                                  dev.subnetory.service.SessionInvalidationService sessionInvalidationService) {
         this.backupRunRepository = backupRunRepository;
         this.backupRestoreRepository = backupRestoreRepository;
         this.configurationService = configurationService;
         this.authAuditService = authAuditService;
+        this.restoreMaintenanceGate = restoreMaintenanceGate;
+        this.userTokenInvalidationService = userTokenInvalidationService;
+        this.sessionInvalidationService = sessionInvalidationService;
     }
 
     /**
@@ -407,6 +426,14 @@ public class BackupExecutionService {
                 log.warn("Restore started: file={} performedBy={} — service interruption expected",
                         sourceRun.getFileName(), performedBy);
 
+                // Mode maintenance applicatif (correctif securite MOYENNE, audit
+                // 04/08/2026, cf. RestoreMaintenanceGate) : active seulement a
+                // partir d'ici, immediatement avant le pg_restore --clean qui
+                // ecrase reellement les tables metier — la sauvegarde de securite
+                // prealable ci-dessus est une simple lecture (pg_dump) et ne
+                // justifie pas de rejeter les mutations en cours.
+                restoreMaintenanceGate.begin();
+
                 Path fileToRestore = sourceFile;
                 Path tempPlain = null;
                 try {
@@ -438,6 +465,18 @@ public class BackupExecutionService {
                 backupRestoreRepository.save(restoreLog);
                 log.warn("Restore completed: file={} performedBy={}", sourceRun.getFileName(), performedBy);
                 authAuditService.recordBackupRestored(performedBy, backupRunId, true, sourceRun.getFileName());
+
+                // Invalidation post-restauration (correctif securite MOYENNE,
+                // audit 04/08/2026) : user_token_invalidations et les sessions
+                // Web en memoire ne sont pas figees dans le temps de la
+                // restauration — un jeton JWT revoque apres la sauvegarde
+                // restauree pourrait redevenir valide, et une session Web deja
+                // ouverte garderait les autorites chargees avant la
+                // restauration. Effectue seulement apres un SUCCESS confirme,
+                // jamais sur un chemin d'echec (rien n'a alors ete modifie en
+                // base, cf. --single-transaction).
+                invalidateSessionsAndTokensAfterRestore(performedBy);
+
                 return restoreLog;
             } catch (BackupException e) {
                 restoreLog.setStatus(BackupRestore.STATUS_FAILED);
@@ -450,7 +489,30 @@ public class BackupExecutionService {
                 throw e;
             }
         } finally {
+            restoreMaintenanceGate.end();
             operationInProgress.set(false);
+        }
+    }
+
+    /**
+     * Invalide tous les jetons JWT et drainne toutes les sessions Web apres
+     * une restauration reussie (correctif securite MOYENNE, audit
+     * 04/08/2026). Volontairement resiliente : un echec de cette etape ne
+     * doit jamais faire passer une restauration reussie pour un echec (les
+     * donnees metier sont deja restaurees a ce stade) — journalise et avale
+     * l'erreur plutot que de la propager.
+     */
+    private void invalidateSessionsAndTokensAfterRestore(String performedBy) {
+        try {
+            userTokenInvalidationService.invalidateAllTokens(
+                    performedBy, dev.subnetory.service.UserTokenInvalidationService.REASON_POST_RESTORE);
+            int expiredSessions = sessionInvalidationService.expireAllSessions();
+            log.warn("Post-restore invalidation: all JWTs invalidated, {} web session(s) expired.",
+                    expiredSessions);
+        } catch (RuntimeException e) {
+            log.error("Post-restore invalidation (JWT/sessions) failed — restore itself succeeded, "
+                    + "but stale credentials issued before the restore may remain valid until they "
+                    + "expire naturally: {}", e.getMessage(), e);
         }
     }
 

@@ -97,6 +97,21 @@ subnetory:
   scan:
     timeout-seconds: ${SUBNETORY_SCAN_TIMEOUT:60}
     nmap-path: ${SUBNETORY_SCAN_NMAP_PATH:nmap}
+    # Correctif securite FAIBLE/MOYEN (audit 04/08/2026) : rien n'empechait
+    # jusqu'ici un nombre illimite de scans Nmap simultanes, chacun un
+    # processus OS distinct consommant CPU/reseau. max-concurrent borne le
+    # total sur l'instance (429 immediat au-dela, pas de file d'attente) ;
+    # max-concurrent-per-user (complementaire) empeche un seul utilisateur de
+    # consommer a lui seul tout le quota global. Voir dev.subnetory.scan.ScanService.
+    max-concurrent: ${SUBNETORY_SCAN_MAX_CONCURRENT:3}
+    max-concurrent-per-user: ${SUBNETORY_SCAN_MAX_CONCURRENT_PER_USER:1}
+    # Correctif securite FAIBLE (audit 04/08/2026) : plafond de la sortie
+    # stdout/stderr lue depuis le process nmap (readAllBytes() n'avait
+    # aucune limite). Un subnet est deja borne a /24 (254 hotes), donc la
+    # sortie XML normale reste tres en-deca de 10 Mo ; cette limite ne fait
+    # que borner la consommation memoire en cas de comportement Nmap
+    # inattendu, sans impact sur un usage normal.
+    max-output-bytes: ${SUBNETORY_SCAN_MAX_OUTPUT_BYTES:10485760}
   import:
     # Limite propre aux imports CSV/XLSX d'adresses (audit 03/08/2026,
     # correctif MOYEN) : dev.subnetory.util.ImportFileValidator reutilisait

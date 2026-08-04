@@ -119,7 +119,7 @@ Only roles enforced by Subnetory authorization rules are assignable through the 
 - `ROLE_READ_ONLY` — read-only access to allowed contexts;
 - `ROLE_NETWORK` — create and update contexts, sites, VLAN, subnets and scans;
 - `ROLE_IP` — create, update, delete, import and export IP addresses;
-- `ROLE_BACKUP` — backup configuration, trigger, import, restore and history (`/admin/backup`, `/api/v1/admin/backup`) only, none of the rest of administration.
+- `ROLE_BACKUP` — backup configuration, trigger, history, download, purge and delete (`/admin/backup`, `/api/v1/admin/backup`) only, none of the rest of administration. Import and restore require `ROLE_ADMIN` (security fix, audit 04/08/2026): both operations let the caller overwrite or inject arbitrary content into the application database, which made `ROLE_BACKUP` a de facto data-admin role.
 
 Other role rows may exist in older data sets, but they are not assignable unless a Subnetory feature explicitly uses them.
 
