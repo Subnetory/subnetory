@@ -4,7 +4,7 @@ All notable changes to Subnetory will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows semantic versioning pragmatically during early development.
 
-## [Unreleased]
+## [0.8.6] - 2026-08-04
 
 ### Fixed
 
@@ -287,7 +287,8 @@ Première version pensée comme point de départ public propre : `v0.7.0` reste 
 * Basic secured GUI with Thymeleaf.
 * Docker packaging and GitHub Actions CI/CD foundations.
 
-[Unreleased]: https://github.com/Subnetory/subnetory/compare/v0.8.5...HEAD
+[Unreleased]: https://github.com/Subnetory/subnetory/compare/v0.8.6...HEAD
+[0.8.6]: https://github.com/Subnetory/subnetory/releases/tag/v0.8.6
 [0.8.5]: https://github.com/Subnetory/subnetory/releases/tag/v0.8.5
 [0.8.4]: https://github.com/Subnetory/subnetory/releases/tag/v0.8.4
 [0.8.3]: https://github.com/Subnetory/subnetory/releases/tag/v0.8.3

@@ -7,7 +7,7 @@ Subnetory is early-stage software with a single active development line. Only th
 | Version | Supported |
 |---|---|
 | `main` (unreleased) | Yes |
-| Latest tagged release (currently `v0.8.5`) | Yes |
+| Latest tagged release (currently `v0.8.6`) | Yes |
 | Older tagged releases | No |
 
 There is no long-term support branch at this stage. Upgrading to the latest release is the recommended way to stay covered.
