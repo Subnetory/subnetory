@@ -6,7 +6,7 @@ Subnetory is a lightweight IP address management platform focused on clean infra
 
 ## Current release
 
-- Current released version: `v0.8.7`
+- Current released version: `v0.8.8`
 - Latest milestone: third external security audit remediation — restore mutation-drain barrier, mandatory NetworkPolicy ingress restriction, signed/SBOM-attested releases with digest-pinned base images, backup UI aligned with server-side role restrictions, dynamic template locale, hardened external process probes, repository-wide secret scanning
 - Publication status: merged on `main` and validated by GitHub Actions
 - Backend stack: Java 21, Spring Boot, PostgreSQL, Flyway, Thymeleaf, Docker
