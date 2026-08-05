@@ -7,7 +7,7 @@ Subnetory is early-stage software with a single active development line. Only th
 | Version | Supported |
 |---|---|
 | `main` (unreleased) | Yes |
-| Latest tagged release (currently `v0.8.9`) | Yes |
+| Latest tagged release (currently `v0.8.10`) | Yes |
 | Older tagged releases | No |
 
 There is no long-term support branch at this stage. Upgrading to the latest release is the recommended way to stay covered.
@@ -51,7 +51,7 @@ Since v0.8.7 (troisieme audit externe, constat M-03, 04/08/2026), every tagged r
 
 - a CycloneDX SBOM of the JAR (`subnetory-bom.json`), and a native SBOM + SLSA provenance attestation attached to the GHCR image itself (BuildKit `sbom`/`provenance`, queryable with `docker buildx imagetools inspect`);
 - a Sigstore "keyless" signature of the published image, tied to the exact digest that was pushed (never a mutable tag) and to this repository's `release.yml` workflow identity via GitHub OIDC — no private key is generated, stored or rotated;
-- the same keyless signing applied to `SHA256SUMS.txt` (which itself covers the JAR and the SBOM), producing `SHA256SUMS.txt.sig`/`SHA256SUMS.txt.pem` alongside it.
+- the same keyless signing applied to `SHA256SUMS.txt` (which itself covers the JAR and the SBOM), producing a single Sigstore bundle `SHA256SUMS.txt.sigstore.json` alongside it (signature, certificate and transparency-log proof combined — the modern Cosign bundle format, since v0.8.9).
 
 To verify a release with [Cosign](https://docs.sigstore.dev/cosign/system_config/installation/):
 
@@ -63,7 +63,7 @@ cosign verify ghcr.io/subnetory/subnetory@<digest> \
 
 # Release assets (SHA256SUMS.txt, then sha256sum -c against the JAR/SBOM)
 cosign verify-blob SHA256SUMS.txt \
-  --signature SHA256SUMS.txt.sig --certificate SHA256SUMS.txt.pem \
+  --bundle SHA256SUMS.txt.sigstore.json \
   --certificate-identity-regexp 'https://github.com/Subnetory/subnetory/.github/workflows/release.yml@.*' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 sha256sum -c SHA256SUMS.txt

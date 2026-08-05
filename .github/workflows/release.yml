@@ -156,16 +156,25 @@ jobs:
       # constat M-03, 04/08/2026) : couvre transitivement le JAR et le SBOM
       # (leurs hashes y figurent). Verification cote utilisateur :
       #   cosign verify-blob SHA256SUMS.txt \
-      #     --signature SHA256SUMS.txt.sig --certificate SHA256SUMS.txt.pem \
+      #     --bundle SHA256SUMS.txt.sigstore.json \
       #     --certificate-identity-regexp 'https://github.com/Subnetory/subnetory/.github/workflows/release.yml@.*' \
       #     --certificate-oidc-issuer https://token.actions.githubusercontent.com
+      #
+      # Correctif regression (05/08/2026, premier run allant jusqu'a cette
+      # etape, troisieme audit externe, constat M-03) : la version de Cosign
+      # installee ici bascule par defaut sur le "nouveau format de bundle"
+      # (un seul fichier JSON regroupant signature+certificat+preuve
+      # transparency-log), ou --output-signature/--output-certificate sont
+      # ignores silencieusement — sign-blob echouait alors en tentant
+      # d'ouvrir un chemin de bundle vide, faute de --bundle explicite.
+      # Adopte le format recommande par la documentation Sigstore plutot que
+      # de forcer l'ancien comportement (--new-bundle-format=false).
       - name: Sign release checksums (keyless, GitHub OIDC)
         working-directory: backend/target
         run: |
           set -euo pipefail
           cosign sign-blob --yes \
-            --output-signature SHA256SUMS.txt.sig \
-            --output-certificate SHA256SUMS.txt.pem \
+            --bundle SHA256SUMS.txt.sigstore.json \
             SHA256SUMS.txt
 
       - name: Create GitHub Release
@@ -176,8 +185,7 @@ jobs:
             backend/target/subnetory-*.jar
             backend/target/subnetory-bom.json
             backend/target/SHA256SUMS.txt
-            backend/target/SHA256SUMS.txt.sig
-            backend/target/SHA256SUMS.txt.pem
+            backend/target/SHA256SUMS.txt.sigstore.json
 
   # Smoke test post-release (audit 03/08/2026) : v0.8.1 a ete publiee avec
   # un chart Helm dont l'image par defaut pointait encore vers v0.8.0, sans
