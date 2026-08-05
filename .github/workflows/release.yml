@@ -59,6 +59,15 @@ jobs:
           echo "name=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" \
             >> "$GITHUB_OUTPUT"
 
+      # Correctif regression (05/08/2026, premier run reel du tag v0.8.7,
+      # troisieme audit externe, constat M-03) : sans cette etape, Buildx
+      # utilise par defaut le driver "docker", qui ne supporte pas les
+      # attestations SBOM/provenance demandees ci-dessous ("Attestation is
+      # not supported for the docker driver"). Le driver "docker-container"
+      # cree par cette action les supporte.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
       - name: Log in to GHCR
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
