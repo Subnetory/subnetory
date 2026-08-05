@@ -2,8 +2,8 @@ apiVersion: v2
 name: subnetory
 description: Mono-replica Helm chart for Subnetory
 type: application
-version: 0.1.8
-appVersion: "0.8.6"
+version: 0.1.9
+appVersion: "0.8.7"
 kubeVersion: ">=1.34.0-0"
 home: https://github.com/Subnetory/subnetory
 sources:

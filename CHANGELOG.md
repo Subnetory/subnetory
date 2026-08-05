@@ -305,7 +305,8 @@ Première version pensée comme point de départ public propre : `v0.7.0` reste 
 * Basic secured GUI with Thymeleaf.
 * Docker packaging and GitHub Actions CI/CD foundations.
 
-[Unreleased]: https://github.com/Subnetory/subnetory/compare/v0.8.6...HEAD
+[Unreleased]: https://github.com/Subnetory/subnetory/compare/v0.8.7...HEAD
+[0.8.7]: https://github.com/Subnetory/subnetory/releases/tag/v0.8.7
 [0.8.6]: https://github.com/Subnetory/subnetory/releases/tag/v0.8.6
 [0.8.5]: https://github.com/Subnetory/subnetory/releases/tag/v0.8.5
 [0.8.4]: https://github.com/Subnetory/subnetory/releases/tag/v0.8.4
