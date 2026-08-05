@@ -40,7 +40,7 @@ Si le cluster cible peut atteindre `ghcr.io`, utiliser directement l'image publi
 ```yaml
 image:
   repository: ghcr.io/subnetory/subnetory
-  tag: v0.8.5
+  tag: v0.8.6
   pullPolicy: IfNotPresent
 ```
 
@@ -49,14 +49,14 @@ image:
 Pour un cluster `kind` sans accès sortant à `ghcr.io`, construire puis charger l'image localement, puis surcharger explicitement `image.repository`/`image.tag` (les valeurs par défaut du chart pointent vers GHCR depuis l'Option A ci-dessus) :
 
 ```powershell
-docker build --tag subnetory:0.8.5 .\backend
-kind load docker-image subnetory:0.8.5 --name NOM_DU_CLUSTER
+docker build --tag subnetory:0.8.6 .\backend
+kind load docker-image subnetory:0.8.6 --name NOM_DU_CLUSTER
 ```
 
 ```yaml
 image:
   repository: subnetory
-  tag: "0.8.5"
+  tag: "0.8.6"
   pullPolicy: IfNotPresent
 ```
 
@@ -67,7 +67,7 @@ Pour un autre cluster, construire l'image, la publier dans le registre privé au
 ```yaml
 image:
   repository: registry.example.internal/subnetory/subnetory
-  tag: 0.8.5
+  tag: 0.8.6
   pullPolicy: IfNotPresent
   imagePullSecrets:
     - name: registry-credentials
@@ -327,7 +327,7 @@ Le Service est `ClusterIP` par défaut. L'Ingress est désactivé et nécessite 
 
 **`ingress.trustedProxyCidrs` est obligatoire dès que `ingress.enabled=true`** (correctif sécurité ÉLEVÉE, audit 04/08/2026) : le chart refuse de rendre les manifests si cette liste est vide. Sans elle, `SUBNETORY_SECURITY_TRUSTED_PROXY` n'est jamais positionné, donc l'application ignore `X-Forwarded-For`/`X-Forwarded-Proto` : tous les utilisateurs passant par l'Ingress apparaissent avec la même IP (celle du contrôleur Ingress), ce qui mutualise le rate limiting API et le verrouillage anti-bruteforce entre tous les utilisateurs, et empêche le cookie de session d'obtenir l'attribut `Secure` derrière une terminaison TLS sur l'Ingress. Renseigner le(s) CIDR depuis lesquels le pod applicatif voit arriver le trafic routé par l'Ingress (réseau des pods du cluster la plupart du temps ; à confirmer auprès du fournisseur Kubernetes cible). Ces en-têtes ne sont appliqués que pour les connexions dont l'adresse TCP directe correspond effectivement à ces CIDR (`TrustAwareForwardedHeaderFilter`, correctif sécurité MOYENNE, audit externe 04/08/2026) — jamais globalement, contrairement à `server.forward-headers-strategy=framework` que ce chart ne positionne volontairement jamais.
 
-Les NetworkPolicy sont également désactivées par défaut. Leur activation doit inclure tous les réseaux que Subnetory est autorisé à scanner et, en mode externe, les CIDR de PostgreSQL. Voir `backend/docs/KUBERNETES_OPERATIONS.md` avant de les activer. Par défaut, la règle d'entrée applicative reste ouverte à tout pod du cluster plutôt que restreinte au contrôleur Ingress (le namespace/les labels de celui-ci varient trop selon l'installation pour un défaut fiable) — `networkPolicy.ingressFrom` (correctif sécurité MOYENNE, audit externe 04/08/2026) permet de la restreindre explicitement, voir l'exemple commenté dans `values-production.yaml`.
+Les NetworkPolicy sont également désactivées par défaut. Leur activation doit inclure tous les réseaux que Subnetory est autorisé à scanner et, en mode externe, les CIDR de PostgreSQL. Voir `backend/docs/KUBERNETES_OPERATIONS.md` avant de les activer. Par défaut, la règle d'entrée applicative reste ouverte à tout pod du cluster plutôt que restreinte au contrôleur Ingress (le namespace/les labels de celui-ci varient trop selon l'installation pour un défaut fiable) — `networkPolicy.ingressFrom` (correctif sécurité MOYENNE, audit externe 04/08/2026) permet de la restreindre explicitement, voir l'exemple commenté dans `values-production.yaml`. **Depuis le 04/08/2026 (troisième audit externe, constat M-02) : si `ingress.enabled=true` ET `networkPolicy.enabled=true` sont actifs ensemble, le chart refuse de rendre les manifests tant que `networkPolicy.ingressFrom` reste vide** — sans cette restriction, n'importe quel pod du cluster pouvait atteindre directement l'application en contournant l'Ingress (et son TLS/WAF/rate limiting éventuels), ce qui était notamment le cas de `values-production.yaml` tel quel avant ce correctif. Renseignez `networkPolicy.ingressFrom`, ou positionnez explicitement `networkPolicy.allowAllIngressSources: true` pour assumer ce risque plutôt que de le corriger.
 
 ## 7. Durcissement production
 

@@ -74,6 +74,10 @@ class VlanCrudWebIT {
 
     @BeforeEach
     void setUp() {
+        // Correctif regression (04/08/2026, troisieme audit externe, M-01) :
+        // voir AddressCrudWebIT#setUp pour le detail de ce stub — sans lui,
+        // RestoreMaintenanceFilter renvoie 503 sur toute mutation ici.
+        when(restoreMaintenanceGate.tryAdmitMutation()).thenReturn(true);
         sampleVlan = new VlanResponse(
                 1L, "VLAN-PROD", 100, 10L, "PAR01",
                 OffsetDateTime.now(), OffsetDateTime.now());

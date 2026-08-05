@@ -579,7 +579,8 @@
               "ipBlock": {"type": "object", "additionalProperties": true}
             }
           }
-        }
+        },
+        "allowAllIngressSources": {"type": "boolean"}
       }
     }
   },

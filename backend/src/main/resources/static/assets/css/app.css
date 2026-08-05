@@ -1021,7 +1021,12 @@ a:hover { text-decoration: underline; }
 
 .sn-login-subtitle {
   font-size: var(--text-sm);
-  color: var(--color-text-muted);
+  /* Contraste WCAG 2 AA (troisieme audit externe, job CI accessibility-smoke,
+     05/08/2026) : --color-text-muted (#9aa3b0) sur fond --color-surface
+     blanc ne donne qu'un ratio ~2.55:1, sous le seuil de 4.5:1 requis pour
+     du texte de cette taille. --color-text-secondary (#5a6475) offre
+     ~5.97:1, largement suffisant, sans introduire de nouvelle couleur. */
+  color: var(--color-text-secondary);
   margin: 0 0 var(--space-6) 0;
 }
 

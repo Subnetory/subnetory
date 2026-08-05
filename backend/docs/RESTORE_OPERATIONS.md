@@ -61,6 +61,25 @@
 > restent manuels : l'arret de l'application pendant leur execution reste
 > une precaution operationnelle a la charge de l'operateur, comme decrit
 > plus bas.
+>
+> **Barriere de drainage (troisieme audit externe, constat M-01,
+> 04/08/2026).** La version precedente de ce mode maintenance ne bloquait
+> que les NOUVELLES requetes de mutation recues apres son activation — une
+> requete deja admise juste avant (un import volumineux, un scan Nmap en
+> cours...) continuait de s'executer normalement, et pouvait dans certains
+> cas ecrire dans la base fraichement restauree une fois le `pg_restore`
+> termine, pas seulement etre ralentie derriere ses verrous comme le
+> documentait alors la javadoc de `RestoreMaintenanceFilter`. Chaque
+> mutation admise est desormais comptee (`RestoreMaintenanceGate`), et
+> `restore()` attend que ce compteur revienne a zero avant de lancer
+> `pg_restore` — delai borne par `subnetory.backup.restore-drain-timeout-seconds`
+> (defaut 65s, choisi juste au-dessus du delai par defaut d'un scan Nmap).
+> Si le delai expire alors qu'une mutation est toujours active (requete
+> anormalement lente ou bloquee), la restauration procede quand meme apres
+> avoir journalise un avertissement : bloquer indefiniment une restauration
+> a cause d'une seule requete serait lui-meme un deni de service trivial.
+> Ce cas redevient alors le meme risque residuel, borne plutot que
+> systematique, que documentait la version precedente.
 
 ## Objectif
 

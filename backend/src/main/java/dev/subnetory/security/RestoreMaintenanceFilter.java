@@ -47,22 +47,20 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * {@code SecurityConfig}) — la chaine OpenAPI/Swagger est en lecture seule
  * et n'a pas besoin d'etre couverte.</p>
  *
- * <p><strong>Limite connue et acceptee :</strong> ce filtre ne rejette que
- * les NOUVELLES requetes recues apres l'activation du mode maintenance. Une
- * requete de mutation deja acceptee (passee ce filtre) juste avant
- * l'activation continue de s'executer normalement jusqu'a son terme — elle
- * n'est pas interrompue ni "drainee". Un tel handler peut alors ecrire en
- * base pendant que {@code pg_restore --single-transaction} est en cours ; il
- * reste bloque derriere les verrous de la transaction de restauration (pas
- * de corruption), ce qui degrade au pire sa latence. Pour une application
- * mono-instance avec une fenetre de restauration typiquement breve, drainer
- * les requetes en vol (attendre leur fin, ou les annuler proprement, avant
- * de lancer {@code pg_restore}) a ete juge disproportionne au regard du
- * risque residuel — voir aussi le garde-fou dedie et documente pour le cas
- * particulier des scans Nmap ({@code ScanService#scan},
- * {@code ScanException.Reason#RESTORE_IN_PROGRESS}), le seul chemin
- * identifie ou une ecriture tardive apres une longue execution etait
- * silencieuse plutot que simplement ralentie.</p>
+ * <p><strong>Barriere de drainage (troisieme audit externe, constat M-01,
+ * 04/08/2026) :</strong> ce filtre admet desormais chaque requete de
+ * mutation via {@link RestoreMaintenanceGate#tryAdmitMutation()} (comptee
+ * tant qu'elle n'a pas termine) plutot que de se contenter d'un simple
+ * {@code isActive()} lu puis oublie. {@code tryAdmitMutation()} et
+ * {@code begin()} partagent le meme moniteur cote {@link RestoreMaintenanceGate}
+ * : une requete est donc soit comptee AVANT que le mode maintenance ne
+ * puisse s'activer, soit rejetee par une bascule deja effective — plus de
+ * fenetre ou une requete passerait le controle juste avant l'activation.
+ * {@code BackupExecutionService#restore} attend ensuite (delai borne,
+ * {@link RestoreMaintenanceGate#awaitDrain(java.time.Duration)}) que toutes
+ * les mutations deja admises se terminent avant de lancer
+ * {@code pg_restore} — voir sa javadoc pour le comportement en cas
+ * d'expiration du delai.</p>
  */
 @Component
 public class RestoreMaintenanceFilter extends OncePerRequestFilter {
@@ -86,12 +84,20 @@ public class RestoreMaintenanceFilter extends OncePerRequestFilter {
                                      FilterChain filterChain)
             throws ServletException, IOException {
 
-        if (!gate.isActive() || SAFE_METHODS.contains(request.getMethod())) {
+        if (SAFE_METHODS.contains(request.getMethod())) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        writeServiceUnavailable(response);
+        if (!gate.tryAdmitMutation()) {
+            writeServiceUnavailable(response);
+            return;
+        }
+        try {
+            filterChain.doFilter(request, response);
+        } finally {
+            gate.releaseMutation();
+        }
     }
 
     private void writeServiceUnavailable(HttpServletResponse response) throws IOException {

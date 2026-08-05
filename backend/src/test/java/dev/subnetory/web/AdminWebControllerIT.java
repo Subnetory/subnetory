@@ -88,6 +88,10 @@ class AdminWebControllerIT {
 
     @BeforeEach
     void setUp() {
+        // Correctif regression (04/08/2026, troisieme audit externe, M-01) :
+        // voir AddressCrudWebIT#setUp pour le detail de ce stub — sans lui,
+        // RestoreMaintenanceFilter renvoie 503 sur toute mutation ici.
+        when(restoreMaintenanceGate.tryAdmitMutation()).thenReturn(true);
         Role roleAdmin = new Role("ROLE_ADMIN");
         roleAdmin.setId(1L);
         Role roleReadOnly = new Role("ROLE_READ_ONLY");

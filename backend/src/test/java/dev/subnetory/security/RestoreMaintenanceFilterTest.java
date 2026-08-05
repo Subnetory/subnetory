@@ -129,4 +129,54 @@ class RestoreMaintenanceFilterTest {
         assertThat(response.getStatus()).isEqualTo(503);
         verify(chain, never()).doFilter(request, response);
     }
+
+    /**
+     * Barriere de drainage (troisieme audit externe, constat M-01,
+     * 04/08/2026) : une mutation admise doit etre comptee par le gate
+     * pendant toute la duree de {@code doFilter}, et relachee une fois
+     * terminee — c'est ce compteur que {@code BackupExecutionService#restore}
+     * attend de voir revenir a zero avant de lancer {@code pg_restore}.
+     */
+    @Test
+    void gateInactive_mutatingRequest_isCountedDuringChainAndReleasedAfter() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/subnets");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = (req, res) -> assertThat(gate.activeMutationCount()).isEqualTo(1);
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(gate.activeMutationCount()).isZero();
+    }
+
+    /**
+     * Meme verification que ci-dessus, mais sur un chemin ou le reste de la
+     * chaine leve une exception : la mutation doit tout de meme etre
+     * relachee (bloc finally), sinon le compteur resterait fausse et
+     * bloquerait indefiniment une future restauration.
+     */
+    @Test
+    void gateInactive_mutatingRequest_isReleasedEvenWhenChainThrows() {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/subnets");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = (req, res) -> {
+            throw new java.io.IOException("boom");
+        };
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                java.io.IOException.class, () -> filter.doFilter(request, response, chain));
+
+        assertThat(gate.activeMutationCount()).isZero();
+    }
+
+    @Test
+    void gateActive_mutatingRequest_isNeverCounted() throws Exception {
+        gate.begin();
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/subnets");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(gate.activeMutationCount()).isZero();
+    }
 }

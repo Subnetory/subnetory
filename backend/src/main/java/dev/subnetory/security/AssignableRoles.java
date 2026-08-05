@@ -21,9 +21,22 @@ public final class AssignableRoles {
      * sont desormais reserves a {@link #ADMIN} malgre la regle d'URL/classe
      * {@code hasAnyRole('ADMIN', 'BACKUP')} — un compte {@code ROLE_BACKUP}
      * seul pouvait sinon importer puis restaurer un dump arbitraire,
-     * equivalent de fait a un acces administrateur complet des donnees.
-     * {@code ROLE_BACKUP} conserve configuration, declenchement, historique,
-     * telechargement, purge et suppression.</p>
+     * equivalent de fait a un acces administrateur complet des donnees.</p>
+     *
+     * <p>Correctif securite MOYENNE (second audit externe, 04/08/2026) :
+     * la modification de la configuration de sauvegarde, la purge en masse
+     * et la suppression individuelle de l'historique sont ELLES AUSSI
+     * desormais reservees a {@link #ADMIN} — un compte {@code ROLE_BACKUP}
+     * compromis pouvait sinon desactiver la sauvegarde planifiee ou detruire
+     * l'integralite de l'historique et des fichiers {@code .dump} sur
+     * disque, sabotant silencieusement la capacite de reprise apres
+     * sinistre. {@code ROLE_BACKUP} ne conserve que le strict necessaire
+     * pour un compte de service ou un operateur dedie : lecture de la
+     * configuration, declenchement manuel, consultation de l'historique et
+     * telechargement (ce javadoc affirmait encore le perimetre precedent,
+     * plus large — corrige au troisieme audit externe, constat F-01,
+     * 04/08/2026, apres que l'IHM et {@code API_FIRST_PARITY.md} aient ete
+     * releves comme egalement en retard sur le meme point).</p>
      */
     public static final String BACKUP = "ROLE_BACKUP";
 

@@ -147,6 +147,13 @@ subnetory:
     # Nmap. N'affecte pas le fichier de sauvegarde lui-meme (ecrit/lu
     # directement sur disque par pg_dump/pg_restore, jamais via stdout).
     max-output-bytes: ${SUBNETORY_BACKUP_MAX_OUTPUT_BYTES:10485760}
+    # Delai borne (secondes) pendant lequel une restauration attend que les
+    # mutations HTTP deja admises avant l'activation du mode maintenance se
+    # terminent, avant de lancer pg_restore (troisieme audit externe,
+    # constat M-01, 04/08/2026 — voir RestoreMaintenanceGate#awaitDrain).
+    # Aligne un peu au-dessus de subnetory.scan.timeout-seconds (60s par
+    # defaut) : le cas le plus long realiste est un scan Nmap deja en cours.
+    restore-drain-timeout-seconds: ${SUBNETORY_BACKUP_RESTORE_DRAIN_TIMEOUT_SECONDS:65}
     encryption:
       # Chiffrement au repos des fichiers .dump (audit 01/08/2026, backlog #13) :
       # AES-256-GCM + HMAC-SHA256, cle derivee par PBKDF2 a partir de cette

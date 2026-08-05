@@ -208,6 +208,32 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
 
+            <!-- SBOM CycloneDX (troisieme audit externe, constat M-03, 04/08/2026) :
+                 genere target/bom.json (inventaire signe des dependances du JAR
+                 publie, format CycloneDX standard) a chaque "mvn package"/"verify".
+                 Attache a la release GitHub par release.yml, aux cotes du JAR et
+                 de SHA256SUMS.txt. makeAggregateBom plutot que makeBom : goal
+                 recommande par le plugin lui-meme independamment du nombre de
+                 modules (resolution des dependances plus fiable au moment du
+                 build). -->
+            <plugin>
+                <groupId>org.cyclonedx</groupId>
+                <artifactId>cyclonedx-maven-plugin</artifactId>
+                <version>2.9.2</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>makeAggregateBom</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <outputFormat>json</outputFormat>
+                    <outputName>bom</outputName>
+                </configuration>
+            </plugin>
+
             <!-- Surefire - run unit tests and integration tests named *IT.
                  Required so mvn verify executes the full test suite and feeds JaCoCo. -->
             <plugin>

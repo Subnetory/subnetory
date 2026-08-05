@@ -86,6 +86,10 @@ class SubnetCrudWebIT {
 
     @BeforeEach
     void setUp() {
+        // Correctif regression (04/08/2026, troisieme audit externe, M-01) :
+        // voir AddressCrudWebIT#setUp pour le detail de ce stub — sans lui,
+        // RestoreMaintenanceFilter renvoie 503 sur toute mutation ici.
+        when(restoreMaintenanceGate.tryAdmitMutation()).thenReturn(true);
         sampleSubnet = new SubnetResponse(
                 1L, "10.0.0.0/24", "Test", null,
                 10L, "Production", 20L, "PAR01",

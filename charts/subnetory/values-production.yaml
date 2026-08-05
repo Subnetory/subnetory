@@ -56,6 +56,16 @@ secrets:
 #     - namespaceSelector:
 #         matchLabels:
 #           kubernetes.io/metadata.name: ingress-nginx
+#
+# IMPORTANT (troisieme audit externe, constat M-02, 04/08/2026) : ce
+# profil active networkPolicy.enabled mais NE renseigne PAS ingressFrom —
+# volontairement, la valeur correcte depend entierement de votre
+# controleur Ingress et ne peut pas etre devinee. Si ingress.enabled=true
+# est egalement actif, le rendu du chart REFUSE desormais de continuer
+# tant que vous n'avez pas decommente/adapte le bloc ci-dessus, pour ne
+# pas laisser silencieusement n'importe quel pod du cluster atteindre
+# l'application. Pour assumer explicitement ce risque plutot que de le
+# corriger, positionnez plutot networkPolicy.allowAllIngressSources: true.
 networkPolicy:
   enabled: true
   allowedScanCidrs: []

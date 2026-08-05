@@ -171,7 +171,7 @@ Des limites trop faibles peuvent causer `OOMKilled`, des probes en échec ou des
 
 La matrice précise est tenue dans `backend/docs/KUBERNETES_COMPATIBILITY.md`.
 
-Depuis la release `v0.8.0`, une image officielle publique est publiée par `release.yml` et pullable anonymement à chaque tag (`ghcr.io/subnetory/subnetory:v0.8.5` actuellement) — c'est le défaut de `image.repository`/`image.tag` dans `values.yaml`. Elle n'est pas signée (voir `KUBERNETES_COMPATIBILITY.md`, section « Non qualifié »). Construire l'image localement et la charger dans `kind`, ou la publier dans un registre privé avec `imagePullSecrets`, reste possible et documenté dans `backend/docs/INSTALL_KUBERNETES.md` (Options B/C) pour un cluster sans accès sortant à `ghcr.io`.
+Depuis la release `v0.8.0`, une image officielle publique est publiée par `release.yml` et pullable anonymement à chaque tag (`ghcr.io/subnetory/subnetory:v0.8.6` actuellement) — c'est le défaut de `image.repository`/`image.tag` dans `values.yaml`. Depuis `v0.8.7` (troisième audit externe, constat M-03, 04/08/2026), elle est signée "keyless" via Cosign/GitHub OIDC, accompagnée d'un SBOM et d'une attestation de provenance SLSA — voir `SECURITY.md`, section « Release integrity ». Construire l'image localement et la charger dans `kind`, ou la publier dans un registre privé avec `imagePullSecrets`, reste possible et documenté dans `backend/docs/INSTALL_KUBERNETES.md` (Options B/C) pour un cluster sans accès sortant à `ghcr.io`.
 
 ## Conditions restantes avant une offre de production élargie
 

@@ -254,6 +254,46 @@ class ScanServiceTest {
         verifyNoInteractions(addressService);
     }
 
+    /**
+     * Troisieme audit externe, constat F-04 (04/08/2026) : la sonde
+     * {@code assertNmapAvailable} lit desormais sa sortie de facon bornee
+     * (meme mecanisme que {@code readAllBytesAsync}/{@code readBounded}
+     * utilise pour la sortie d'un scan reel) au lieu d'un
+     * {@code transferTo(nullOutputStream())} bloquant et sans limite. Ce
+     * test verifie que le nouveau chemin borne echoue correctement
+     * (TOOL_NOT_AVAILABLE) quand la sortie de "java --version" depasse la
+     * limite configuree, plutot que de la consommer silencieusement en
+     * entier. Invoque directement via reflection standard (pas
+     * ReflectionTestUtils.invokeMethod, qui envelopperait ScanException —
+     * exception verifiee — dans UndeclaredThrowableException ; voir le
+     * meme motif documente dans BackupExecutionServiceTest).
+     */
+    @Test
+    void assertNmapAvailable_outputExceedsConfiguredLimit_failsWithToolNotAvailable() throws Exception {
+        String javaExecutable = ProcessHandle.current().info().command()
+                .orElseThrow(() -> new IllegalStateException("java executable introuvable"));
+        ReflectionTestUtils.setField(service, "nmapPath", javaExecutable);
+        // "java --version" ecrit au minimum quelques dizaines d'octets
+        // (numero de version, VM, build) : une limite de 1 octet est donc
+        // toujours depassee, independamment de la version de JDK utilisee
+        // pour lancer ces tests. probeMaxOutputBytes (pas maxOutputBytes,
+        // qui ne borne que la sortie d'un scan reel depuis le correctif
+        // regression du 04/08/2026 — voir ScanService) : la sonde a
+        // desormais sa propre limite, independante de celle du scan.
+        ReflectionTestUtils.setField(service, "probeMaxOutputBytes", 1L);
+
+        java.lang.reflect.Method method = ScanService.class.getDeclaredMethod("assertNmapAvailable");
+        method.setAccessible(true);
+        try {
+            method.invoke(service);
+            org.junit.jupiter.api.Assertions.fail("assertNmapAvailable aurait du lever ScanException");
+        } catch (java.lang.reflect.InvocationTargetException e) {
+            assertThat(e.getCause()).isInstanceOf(ScanException.class);
+            assertThat(((ScanException) e.getCause()).getReason())
+                    .isEqualTo(ScanException.Reason.TOOL_NOT_AVAILABLE);
+        }
+    }
+
     // -------------------------------------------------------
     // Restauration en cours (correctif securite FAIBLE, second audit
     // externe 04/08/2026)

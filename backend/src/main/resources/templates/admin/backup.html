@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity6"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
 <body>
 <div id="main-content">
@@ -122,7 +123,11 @@
 
     <!-- ── Configuration + actions ──────────────────────────────────── -->
     <section class="sn-admin-grid sn-admin-grid--ldap">
-        <article class="sn-card sn-card--padded">
+        <!-- Reserve a ROLE_ADMIN cote serveur (@PreAuthorize sur
+             AdminBackupWebController#updateSettings) — masque desormais le
+             formulaire pour ROLE_BACKUP plutot que de le laisser aboutir a
+             un 403 (troisieme audit externe, constat F-01, 04/08/2026). -->
+        <article class="sn-card sn-card--padded" sec:authorize="hasRole('ADMIN')">
             <div class="sn-card__header">
                 <div><h2 class="sn-card__title" th:text="#{ldap.config.title}">Configuration</h2></div>
             </div>
@@ -243,8 +248,13 @@
                     </button>
                 </form>
 
+                <!-- Reserve a ROLE_ADMIN cote serveur (@PreAuthorize sur
+                     AdminBackupWebController#importDump) — un dump importe
+                     peut ensuite etre restaure, restauration elle-meme
+                     reservee a ROLE_ADMIN depuis v0.8.5 (troisieme audit
+                     externe, constat F-01, 04/08/2026). -->
                 <form th:action="@{/admin/backup/import}" method="post" enctype="multipart/form-data"
-                      class="sn-form sn-action-divider">
+                      class="sn-form sn-action-divider" sec:authorize="hasRole('ADMIN')">
                     <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                     <div class="sn-form__group">
                         <label for="backupImportFile" class="sn-form__label" th:text="#{backup.action.import.label}">Importer une sauvegarde (.dump)</label>
@@ -266,7 +276,10 @@
                     </button>
                 </form>
 
-                <form th:action="@{/admin/backup/purge}" method="post" class="sn-form sn-action-divider">
+                <!-- Reserve a ROLE_ADMIN cote serveur (@PreAuthorize sur
+                     AdminBackupWebController#purge) — troisieme audit
+                     externe, constat F-01, 04/08/2026. -->
+                <form th:action="@{/admin/backup/purge}" method="post" class="sn-form sn-action-divider" sec:authorize="hasRole('ADMIN')">
                     <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                     <div class="sn-form__group">
                         <label for="backupPurgeDate" class="sn-form__label" th:text="#{backup.purge.label}">Purger l'historique avant le</label>
@@ -350,12 +363,18 @@
                             <a th:if="${run.status() == 'SUCCESS' and run.fileAvailable()}"
                                th:href="@{/admin/backup/runs/{id}/download(id=${run.id()})}"
                                class="sn-btn sn-btn--ghost sn-btn--sm" th:text="#{backup.action.download}">Télécharger</a>
+                            <!-- Restaurer et Supprimer : reserves a ROLE_ADMIN cote
+                                 serveur (@PreAuthorize sur restoreConfirm/deleteConfirm,
+                                 AdminBackupWebController) — troisieme audit externe,
+                                 constat F-01, 04/08/2026. -->
                             <a th:if="${run.status() == 'SUCCESS' and run.fileAvailable()}"
                                th:href="@{/admin/backup/runs/{id}/restore-confirm(id=${run.id()})}"
-                               class="sn-btn sn-btn--secondary sn-btn--sm" th:text="#{backup.action.restore}">Restaurer</a>
+                               class="sn-btn sn-btn--secondary sn-btn--sm" th:text="#{backup.action.restore}"
+                               sec:authorize="hasRole('ADMIN')">Restaurer</a>
                             <a th:if="${run.status() != 'RUNNING'}"
                                th:href="@{/admin/backup/runs/{id}/delete-confirm(id=${run.id()})}"
-                               class="sn-btn sn-btn--danger sn-btn--sm" th:text="#{common.delete}">Supprimer</a>
+                               class="sn-btn sn-btn--danger sn-btn--sm" th:text="#{common.delete}"
+                               sec:authorize="hasRole('ADMIN')">Supprimer</a>
                         </td>
                     </tr>
                     <tr th:if="${history.empty}" class="sn-table--empty">

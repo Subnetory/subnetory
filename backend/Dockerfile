@@ -1,5 +1,12 @@
 # ── Stage 1 : Build ────────────────────────────────────────────────────────
-FROM eclipse-temurin:21-jdk-alpine AS builder
+# Images de base epinglees par digest (troisieme audit externe, constat M-03,
+# 04/08/2026) : le tag "21-jdk-alpine"/"21-jre-alpine" est mutable, un
+# rebuild ulterieur peut silencieusement tirer un contenu different sans
+# qu'aucune revue n'ait lieu. Digest resolu le 04/08/2026 ; Dependabot suit
+# desormais cette image comme n'importe quelle autre dependance, une mise a
+# jour de digest apparaitra donc comme une pull request a revoir plutot que
+# de changer silencieusement ce qu'un rebuild produit.
+FROM eclipse-temurin:21-jdk-alpine@sha256:1ff763083f2993d57d0bf374ab10bb3e2cb873af6c13a04458ebbd3e0337dc76 AS builder
 WORKDIR /build
 
 # Copier le wrapper Maven et le pom.xml en premier.
@@ -16,7 +23,8 @@ COPY src/ src/
 RUN ./mvnw package -DskipTests -q
 
 # ── Stage 2 : Runtime ──────────────────────────────────────────────────────
-FROM eclipse-temurin:21-jre-alpine
+# Digest epingle : voir le commentaire de l'image de build ci-dessus.
+FROM eclipse-temurin:21-jre-alpine@sha256:3f08b13888f595cc49edabea7250ba69499ba25602b267da591720769400e08c
 WORKDIR /app
 
 # Nmap est requis par la fonctionnalité de découverte réseau.

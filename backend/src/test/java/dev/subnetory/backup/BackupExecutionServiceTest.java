@@ -317,6 +317,76 @@ class BackupExecutionServiceTest {
     }
 
     // -------------------------------------------------------
+    // Barriere de drainage (troisieme audit externe, constat M-01,
+    // 04/08/2026) — invoque awaitRestoreDrain() directement via reflection :
+    // la reproduire de bout en bout via restore() necessiterait un
+    // pg_restore reel (indisponible en CI/Testcontainers, cf.
+    // AdminBackupControllerIT), alors que le point a verifier (le
+    // comportement du drainage lui-meme, deja isole dans
+    // RestoreMaintenanceGate) ne depend d'aucun etat de la base ou du
+    // systeme de fichiers. ReflectionTestUtils.invokeMethod convient ici :
+    // aucune des deux methodes testees ne leve d'exception verifiee sur ces
+    // chemins (ni gate deja draine, ni timeout — seul un InterruptedException
+    // reel, non declenche par ces tests, ferait remonter une BackupException).
+    // -------------------------------------------------------
+
+    @Test
+    void awaitRestoreDrain_noActiveMutations_returnsImmediatelyWithoutError() {
+        ReflectionTestUtils.setField(service, "restoreDrainTimeoutSeconds", 30);
+
+        ReflectionTestUtils.invokeMethod(service, "awaitRestoreDrain", "subnetory-20260801.dump", "admin");
+
+        assertThat(restoreMaintenanceGate.activeMutationCount()).isZero();
+    }
+
+    @Test
+    void awaitRestoreDrain_mutationReleasedBeforeTimeout_returnsOnceDrained() throws Exception {
+        ReflectionTestUtils.setField(service, "restoreDrainTimeoutSeconds", 5);
+        assertThat(restoreMaintenanceGate.tryAdmitMutation()).isTrue();
+
+        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor();
+        try {
+            executor.submit(() -> {
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } finally {
+                    restoreMaintenanceGate.releaseMutation();
+                }
+            });
+
+            ReflectionTestUtils.invokeMethod(service, "awaitRestoreDrain", "subnetory-20260801.dump", "admin");
+
+            assertThat(restoreMaintenanceGate.activeMutationCount()).isZero();
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    /**
+     * Le delai est deliberement tres court (100ms) pour garder ce test
+     * rapide : le point verifie est que la methode revient normalement
+     * (sans exception) meme si la mutation n'a jamais ete relachee — pas la
+     * duree exacte de l'attente, deja couverte par
+     * {@code RestoreMaintenanceGateTest#awaitDrain_returnsFalseWhenTimeoutExpiresWithMutationStillActive}.
+     */
+    @Test
+    void awaitRestoreDrain_timesOutWithMutationStillActive_proceedsAnywayWithoutThrowing() {
+        ReflectionTestUtils.setField(service, "restoreDrainTimeoutSeconds", 0);
+        assertThat(restoreMaintenanceGate.tryAdmitMutation()).isTrue();
+
+        ReflectionTestUtils.invokeMethod(service, "awaitRestoreDrain", "subnetory-20260801.dump", "admin");
+
+        // Le comportement volontaire (documente) est de proceder quand meme :
+        // bloquer indefiniment une restauration a cause d'une requete bloquee
+        // serait lui-meme un deni de service. La mutation reste donc comptee
+        // (jamais relachee dans ce test) — c'est bien le residu attendu.
+        assertThat(restoreMaintenanceGate.activeMutationCount()).isEqualTo(1);
+        restoreMaintenanceGate.releaseMutation();
+    }
+
+    // -------------------------------------------------------
     // Invalidation JWT/sessions independante (correctif securite FAIBLE,
     // second audit externe 04/08/2026) — invoque la methode privee
     // directement via reflection : la reproduire de bout en bout via
@@ -844,6 +914,44 @@ class BackupExecutionServiceTest {
                     BackupException backupException = (BackupException) cause;
                     assertThat(backupException.getReason()).isEqualTo(BackupException.Reason.EXECUTION_FAILED);
                     assertThat(backupException.getMessage()).containsIgnoringCase("lecture de la sortie");
+                });
+    }
+
+    /**
+     * Troisieme audit externe, constat F-04 (04/08/2026) : la sonde
+     * {@code assertToolAvailable} lit desormais sa sortie de facon bornee
+     * (meme mecanisme que {@code readAllBytesAsync}/{@code readBounded}
+     * utilise pour la sortie de pg_dump/pg_restore) au lieu d'un
+     * {@code transferTo(nullOutputStream())} bloquant et sans limite. Verifie
+     * que le nouveau chemin borne echoue correctement (TOOL_NOT_AVAILABLE)
+     * quand la sortie de "java --version" depasse la limite configuree.
+     */
+    @Test
+    void assertToolAvailable_outputExceedsConfiguredLimit_failsWithToolNotAvailable() throws Exception {
+        String javaExecutable = ProcessHandle.current().info().command()
+                .orElseThrow(() -> new IllegalStateException(
+                        "Impossible de determiner le chemin de l'executable java courant"));
+        // "java --version" ecrit au minimum quelques dizaines d'octets
+        // (numero de version, VM, build) : une limite de 1 octet est donc
+        // toujours depassee, independamment de la version de JDK utilisee
+        // pour lancer ces tests. probeMaxOutputBytes (pas maxOutputBytes,
+        // qui ne borne que la sortie d'une execution reelle depuis le
+        // correctif regression du 04/08/2026 — voir
+        // BackupExecutionService) : la sonde a desormais sa propre limite,
+        // independante de celle de pg_dump/pg_restore.
+        ReflectionTestUtils.setField(service, "probeMaxOutputBytes", 1L);
+
+        java.lang.reflect.Method assertToolAvailable = BackupExecutionService.class.getDeclaredMethod(
+                "assertToolAvailable", String.class, String.class);
+        assertToolAvailable.setAccessible(true);
+
+        assertThatThrownBy(() -> assertToolAvailable.invoke(service, javaExecutable, "pg_dump"))
+                .isInstanceOf(java.lang.reflect.InvocationTargetException.class)
+                .satisfies(thrown -> {
+                    Throwable cause = thrown.getCause();
+                    assertThat(cause).isInstanceOf(BackupException.class);
+                    assertThat(((BackupException) cause).getReason())
+                            .isEqualTo(BackupException.Reason.TOOL_NOT_AVAILABLE);
                 });
     }
 }

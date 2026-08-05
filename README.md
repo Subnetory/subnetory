@@ -56,8 +56,8 @@ pwsh.exe -File .\scripts\make-jpackage.ps1
 
 Generated artifacts:
 
-- `dist/windows/subnetory-0.8.5-windows-x64/`;
-- `dist/windows/subnetory-0.8.5-windows-x64.zip`;
+- `dist/windows/subnetory-0.8.6-windows-x64/`;
+- `dist/windows/subnetory-0.8.6-windows-x64.zip`;
 - SHA256 and manifest files.
 
 At first login, the local `admin` account must replace its bootstrap password.

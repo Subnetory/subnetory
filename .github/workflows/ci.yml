@@ -108,6 +108,58 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  # Controle d'accessibilite leger (troisieme audit externe, constat F-03,
+  # 04/08/2026) : verifie la page /login (seule page publique non
+  # authentifiee) avec axe-core, contre les regles WCAG 2 A/AA. Volontairement
+  # limite a cette seule page — authentifier ce job pour couvrir le reste de
+  # l'application demanderait de scripter tout le flux de connexion (CSRF,
+  # cookies de session) uniquement pour ce controle, disproportionne pour un
+  # premier garde-fou. Ne remplace pas un audit accessibilite complet
+  # (navigation clavier, lecteur d'ecran reel...), attrape au minimum les
+  # violations structurelles courantes (contraste, libelles manquants,
+  # attributs ARIA invalides, hierarchie des titres).
+  accessibility-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Generate local Compose secrets
+        run: bash scripts/init-compose.sh
+
+      - name: Build and start the application
+        run: docker compose -f backend/docker-compose.yml up -d --build
+
+      - name: Wait for readiness
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/actuator/health/readiness 2>/dev/null | grep -q '"status":"UP"'; then
+              echo "Application prete apres $((i * 5))s."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "L'application n'est jamais devenue prete (readiness KO apres 150s)." >&2
+          docker compose -f backend/docker-compose.yml logs >&2
+          exit 1
+
+      - name: Install matching Chromedriver
+        run: |
+          set -euo pipefail
+          npx --yes browser-driver-manager install chrome
+
+      - name: Run axe-core against /login
+        run: |
+          set -euo pipefail
+          npx --yes @axe-core/cli@4.12.1 http://localhost:8080/login \
+            --exit --tags wcag2a,wcag2aa \
+            --chrome-options="no-sandbox,disable-gpu,disable-dev-shm-usage"
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f backend/docker-compose.yml down -v
+
   compose-https-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -168,11 +220,18 @@ jobs:
       # malveillants. Epinglage strict sur le commit SHA de la release
       # immutable et signee v0.36.0 (posterieure a l'incident) — voir
       # backend/docs/README.md, section "Actions GitHub tierces".
+      # scanners: vuln,secret (troisieme audit externe, constat P1, listé
+      # dans le plan de remediation, 04/08/2026) : sans le second scanner
+      # explicitement demande, Trivy n'exécutait que la detection de
+      # vulnerabilites connues des dependances — aucune detection de secret
+      # (cle API, mot de passe, jeton) accidentellement commite dans
+      # l'arbre source n'etait effectuee malgre le nom generique du job.
       - name: Scan Maven dependencies (source)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: backend
+          scanners: vuln,secret
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: 1
@@ -190,6 +249,7 @@ jobs:
         with:
           scan-type: image
           image-ref: subnetory:dependency-scan
+          scanners: vuln,secret
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: 1
@@ -248,10 +308,17 @@ jobs:
         # SARIF vers l'onglet Security echoue tant que GitHub Advanced
         # Security n'est pas active sur ce depot prive ("Advanced Security
         # must be enabled for this repository to use code scanning",
-        # constat CI 04/08/2026). Non-bloquant pour ne pas faire echouer
-        # toute la CI sur un reglage de compte plutot qu'un vrai defaut de
-        # code ; a retirer si/quand Advanced Security est active.
-        continue-on-error: true
+        # constat CI 04/08/2026).
+        #
+        # Conditionne a la visibilite du depot (troisieme audit externe,
+        # constat I-01, 04/08/2026) plutot que non-bloquant partout : sur
+        # Subnetory/subnetory (public), Advanced Security/code scanning est
+        # gratuit et fonctionne reellement (upload confirme en CI reelle) —
+        # un echec y est donc un vrai defaut a corriger, pas un reglage de
+        # compte a contourner. Reste tolerant uniquement sur les autres
+        # depots (le fork de developpement prive, sans licence GitHub Code
+        # Security), ou ce meme workflow tourne a l'identique.
+        continue-on-error: ${{ github.repository != 'Subnetory/subnetory' }}
         uses: github/codeql-action/analyze@dd903d2e4f5405488e5ef1422510ee31c8b32357 # v3
         with:
           category: "/language:java-kotlin"
@@ -436,6 +503,57 @@ jobs:
             > "${rendered_netpol_restricted}"
           if ! grep -Fq 'kubernetes.io/metadata.name: ingress-nginx' "${rendered_netpol_restricted}"; then
             echo "networkPolicy.ingressFrom did not render into the application NetworkPolicy" >&2
+            exit 1
+          fi
+
+          # Correctif securite MOYENNE (troisieme audit externe, constat
+          # M-02, 04/08/2026) : ingress.enabled=true ET networkPolicy.enabled=true
+          # sans networkPolicy.ingressFrom doit etre refuse au rendu (voir le
+          # "fail" ajoute dans templates/networkpolicy.yaml) — sinon un
+          # deploiement combinant Ingress et NetworkPolicy "de durcissement"
+          # se retrouve silencieusement avec une regle d'entree qui
+          # n'importe quel pod, exactement le profil values-production.yaml
+          # avant ce correctif.
+          if helm template invalid "${chart}" \
+              --set ingress.enabled=true \
+              --set ingress.className=nginx \
+              --set ingress.trustedProxyCidrs='{10.244.0.0/16}' \
+              --set ingress.hosts[0].host=subnetory.example.internal \
+              --set ingress.hosts[0].paths[0].path=/ \
+              --set ingress.hosts[0].paths[0].pathType=Prefix \
+              --set networkPolicy.enabled=true \
+              > /dev/null 2>&1; then
+            echo "Helm chart rendered Ingress+NetworkPolicy without networkPolicy.ingressFrom (any pod could reach the app directly)" >&2
+            exit 1
+          fi
+
+          # Le meme rendu doit reussir des lors qu'ingressFrom est renseigne...
+          if ! helm template subnetory-ingress-netpol "${chart}" --namespace subnetory \
+              --set ingress.enabled=true \
+              --set ingress.className=nginx \
+              --set ingress.trustedProxyCidrs='{10.244.0.0/16}' \
+              --set ingress.hosts[0].host=subnetory.example.internal \
+              --set ingress.hosts[0].paths[0].path=/ \
+              --set ingress.hosts[0].paths[0].pathType=Prefix \
+              --set networkPolicy.enabled=true \
+              -f "${RUNNER_TEMP}/netpol-ingress-from.yaml" \
+              > /dev/null 2>&1; then
+            echo "Helm chart refused to render Ingress+NetworkPolicy even with networkPolicy.ingressFrom set" >&2
+            exit 1
+          fi
+
+          # ...ou que l'opt-out explicite est positionne.
+          if ! helm template subnetory-ingress-netpol-optout "${chart}" --namespace subnetory \
+              --set ingress.enabled=true \
+              --set ingress.className=nginx \
+              --set ingress.trustedProxyCidrs='{10.244.0.0/16}' \
+              --set ingress.hosts[0].host=subnetory.example.internal \
+              --set ingress.hosts[0].paths[0].path=/ \
+              --set ingress.hosts[0].paths[0].pathType=Prefix \
+              --set networkPolicy.enabled=true \
+              --set networkPolicy.allowAllIngressSources=true \
+              > /dev/null 2>&1; then
+            echo "Helm chart refused to render Ingress+NetworkPolicy even with networkPolicy.allowAllIngressSources=true" >&2
             exit 1
           fi
 

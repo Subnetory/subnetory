@@ -300,3 +300,14 @@ networkPolicy:
   #         matchLabels:
   #           kubernetes.io/metadata.name: ingress-nginx
   ingressFrom: []
+  # Garde-fou (troisieme audit externe, constat M-02, 04/08/2026) : quand
+  # ingress.enabled=true ET networkPolicy.enabled=true, le rendu du chart
+  # refuse par defaut de continuer tant qu'ingressFrom ci-dessus est vide —
+  # l'objectif declare de networkPolicy.enabled (restreindre l'entree
+  # applicative) serait sinon silencieusement inoperant. Positionner ce
+  # flag a true desactive ce garde-fou pour les installations qui assument
+  # deliberement ce risque (par exemple un cluster mono-tenant de confiance,
+  # ou un controleur Ingress dont le namespace/les labels ne peuvent pas
+  # etre exprimes via NetworkPolicyPeer). Sans effet si networkPolicy.enabled
+  # est false, ou si ingressFrom est deja renseigne.
+  allowAllIngressSources: false

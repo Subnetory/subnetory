@@ -35,11 +35,16 @@ jobs:
       # malveillants. Epinglage strict sur le commit SHA de la release
       # immutable et signee v0.36.0 (posterieure a l'incident) — voir
       # backend/docs/README.md, section "Actions GitHub tierces".
+      # scanners: vuln,secret (troisieme audit externe, constat P1, 04/08/2026)
+      # : garder synchronise avec ci.yml (voir le commentaire en tete de
+      # fichier sur la duplication assumee) — sans le second scanner, aucune
+      # detection de secret accidentellement commite n'etait effectuee.
       - name: Scan Maven dependencies (source)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: backend
+          scanners: vuln,secret
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: 1
@@ -57,6 +62,7 @@ jobs:
         with:
           scan-type: image
           image-ref: subnetory:dependency-scan
+          scanners: vuln,secret
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: 1

@@ -1,7 +1,7 @@
 # Subnetory — Correctifs de sécurité appliqués
 
 > Document de suivi des correctifs de sécurité appliqués au projet Subnetory.
-> Base historique : v0.3.0 (commit f722f42). Dernière mise à jour : 04/08/2026 (v0.8.5).
+> Base historique : v0.3.0 (commit f722f42). Dernière mise à jour : 04/08/2026 (v0.8.6).
 > Correction du 30/07/2026 : F5 et F6, listés ci-dessous comme « reportés » depuis Sprint 2.29,
 > sont en réalité déjà implémentés dans le code (voir détail plus bas) — ce document n'avait
 > pas été remis à jour depuis. Aucun autre écart identifié entre ce document et le code réel.
@@ -17,7 +17,7 @@
 > .\mvnw.cmd test
 > ```
 >
-> Résultat attendu après v0.8.5 : voir le nombre de tests courant dans le dernier run CI
+> Résultat attendu après v0.8.6 : voir le nombre de tests courant dans le dernier run CI
 > (`test` job, `.github/workflows/ci.yml`) — ce document ne fige plus un chiffre daté.
 
 ---

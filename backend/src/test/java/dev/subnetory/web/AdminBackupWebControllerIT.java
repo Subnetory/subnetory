@@ -30,6 +30,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -91,6 +92,10 @@ class AdminBackupWebControllerIT {
 
     @BeforeEach
     void setUp() {
+        // Correctif regression (04/08/2026, troisieme audit externe, M-01) :
+        // voir AddressCrudWebIT#setUp pour le detail de ce stub — sans lui,
+        // RestoreMaintenanceFilter renvoie 503 sur toute mutation ici.
+        when(restoreMaintenanceGate.tryAdmitMutation()).thenReturn(true);
         when(configurationService.form()).thenReturn(new BackupSettingsForm());
         when(configurationService.effectiveSettings())
                 .thenReturn(new EffectiveBackupSettings(false, "0 0 2 * * *", 14));
@@ -129,7 +134,12 @@ class AdminBackupWebControllerIT {
                 .andExpect(status().isOk())
                 .andExpect(view().name("admin/backup"))
                 .andExpect(content().string(containsString("Enregistrer la configuration")))
-                .andExpect(content().string(containsString("Sauvegarder maintenant")));
+                .andExpect(content().string(containsString("Sauvegarder maintenant")))
+                // Actions reservees a ROLE_ADMIN cote serveur — doivent rester
+                // visibles pour ADMIN (troisieme audit externe, constat F-01,
+                // 04/08/2026).
+                .andExpect(content().string(containsString("Importer")))
+                .andExpect(content().string(containsString("Purger définitivement")));
     }
 
     @Test
@@ -140,6 +150,45 @@ class AdminBackupWebControllerIT {
         mvc.perform(get("/admin/backup"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("admin/backup"));
+    }
+
+    /**
+     * Troisieme audit externe, constat F-01 (04/08/2026) : la configuration,
+     * l'import, la purge, la restauration et la suppression sont toutes
+     * reservees a ROLE_ADMIN cote serveur ({@code @PreAuthorize}), mais la
+     * page ne masquait auparavant aucun des formulaires/boutons
+     * correspondants pour ROLE_BACKUP — un tel utilisateur les voyait, puis
+     * obtenait un 403 en les utilisant. Le trigger manuel, lui, reste bien
+     * accessible a ROLE_BACKUP et doit donc rester visible.
+     */
+    @Test
+    @WithMockUser(roles = "BACKUP")
+    void roleBackup_dashboard_hidesAdminOnlyActions() throws Exception {
+        // Historique non vide (correctif regression 04/08/2026) : avec
+        // l'historique vide par defaut (setUp), le lien "Restaurer" ne se
+        // rend jamais, quel que soit le role — l'assertion sur son absence
+        // aurait alors ete vraie meme si sec:authorize etait retire par
+        // erreur. Un run SUCCESS avec fichier disponible force le rendu de
+        // la ligne d'historique et de son lien restore-confirm, pour que
+        // l'absence ci-dessous teste reellement le sec:authorize du
+        // template plutot qu'un simple hasard de fixture vide. Le mot
+        // « Restaurer » lui-meme n'est pas verifie directement : il
+        // apparait aussi dans le texte d'aide statique de la carte Actions
+        // (#{backup.storage.restoreHint}, toujours visible), c'est donc le
+        // lien restore-confirm/{id} qui est verifie precisement.
+        BackupRun run = sampleRun(5L);
+        when(backupRunRepository.findAllByOrderByStartedAtDesc(any()))
+                .thenReturn(new PageImpl<>(java.util.List.of(run)));
+        when(executionService.isFileAvailable(run)).thenReturn(true);
+
+        mvc.perform(get("/admin/backup"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("Enregistrer la configuration"))))
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("Importer"))))
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("Purger définitivement"))))
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("/admin/backup/runs/5/restore-confirm"))))
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("/admin/backup/runs/5/delete-confirm"))))
+                .andExpect(content().string(containsString("Sauvegarder maintenant")));
     }
 
     @Test

@@ -18,6 +18,7 @@ import java.nio.file.StandardOpenOption;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
@@ -138,6 +139,34 @@ public class BackupExecutionService {
      */
     @Value("${subnetory.backup.max-output-bytes:10485760}")
     private long maxOutputBytes;
+
+    /**
+     * Limite de sortie dediee a la sonde de disponibilite de pg_dump/
+     * pg_restore (correctif regression 04/08/2026, troisieme audit externe,
+     * constat F-04) : distincte de {@link #maxOutputBytes}, qui borne la
+     * sortie d'une execution reelle et est configurable par l'operateur
+     * (donc potentiellement tres petite). Une banniere {@code --version}
+     * tient toujours largement dans quelques kilo-octets ; partager la
+     * meme limite que l'execution reelle ferait echouer la sonde en
+     * premier (TOOL_NOT_AVAILABLE) des que {@code max-output-bytes} est
+     * configure en dessous de la taille de cette banniere, masquant la
+     * cause reelle d'un echec — meme constat que {@code
+     * ScanService#probeMaxOutputBytes}. Champ d'instance (non {@code static
+     * final}) pour rester modifiable par {@code ReflectionTestUtils}.
+     */
+    private long probeMaxOutputBytes = 65536L;
+
+    /**
+     * Delai maximal (troisieme audit externe, constat M-01, 04/08/2026)
+     * pendant lequel {@link #restore} attend que les mutations HTTP deja
+     * admises AVANT l'activation du mode maintenance se terminent, avant de
+     * lancer {@code pg_restore} — voir {@link RestoreMaintenanceGate#awaitDrain}.
+     * Aligne un peu au-dessus de {@code subnetory.scan.timeout-seconds}
+     * (defaut 60s) : le cas le plus long realiste est un scan Nmap deja en
+     * cours au moment ou la restauration demarre.
+     */
+    @Value("${subnetory.backup.restore-drain-timeout-seconds:65}")
+    private int restoreDrainTimeoutSeconds;
 
     /**
      * Clé de chiffrement des sauvegardes (audit 01/08/2026, backlog #13).
@@ -450,6 +479,17 @@ public class BackupExecutionService {
                 // justifie pas de rejeter les mutations en cours.
                 restoreMaintenanceGate.begin();
 
+                // Barriere de drainage (troisieme audit externe, constat M-01,
+                // 04/08/2026) : begin() ferme l'admission de NOUVELLES mutations,
+                // mais une requete deja admise juste avant (import volumineux,
+                // scan Nmap en cours...) reste active. On attend ici, avec un
+                // delai borne, qu'elle se termine AVANT de lancer pg_restore —
+                // sans cette attente, une telle requete pouvait ecrire dans la
+                // base fraichement restauree une fois pg_restore termine, pas
+                // seulement etre ralentie derriere ses verrous comme le
+                // documentait l'analyse initiale (RestoreMaintenanceFilter).
+                awaitRestoreDrain(sourceRun.getFileName(), performedBy);
+
                 Path fileToRestore = sourceFile;
                 Path tempPlain = null;
                 try {
@@ -507,6 +547,42 @@ public class BackupExecutionService {
         } finally {
             restoreMaintenanceGate.end();
             operationInProgress.set(false);
+        }
+    }
+
+    /**
+     * Attend, apres {@link RestoreMaintenanceGate#begin()}, que toutes les
+     * mutations HTTP deja admises se terminent avant de laisser
+     * {@link #restore} lancer {@code pg_restore} (troisieme audit externe,
+     * constat M-01, 04/08/2026). Extrait en methode dediee pour rester
+     * testable independamment du reste de {@code restore()} (base de
+     * donnees, fichiers, sauvegarde de securite prealable...).
+     *
+     * <p>Si le delai {@link #restoreDrainTimeoutSeconds} expire avec des
+     * mutations encore actives, journalise un avertissement et procede quand
+     * meme : bloquer indefiniment une restauration a cause d'une requete
+     * bloquee serait lui-meme un deni de service trivial (il suffirait de
+     * maintenir une connexion mutante ouverte). Le residu redevient alors le
+     * meme risque borne — plutot que systematique — que documentait
+     * initialement {@code RestoreMaintenanceFilter}.</p>
+     */
+    private void awaitRestoreDrain(String fileName, String performedBy) throws BackupException {
+        try {
+            Duration drainTimeout = Duration.ofSeconds(restoreDrainTimeoutSeconds);
+            boolean drained = restoreMaintenanceGate.awaitDrain(drainTimeout);
+            if (!drained) {
+                log.warn("Restore drain timed out after {}s with {} mutation(s) still in flight "
+                                + "(file={} performedBy={}) — proceeding with pg_restore anyway, "
+                                + "indefinitely blocking a restore on a stuck request would itself "
+                                + "be a denial of service.",
+                        restoreDrainTimeoutSeconds, restoreMaintenanceGate.activeMutationCount(),
+                        fileName, performedBy);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BackupException(
+                    "Restauration interrompue pendant l'attente du drainage des requetes en cours.",
+                    BackupException.Reason.EXECUTION_FAILED);
         }
     }
 
@@ -1092,21 +1168,63 @@ public class BackupExecutionService {
                 sourceFile.toString());
     }
 
+    /**
+     * Correctif sécurité FAIBLE (troisième audit externe, constat F-04,
+     * 04/08/2026) : {@code transferTo(OutputStream.nullOutputStream())}
+     * consommait la sortie de la sonde de façon bloquante et SANS BORNE —
+     * le {@code waitFor(5, SECONDS)} qui suivait n'était alors jamais
+     * atteint si {@code pg_dump --version}/{@code pg_restore --version} (ou
+     * un binaire différent, mal configuré, présent au même chemin)
+     * produisait un flux volumineux ou infini sur stdout, rendant ce
+     * timeout inopérant en pratique. Même correctif que
+     * {@code ScanService#assertNmapAvailable} : sortie lue en tâche de fond,
+     * bornée à {@link #probeMaxOutputBytes} (limite dédiée à la sonde,
+     * distincte de {@link #maxOutputBytes} — voir sa javadoc, correctif
+     * regression 04/08/2026), avec un délai global effectif et un arrêt
+     * forcé du process sur tout échec.
+     */
     private void assertToolAvailable(String path, String label) throws BackupException {
+        Process probe;
         try {
-            Process probe = new ProcessBuilder(path, "--version")
+            probe = new ProcessBuilder(path, "--version")
                     .redirectErrorStream(true)
                     .start();
-            probe.getInputStream().transferTo(java.io.OutputStream.nullOutputStream());
+        } catch (Exception e) {
+            throw new BackupException(
+                    label + " n'est pas installé ou introuvable dans le PATH du conteneur.",
+                    BackupException.Reason.TOOL_NOT_AVAILABLE);
+        }
+
+        CompletableFuture<byte[]> outputFuture = readAllBytesAsync(probe.getInputStream(), probeMaxOutputBytes)
+                .whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        probe.destroyForcibly();
+                    }
+                });
+        try {
             boolean finished = probe.waitFor(5, TimeUnit.SECONDS);
-            if (!finished || probe.exitValue() != 0) {
+            if (!finished) {
+                probe.destroyForcibly();
+                throw new BackupException(
+                        label + " ne répond pas correctement. Vérifiez l'installation.",
+                        BackupException.Reason.TOOL_NOT_AVAILABLE);
+            }
+            outputFuture.get(5, TimeUnit.SECONDS);
+            if (probe.exitValue() != 0) {
                 throw new BackupException(
                         label + " ne répond pas correctement. Vérifiez l'installation.",
                         BackupException.Reason.TOOL_NOT_AVAILABLE);
             }
         } catch (BackupException e) {
             throw e;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            probe.destroyForcibly();
+            throw new BackupException(
+                    label + " ne répond pas correctement. Vérifiez l'installation.",
+                    BackupException.Reason.TOOL_NOT_AVAILABLE);
         } catch (Exception e) {
+            probe.destroyForcibly();
             throw new BackupException(
                     label + " n'est pas installé ou introuvable dans le PATH du conteneur.",
                     BackupException.Reason.TOOL_NOT_AVAILABLE);
@@ -1128,8 +1246,24 @@ public class BackupExecutionService {
                     BackupException.Reason.EXECUTION_FAILED);
         }
 
-        CompletableFuture<byte[]> stdoutFuture = readAllBytesAsync(process.getInputStream(), maxOutputBytes);
-        CompletableFuture<byte[]> stderrFuture = readAllBytesAsync(process.getErrorStream(), maxOutputBytes);
+        // Correctif securite FAIBLE (troisieme audit externe, constat F-04,
+        // 04/08/2026) : whenComplete() detruit desormais le process des
+        // qu'UN SEUL des deux lecteurs echoue (typiquement readBounded() qui
+        // depasse maxOutputBytes), au lieu de laisser le thread principal
+        // attendre process.waitFor(timeoutSeconds) jusqu'a son terme avant
+        // de s'en apercevoir. Meme correctif que ScanService#executeNmap.
+        CompletableFuture<byte[]> stdoutFuture = readAllBytesAsync(process.getInputStream(), maxOutputBytes)
+                .whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        process.destroyForcibly();
+                    }
+                });
+        CompletableFuture<byte[]> stderrFuture = readAllBytesAsync(process.getErrorStream(), maxOutputBytes)
+                .whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        process.destroyForcibly();
+                    }
+                });
 
         try {
             boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);

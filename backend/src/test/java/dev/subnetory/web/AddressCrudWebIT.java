@@ -77,6 +77,14 @@ class AddressCrudWebIT {
 
     @BeforeEach
     void setUp() {
+        // Correctif regression (04/08/2026, troisieme audit externe, M-01) :
+        // tryAdmitMutation() a remplace isActive() dans RestoreMaintenanceFilter.
+        // Un mock non stub retourne false par defaut, ce qui bloquait desormais
+        // (503) toute requete de mutation de ce test — isActive() non stub
+        // retournait deja false, mais avec la semantique inverse (non-actif =
+        // autorise). Stub explicite pour retrouver le comportement "pas de
+        // restauration en cours" attendu par ce test.
+        when(restoreMaintenanceGate.tryAdmitMutation()).thenReturn(true);
         sampleAddress = new AddressResponse(
                 1L, "192.168.1.10", "aa:bb:cc:dd:ee:ff", "srv-web-01", "Serveur web",
                 10L, "Production", 20L, "PAR01", 30L, "192.168.1.0/24",

@@ -117,6 +117,23 @@ public class ScanService {
     @Value("${subnetory.scan.max-output-bytes:10485760}")
     private long maxOutputBytes;
 
+    /**
+     * Limite de sortie dediee a la sonde {@code nmap --version} (correctif
+     * regression 04/08/2026, troisieme audit externe, constat F-04) :
+     * distincte de {@link #maxOutputBytes}, qui borne la sortie d'un scan
+     * reel et est configurable par l'operateur (donc potentiellement tres
+     * petite dans un test ou un deploiement inhabituel). Une banniere de
+     * version tient toujours largement dans quelques kilo-octets ; partager
+     * la meme limite que la sortie de scan faisait echouer la sonde en
+     * premier (TOOL_NOT_AVAILABLE) des que {@code max-output-bytes} etait
+     * configure en dessous de la taille de cette banniere, masquant la
+     * cause reelle d'un echec de scan. Champ d'instance (non {@code static
+     * final}) plutot qu'une constante : reste modifiable par
+     * {@code ReflectionTestUtils} pour tester precisement le debordement de
+     * la sonde elle-meme, independamment de {@link #maxOutputBytes}.
+     */
+    private long probeMaxOutputBytes = 65536L;
+
     private Semaphore globalScanSemaphore;
 
     private final Object perUserScanLock = new Object();
@@ -288,22 +305,62 @@ public class ScanService {
      * rejeté — cette sonde n'était donc jamais réellement throttlée,
      * contournant partiellement l'objectif même du garde-fou de
      * concurrence.</p>
+     *
+     * <p>Correctif sécurité FAIBLE (troisième audit externe, constat F-04,
+     * 04/08/2026) : {@code transferTo(OutputStream.nullOutputStream())}
+     * consommait la sortie de la sonde de façon bloquante et SANS BORNE —
+     * le {@code waitFor(5, SECONDS)} qui suivait n'était alors jamais
+     * atteint si {@code nmap --version} (ou un binaire différent, mal
+     * configuré, présent au même chemin) produisait un flux volumineux ou
+     * infini sur stdout, rendant ce timeout inopérant en pratique. La
+     * sortie est désormais lue en tâche de fond, bornée comme n'importe
+     * quelle autre sortie de process ({@link #readAllBytesAsync}), avec un
+     * délai global effectif (délai du process + délai de lecture) et un
+     * arrêt forcé du process sur tout échec.</p>
      */
     private void assertNmapAvailable() throws ScanException {
+        Process probe;
         try {
-            Process probe = new ProcessBuilder(nmapPath, "--version")
+            probe = new ProcessBuilder(nmapPath, "--version")
                     .redirectErrorStream(true)
                     .start();
-            probe.getInputStream().transferTo(java.io.OutputStream.nullOutputStream());
+        } catch (Exception e) {
+            throw new ScanException(
+                    "nmap is not installed or not found in PATH. " +
+                    "Install nmap and ensure it is accessible from the server.",
+                    ScanException.Reason.TOOL_NOT_AVAILABLE);
+        }
+
+        CompletableFuture<byte[]> outputFuture = readAllBytesAsync(probe.getInputStream(), probeMaxOutputBytes)
+                .whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        probe.destroyForcibly();
+                    }
+                });
+        try {
             boolean finished = probe.waitFor(5, TimeUnit.SECONDS);
-            if (!finished || probe.exitValue() != 0) {
+            if (!finished) {
+                probe.destroyForcibly();
+                throw new ScanException(
+                        "nmap is not responding correctly. Check installation.",
+                        ScanException.Reason.TOOL_NOT_AVAILABLE);
+            }
+            outputFuture.get(5, TimeUnit.SECONDS);
+            if (probe.exitValue() != 0) {
                 throw new ScanException(
                         "nmap is not responding correctly. Check installation.",
                         ScanException.Reason.TOOL_NOT_AVAILABLE);
             }
         } catch (ScanException e) {
             throw e;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            probe.destroyForcibly();
+            throw new ScanException(
+                    "nmap is not responding correctly. Check installation.",
+                    ScanException.Reason.TOOL_NOT_AVAILABLE);
         } catch (Exception e) {
+            probe.destroyForcibly();
             throw new ScanException(
                     "nmap is not installed or not found in PATH. " +
                     "Install nmap and ensure it is accessible from the server.",
@@ -390,8 +447,27 @@ public class ScanService {
 
         // Lire stdout et stderr en parallèle pour éviter le blocage des buffers OS.
         // Un process dont le buffer stderr est plein sans lecteur peut bloquer indéfiniment.
-        CompletableFuture<byte[]> stdoutFuture = readAllBytesAsync(process.getInputStream());
-        CompletableFuture<byte[]> stderrFuture = readAllBytesAsync(process.getErrorStream());
+        //
+        // Correctif securite FAIBLE (troisieme audit externe, constat F-04,
+        // 04/08/2026) : whenComplete() detruit desormais le process des
+        // qu'UN SEUL des deux lecteurs echoue (typiquement readBounded() qui
+        // depasse maxOutputBytes), au lieu de laisser le thread principal
+        // attendre process.waitFor(timeoutSeconds) jusqu'a son terme avant
+        // de s'en apercevoir. Un process qui deverse plus que la limite
+        // configuree est donc desormais tue immediatement, pas seulement
+        // apres un delai pouvant aller jusqu'a timeoutSeconds.
+        CompletableFuture<byte[]> stdoutFuture = readAllBytesAsync(process.getInputStream())
+                .whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        process.destroyForcibly();
+                    }
+                });
+        CompletableFuture<byte[]> stderrFuture = readAllBytesAsync(process.getErrorStream())
+                .whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        process.destroyForcibly();
+                    }
+                });
 
         try {
             boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
@@ -453,7 +529,17 @@ public class ScanService {
      * 04/08/2026) : {@code readAllBytes()} seul n'imposait aucune limite.</p>
      */
     private CompletableFuture<byte[]> readAllBytesAsync(InputStream stream) {
-        long limit = maxOutputBytes;
+        return readAllBytesAsync(stream, maxOutputBytes);
+    }
+
+    /**
+     * Variante avec limite explicite (correctif regression 04/08/2026,
+     * troisieme audit externe, constat F-04) : la sonde de disponibilite
+     * utilise sa propre limite fixe ({@link #probeMaxOutputBytes}),
+     * independante de {@link #maxOutputBytes} qui borne la sortie d'un
+     * scan reel et reste configurable par l'operateur.
+     */
+    private CompletableFuture<byte[]> readAllBytesAsync(InputStream stream, long limit) {
         return CompletableFuture.supplyAsync(() -> {
             try (stream) {
                 return readBounded(stream, limit);

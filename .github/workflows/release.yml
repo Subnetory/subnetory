@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write    # créer la GitHub Release et attacher le JAR
   packages: write    # pousser l'image vers GHCR
+  id-token: write    # signature Cosign "keyless" via OIDC (troisieme audit externe, constat M-03, 04/08/2026)
 
 jobs:
   release:
@@ -77,7 +78,15 @@ jobs:
             type=semver,pattern=v{{version}}
             type=raw,value=latest
 
+      # SBOM (bill of materials) et attestation de provenance SLSA generees
+      # nativement par BuildKit (troisieme audit externe, constat M-03,
+      # 04/08/2026) : aucun outil supplementaire a maintenir, seulement deux
+      # options sur l'action de build deja utilisee. Publiees comme
+      # "referrers" OCI aux cotes de l'image sur GHCR — verifiables via
+      # `docker buildx imagetools inspect --format '{{ json .SBOM }}' <image>`
+      # ou `cosign verify-attestation` (voir signature ci-dessous).
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: backend
@@ -85,19 +94,64 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          sbom: true
+          provenance: true
 
-      # Correctif securite MOYENNE (audit 04/08/2026) : la release ne
-      # fournissait jusqu'ici qu'un JAR sans aucun moyen de verifier son
-      # integrite apres telechargement (SBOM/signature Cosign restent hors
-      # perimetre de ce correctif). SHA256SUMS.txt permet au minimum a
-      # quiconque telecharge l'asset de le verifier avec
-      # `sha256sum -c SHA256SUMS.txt`.
+      # Installation de Cosign (troisieme audit externe, constat M-03,
+      # 04/08/2026) : action officielle Sigstore, epinglee sur son commit SHA
+      # complet comme toute action tierce de ce depot.
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@ba7bc0a3fef59531c69a25acd34668d6d3fe6f22 # v4.1.0
+
+      # Signature "keyless" de l'image publiee (troisieme audit externe,
+      # constat M-03, 04/08/2026) : utilise le jeton OIDC de ce run GitHub
+      # Actions comme identite (Fulcio/Rekor, ecosysteme Sigstore) — aucune
+      # cle privee a generer, stocker ni faire tourner. Signe par digest
+      # (steps.build.outputs.digest), pas par tag : un tag est mutable, un
+      # digest ne l'est jamais. Verification cote utilisateur :
+      #   cosign verify ghcr.io/subnetory/subnetory@<digest> \
+      #     --certificate-identity-regexp 'https://github.com/Subnetory/subnetory/.github/workflows/release.yml@.*' \
+      #     --certificate-oidc-issuer https://token.actions.githubusercontent.com
+      - name: Sign the published image (keyless, GitHub OIDC)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          set -euo pipefail
+          image="${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}"
+          cosign sign --yes "${image}"
+
+      # Correctif securite MOYENNE (audit 04/08/2026 ; etendu le 04/08/2026,
+      # troisieme audit externe, constat M-03) : la release ne fournissait
+      # jusqu'ici qu'un JAR sans aucun moyen de verifier son integrite apres
+      # telechargement au-dela d'un simple hash. SHA256SUMS.txt couvre
+      # desormais aussi le SBOM CycloneDX du JAR (target/bom.json, genere
+      # par cyclonedx-maven-plugin au "mvn package" ci-dessus), et l'ensemble
+      # est en plus signe par Cosign (voir etape suivante) — pas seulement
+      # verifiable, mais rattachable de maniere verifiable a ce run CI
+      # precis via l'identite OIDC GitHub.
       - name: Generate SHA-256 checksums for release assets
         working-directory: backend/target
         run: |
           set -euo pipefail
-          sha256sum subnetory-*.jar > SHA256SUMS.txt
+          cp bom.json subnetory-bom.json
+          sha256sum subnetory-*.jar subnetory-bom.json > SHA256SUMS.txt
           cat SHA256SUMS.txt
+
+      # Signature "keyless" de SHA256SUMS.txt (troisieme audit externe,
+      # constat M-03, 04/08/2026) : couvre transitivement le JAR et le SBOM
+      # (leurs hashes y figurent). Verification cote utilisateur :
+      #   cosign verify-blob SHA256SUMS.txt \
+      #     --signature SHA256SUMS.txt.sig --certificate SHA256SUMS.txt.pem \
+      #     --certificate-identity-regexp 'https://github.com/Subnetory/subnetory/.github/workflows/release.yml@.*' \
+      #     --certificate-oidc-issuer https://token.actions.githubusercontent.com
+      - name: Sign release checksums (keyless, GitHub OIDC)
+        working-directory: backend/target
+        run: |
+          set -euo pipefail
+          cosign sign-blob --yes \
+            --output-signature SHA256SUMS.txt.sig \
+            --output-certificate SHA256SUMS.txt.pem \
+            SHA256SUMS.txt
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
@@ -105,7 +159,10 @@ jobs:
           generate_release_notes: true
           files: |
             backend/target/subnetory-*.jar
+            backend/target/subnetory-bom.json
             backend/target/SHA256SUMS.txt
+            backend/target/SHA256SUMS.txt.sig
+            backend/target/SHA256SUMS.txt.pem
 
   # Smoke test post-release (audit 03/08/2026) : v0.8.1 a ete publiee avec
   # un chart Helm dont l'image par defaut pointait encore vers v0.8.0, sans
