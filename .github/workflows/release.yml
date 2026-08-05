@@ -133,16 +133,22 @@ jobs:
       # troisieme audit externe, constat M-03) : la release ne fournissait
       # jusqu'ici qu'un JAR sans aucun moyen de verifier son integrite apres
       # telechargement au-dela d'un simple hash. SHA256SUMS.txt couvre
-      # desormais aussi le SBOM CycloneDX du JAR (target/bom.json, genere
-      # par cyclonedx-maven-plugin au "mvn package" ci-dessus), et l'ensemble
-      # est en plus signe par Cosign (voir etape suivante) — pas seulement
-      # verifiable, mais rattachable de maniere verifiable a ce run CI
-      # precis via l'identite OIDC GitHub.
+      # desormais aussi le SBOM CycloneDX du JAR (genere par
+      # cyclonedx-maven-plugin au "mvn package" ci-dessus, voir ci-dessous
+      # pour son chemin reel), et l'ensemble est en plus signe par Cosign
+      # (voir etape suivante) — pas seulement verifiable, mais rattachable
+      # de maniere verifiable a ce run CI precis via l'identite OIDC GitHub.
+      # Correctif regression (05/08/2026, premier run reel du tag v0.8.7) :
+      # cyclonedx-maven-plugin ignore <outputFormat>/<outputName> (backend/pom.xml)
+      # des qu'il detecte spring-boot-maven-plugin dans le meme build, et ecrit
+      # a la place dans target/classes/META-INF/sbom/application.cdx.json (son
+      # propre defaut pour l'integration Spring Boot / Actuator SBOM) — jamais
+      # a la racine de target/ comme le nom du plugin le laisserait supposer.
       - name: Generate SHA-256 checksums for release assets
         working-directory: backend/target
         run: |
           set -euo pipefail
-          cp bom.json subnetory-bom.json
+          cp classes/META-INF/sbom/application.cdx.json subnetory-bom.json
           sha256sum subnetory-*.jar subnetory-bom.json > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
