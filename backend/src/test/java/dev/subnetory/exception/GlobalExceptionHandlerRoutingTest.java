@@ -3,6 +3,7 @@ package dev.subnetory.exception;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,5 +40,18 @@ class GlobalExceptionHandlerRoutingTest {
 
         assertThat(problem.getStatus()).isEqualTo(404);
         assertThat(problem.getTitle()).isEqualTo("Resource Not Found");
+    }
+
+    @Test
+    void unreadableJson_returnsStable400ProblemDetail() {
+        var input = org.mockito.Mockito.mock(org.springframework.http.HttpInputMessage.class);
+        var ex = new HttpMessageNotReadableException("Malformed JSON", input);
+
+        var problem = handler.handleUnreadableJson(ex);
+
+        assertThat(problem.getStatus()).isEqualTo(400);
+        assertThat(problem.getTitle()).isEqualTo("Malformed JSON");
+        assertThat(problem.getType().toString()).endsWith("/malformed-json");
+        assertThat(problem.getProperties()).containsKey("timestamp");
     }
 }

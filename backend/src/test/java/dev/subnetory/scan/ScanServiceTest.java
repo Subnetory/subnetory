@@ -3,6 +3,7 @@ package dev.subnetory.scan;
 import dev.subnetory.backup.RestoreMaintenanceGate;
 import dev.subnetory.domain.Subnet;
 import dev.subnetory.service.AddressService;
+import dev.subnetory.service.AuthAuditService;
 import dev.subnetory.service.SubnetService;
 import java.lang.reflect.Field;
 import java.util.HashMap;
@@ -18,6 +19,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -45,6 +47,7 @@ class ScanServiceTest {
 
     @Mock SubnetService subnetService;
     @Mock AddressService addressService;
+    @Mock AuthAuditService authAuditService;
 
     ScanService service;
     RestoreMaintenanceGate restoreMaintenanceGate;
@@ -52,7 +55,7 @@ class ScanServiceTest {
     @BeforeEach
     void setUp() {
         restoreMaintenanceGate = new RestoreMaintenanceGate();
-        service = new ScanService(subnetService, addressService, restoreMaintenanceGate);
+        service = new ScanService(subnetService, addressService, restoreMaintenanceGate, authAuditService);
         String javaExecutable = ProcessHandle.current().info().command()
                 .orElseThrow(() -> new IllegalStateException(
                         "Impossible de determiner le chemin de l'executable java courant"));
@@ -111,6 +114,10 @@ class ScanServiceTest {
                 .isInstanceOf(ScanException.class)
                 .satisfies(e -> assertThat(((ScanException) e).getReason())
                         .isEqualTo(ScanException.Reason.TOO_MANY_CONCURRENT_SCANS));
+
+        verify(authAuditService).recordSubnetScanFailed(
+                "alice", 1L, "TOO_MANY_CONCURRENT_SCANS",
+                "Vous avez déjà 1 scan(s) Nmap en cours (limite : 1). Attendez qu'un scan se termine avant d'en lancer un nouveau.");
 
         // Aucun upsert d'adresse ne doit avoir ete tente : le rejet intervient
         // avant meme l'execution de nmap.

@@ -65,8 +65,11 @@ public class NetworkContextController {
             description = "Rôle requis : ADMIN.")
     public ResponseEntity<NetworkContextResponse> updateContext(
             @PathVariable Long id,
-            @Valid @RequestBody NetworkContextRequest request) {
-        return ResponseEntity.ok(contextService.update(id, request));
+            @Valid @RequestBody NetworkContextRequest request,
+            Authentication auth) {
+        NetworkContextResponse updated = contextService.update(id, request);
+        authAuditService.recordContextUpdated(auth.getName(), updated.id(), updated.name());
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")

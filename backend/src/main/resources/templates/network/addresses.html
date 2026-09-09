@@ -21,31 +21,41 @@
                class="sn-btn sn-btn--ghost sn-btn--sm">↓ Excel</a>
             <a th:if="${canManage}" th:href="@{/network/addresses/import}"
                class="sn-btn sn-btn--secondary" th:text="#{address.action.import}">⇧ Importer</a>
-            <a th:if="${canManage}" th:href="@{/network/addresses/reserve}"
+            <a th:if="${canManage and hasAvailableSubnets}" th:href="@{/network/addresses/reserve}"
                class="sn-btn sn-btn--secondary" th:text="#{address.action.reserveMultiple}">⊞ Réserver plusieurs IP</a>
             <!-- Nouvelle adresse — conditionnel canManage -->
-            <a th:if="${canManage}" href="/network/addresses/new"
+            <a th:if="${canManage and hasAvailableSubnets}" href="/network/addresses/new"
                class="sn-btn sn-btn--primary" th:text="#{address.button.new}">+ Nouvelle adresse</a>
         </div>
     </div>
 
     <div th:if="${flashSuccess}" class="sn-alert sn-alert--success" th:text="${flashSuccess}"></div>
     <div th:if="${flashError}"   class="sn-alert sn-alert--error"   th:text="${flashError}"></div>
+    <div th:if="${canManage and !hasAvailableSubnets}" class="sn-alert sn-alert--info">
+        <span th:text="#{address.parentRequired}">Créez d'abord un sous-réseau.</span>
+        <a th:href="@{/network/subnets/new}" th:text="#{subnet.button.new}">Nouveau sous-réseau</a>
+    </div>
 
 <form th:action="@{/network/addresses}" method="get" class="sn-search sn-filter-bar">
-        <input type="text" name="q" class="sn-search__input"
-               th:value="${query}"
-               th:placeholder="#{address.search.placeholder}"
-               th:aria-label="#{address.search.aria}">
-        <input type="text" name="hostname" class="sn-search__input"
-               th:value="${hostnameFilter}"
-               th:placeholder="#{address.search.hostname.placeholder}"
-               th:aria-label="#{address.search.hostname.aria}">
-        <input type="text" name="mac"
-               class="sn-search__input sn-search__input--narrow"
-               th:value="${macFilter}"
-               th:placeholder="#{address.search.mac.placeholder}"
-               th:aria-label="#{address.search.mac.aria}">
+        <label class="sn-filter-field">
+            <span class="sn-filter-field__label" th:text="#{filter.search.label}">Recherche</span>
+            <input type="text" name="q" class="sn-search__input"
+                   th:value="${query}"
+                   th:placeholder="#{address.search.placeholder}">
+        </label>
+        <label class="sn-filter-field">
+            <span class="sn-filter-field__label" th:text="#{filter.hostname.label}">Nom d'hôte</span>
+            <input type="text" name="hostname" class="sn-search__input"
+                   th:value="${hostnameFilter}"
+                   th:placeholder="#{address.search.hostname.placeholder}">
+        </label>
+        <label class="sn-filter-field">
+            <span class="sn-filter-field__label" th:text="#{filter.mac.label}">Adresse MAC</span>
+            <input type="text" name="mac"
+                   class="sn-search__input sn-search__input--narrow"
+                   th:value="${macFilter}"
+                   th:placeholder="#{address.search.mac.placeholder}">
+        </label>
         <input type="hidden" name="subnetId" th:value="${selectedSubnetId}" th:if="${selectedSubnetId != null}">
         <button type="submit" class="sn-btn sn-btn--primary sn-btn--sm" th:text="#{common.search}">Rechercher</button>
         <a th:href="@{/network/addresses}" class="sn-btn sn-btn--ghost sn-btn--sm" th:text="#{common.reset}">Réinitialiser</a>
@@ -62,9 +72,9 @@
                 <thead>
                     <tr>
                         <th th:text="#{table.ip}">Adresse IP</th>
-                        <th th:text="#{table.hostname}">Hostname</th>
+                        <th th:text="#{table.hostname}">Nom d'hôte</th>
                         <th th:text="#{table.mac}">MAC</th>
-                        <th th:text="#{table.subnetCol}">Subnet</th>
+                        <th th:text="#{table.subnetCol}">Sous-réseau</th>
                         <th th:text="#{common.site}">Site</th>
                         <th th:text="#{table.source}">Source</th>
                         <th th:text="#{table.lastSeen}">Dernière détection</th>
@@ -92,7 +102,7 @@
                                             '—'}">Import</span>
                         </td>
                         <td class="sn-text-muted"
-                            th:text="${addr.lastSeenAt != null ? #temporals.format(addr.lastSeenAt) : '—'}">—</td>
+                            th:text="${addr.lastSeenAt != null ? #temporals.format(addr.lastSeenAt, dateTimePattern) : '—'}">—</td>
                         <td th:if="${canManage}" class="sn-table-actions">
                             <a th:href="@{/network/addresses/{id}/edit(id=${addr.id})}"
                                class="sn-btn sn-btn--secondary sn-btn--sm" th:text="#{common.edit}">Modifier</a>
@@ -114,8 +124,7 @@
 
         <div class="sn-pagination" th:if="${!addresses.empty}">
             <span class="sn-pagination__info"
-                  th:with="suffix=#{pagination.addresses.suffix}"
-                  th:text="${addresses.totalElements} + ' ' + suffix">N adresses</span>
+                  th:text="${addresses.totalElements + ' ' + #messages.msg('pagination.addresses.suffix')}">N adresses</span>
             <nav class="sn-pagination__nav" th:if="${addresses.totalPages > 1}">
                 <a th:href="@{/network/addresses(page=${addresses.number - 1}, q=${query}, hostname=${hostnameFilter}, mac=${macFilter}, subnetId=${selectedSubnetId})}"
                    th:classappend="${addresses.first ? 'sn-pagination__btn--disabled' : ''}"

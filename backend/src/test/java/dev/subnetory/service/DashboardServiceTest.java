@@ -87,18 +87,29 @@ class DashboardServiceTest {
     // ── Calcul utilisation ────────────────────────────────────────────────
 
     @Test
-    @DisplayName("Utilisation : subnet /24 avec 127 adresses → 49 %")
+    @DisplayName("Utilisation : subnet /24 avec 127 adresses → 50 %")
     void utilizationPct_correctForPartiallyFilledSubnet() {
-        // /24 : IpUtils.usableAddressCount("10.0.0.0/24") avec inclusiveHostCount=true → 256
+        // /24 : réseau et broadcast exclus → 254 adresses attribuables.
         SubnetUsageProjection p = mockProjection(1L, "10.0.0.0/24", null, "Site A", "Default", 127L);
         stubUsageQuery(p);
 
         SubnetUtilizationEntry entry = service.getStats().topSubnets().get(0);
 
-        assertThat(entry.capacity()).isEqualTo(256L);
+        assertThat(entry.capacity()).isEqualTo(254L);
         assertThat(entry.used()).isEqualTo(127L);
-        assertThat(entry.available()).isEqualTo(129L);
-        assertThat(entry.utilizationPct()).isEqualTo(49);
+        assertThat(entry.available()).isEqualTo(127L);
+        assertThat(entry.utilizationPct()).isEqualTo(50);
+    }
+
+    @Test
+    @DisplayName("Utilisation : une adresse utilisée n'est jamais affichée à 0 %")
+    void utilizationPct_roundsPositiveUsageUp() {
+        SubnetUsageProjection p = mockProjection(2L, "10.0.1.0/24", null, "Site B", "Default", 1L);
+        stubUsageQuery(p);
+
+        SubnetUtilizationEntry entry = service.getStats().topSubnets().get(0);
+
+        assertThat(entry.utilizationPct()).isEqualTo(1);
     }
 
     @Test
@@ -117,8 +128,8 @@ class DashboardServiceTest {
     @Test
     @DisplayName("Utilisation : subnet plein (used == capacity) → 100 %")
     void utilizationPct_hundredPercent_when_subnet_full() {
-        // /30 : 4 adresses avec inclusiveHostCount=true
-        SubnetUsageProjection p = mockProjection(3L, "10.1.0.0/30", null, "Site C", "Default", 4L);
+        // /30 : réseau et broadcast exclus → 2 adresses.
+        SubnetUsageProjection p = mockProjection(3L, "10.1.0.0/30", null, "Site C", "Default", 2L);
         stubUsageQuery(p);
 
         SubnetUtilizationEntry entry = service.getStats().topSubnets().get(0);
@@ -130,7 +141,7 @@ class DashboardServiceTest {
     @Test
     @DisplayName("Utilisation : used > capacity (données incohérentes) → pct borné à 100, available = 0")
     void utilizationPct_never_exceeds_100() {
-        // /30 = 4 adresses ; on insère 6 (incohérent mais possible si contrainte manquante)
+        // /30 = 2 adresses attribuables ; on en observe 6 (donnée incohérente).
         SubnetUsageProjection p = mockProjection(4L, "10.2.0.0/30", null, "Site D", "Default", 6L);
         stubUsageQuery(p);
 
@@ -151,8 +162,9 @@ class DashboardServiceTest {
     @Test
     @DisplayName("safeCapacity : IPv4 valide → valeur correcte")
     void safeCapacity_validCidr_returnsExpected() {
-        // /24 avec inclusiveHostCount=true → 256
-        assertThat(DashboardService.safeCapacity("10.0.0.0/24")).isEqualTo(256L);
+        assertThat(DashboardService.safeCapacity("10.0.0.0/24")).isEqualTo(254L);
+        assertThat(DashboardService.safeCapacity("10.0.0.0/24", "10.0.0.1")).isEqualTo(253L);
+        assertThat(DashboardService.safeCapacity("10.0.0.0/31")).isEqualTo(2L);
         // /32 → 1
         assertThat(DashboardService.safeCapacity("10.0.0.1/32")).isEqualTo(1L);
     }
@@ -180,14 +192,14 @@ class DashboardServiceTest {
     @Test
     @DisplayName("Tri secondaire : même pct → trié par used DESC")
     void topSubnets_sameUtilizationPct_sortedByUsedDesc() {
-        // Deux /24 (256 capacité), même pct → différenciés par used
-        SubnetUsageProjection sA = mockProjection(10L, "10.0.0.0/24", null, "S", "C", 128L); // 50 %
-        SubnetUsageProjection sB = mockProjection(20L, "10.1.0.0/24", null, "S", "C", 130L); // 50 %
+        // Deux /24 (254 de capacité), même pct arrondi → différenciés par used.
+        SubnetUsageProjection sA = mockProjection(10L, "10.0.0.0/24", null, "S", "C", 126L); // 50 %
+        SubnetUsageProjection sB = mockProjection(20L, "10.1.0.0/24", null, "S", "C", 127L); // 50 %
         stubUsageQuery(sA, sB);
 
         List<SubnetUtilizationEntry> top = service.getStats().topSubnets();
 
-        // sB a 130 used > sA 128 used → sB en premier
+        // sB a 127 used > sA 126 used → sB en premier
         assertThat(top.get(0).subnetId()).isEqualTo(20L);
         assertThat(top.get(1).subnetId()).isEqualTo(10L);
     }

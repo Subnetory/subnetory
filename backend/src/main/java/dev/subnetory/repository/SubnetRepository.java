@@ -21,6 +21,7 @@ public interface SubnetRepository extends JpaRepository<Subnet, Long> {
     interface SubnetUsageProjection {
         Long   getSubnetId();
         String getNetwork();
+        String getGateway();
         String getDescription();
         String getSiteName();
         String getContextName();
@@ -44,15 +45,22 @@ public interface SubnetRepository extends JpaRepository<Subnet, Long> {
             SELECT
                 s.id            AS subnet_id,
                 s.network::text AS network,
+                s.gateway::text AS gateway,
                 s.description   AS description,
                 si.name         AS site_name,
                 c.name          AS context_name,
-                COUNT(a.id)     AS used_count
+                COUNT(a.id) FILTER (WHERE
+                    (masklen(s.network) >= 31 OR (
+                        a.address <> network(s.network)::inet
+                        AND a.address <> broadcast(s.network)::inet
+                    ))
+                    AND (s.gateway IS NULL OR a.address <> s.gateway)
+                )               AS used_count
             FROM subnets s
             JOIN sites si   ON si.id = s.site_id
             JOIN contexts c ON c.id  = s.context_id
             LEFT JOIN addresses a ON a.subnet_id = s.id
-            GROUP BY s.id, s.network, s.description, si.name, c.name
+            GROUP BY s.id, s.network, s.gateway, s.description, si.name, c.name
             """, nativeQuery = true)
     List<SubnetUsageProjection> findAllWithUsageCount();
 
@@ -60,16 +68,23 @@ public interface SubnetRepository extends JpaRepository<Subnet, Long> {
             SELECT
                 s.id            AS subnet_id,
                 s.network::text AS network,
+                s.gateway::text AS gateway,
                 s.description   AS description,
                 si.name         AS site_name,
                 c.name          AS context_name,
-                COUNT(a.id)     AS used_count
+                COUNT(a.id) FILTER (WHERE
+                    (masklen(s.network) >= 31 OR (
+                        a.address <> network(s.network)::inet
+                        AND a.address <> broadcast(s.network)::inet
+                    ))
+                    AND (s.gateway IS NULL OR a.address <> s.gateway)
+                )               AS used_count
             FROM subnets s
             JOIN sites si   ON si.id = s.site_id
             JOIN contexts c ON c.id  = s.context_id
             LEFT JOIN addresses a ON a.subnet_id = s.id
             WHERE s.context_id IN (:contextIds)
-            GROUP BY s.id, s.network, s.description, si.name, c.name
+            GROUP BY s.id, s.network, s.gateway, s.description, si.name, c.name
             """, nativeQuery = true)
     List<SubnetUsageProjection> findAllWithUsageCountByContextIds(
             @Param("contextIds") Collection<Long> contextIds);

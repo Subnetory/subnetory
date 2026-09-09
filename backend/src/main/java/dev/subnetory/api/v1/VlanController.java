@@ -56,7 +56,7 @@ public class VlanController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Créer un VLAN",
             description = "Rôles requis : ADMIN ou NETWORK. L'identifiant VLAN (vid) doit "
-                    + "être unique sur le site (0-4094).")
+                    + "être unique sur le site (1-4094).")
     public VlanResponse createVlan(@Valid @RequestBody VlanRequest request, Authentication auth) {
         VlanResponse created = vlanService.create(request);
         authAuditService.recordVlanCreated(auth.getName(), created.id(),
@@ -71,8 +71,12 @@ public class VlanController {
                     + "VLAN a encore des sous-réseaux (409).")
     public ResponseEntity<VlanResponse> updateVlan(
             @PathVariable Long id,
-            @Valid @RequestBody VlanRequest request) {
-        return ResponseEntity.ok(vlanService.update(id, request));
+            @Valid @RequestBody VlanRequest request,
+            Authentication auth) {
+        VlanResponse updated = vlanService.update(id, request);
+        authAuditService.recordVlanUpdated(auth.getName(), updated.id(),
+                "VLAN " + updated.vid() + " (" + updated.name() + ")");
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")

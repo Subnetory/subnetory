@@ -22,7 +22,6 @@
     </div>
 
     <form th:action="@{/login}" method="post" class="sn-login-form">
-        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
         <div class="sn-login-field">
             <label class="sn-login-label" for="username" th:text="#{login.username.label}">Identifiant</label>
             <input type="text" id="username" name="username"

@@ -10,8 +10,8 @@ public record VlanRequest(
         String name,
 
         @NotNull(message = "VLAN ID is required")
-        @Min(value = 0, message = "VLAN ID must be between 0 and 4094")
-        @Max(value = 4094, message = "VLAN ID must be between 0 and 4094")
+        @Min(value = 1, message = "VLAN ID must be between 1 and 4094")
+        @Max(value = 4094, message = "VLAN ID must be between 1 and 4094")
         Integer vid,
 
         @NotNull(message = "Site ID is required")

@@ -37,7 +37,7 @@ class ApiRateLimitingFilterIT {
     private static final int THRESHOLD = 5;
 
     @Container
-    static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:17-alpine")
+    static PostgreSQLContainer postgres = new PostgreSQLContainer(org.testcontainers.utility.DockerImageName.parse("postgres:17-alpine"))
             .withDatabaseName("subnetory_test")
             .withUsername("subnetory")
             .withPassword("subnetory");

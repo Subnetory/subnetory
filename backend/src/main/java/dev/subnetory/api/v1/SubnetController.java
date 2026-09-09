@@ -227,8 +227,11 @@ public class SubnetController {
                     + "enfants existent encore (409).")
     public ResponseEntity<SubnetResponse> updateSubnet(
             @PathVariable Long id,
-            @Valid @RequestBody SubnetRequest request) {
-        return ResponseEntity.ok(subnetService.update(id, request));
+            @Valid @RequestBody SubnetRequest request,
+            Authentication auth) {
+        SubnetResponse updated = subnetService.update(id, request);
+        authAuditService.recordSubnetUpdated(auth.getName(), updated.id(), updated.network());
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")

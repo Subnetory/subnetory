@@ -300,7 +300,10 @@ public class AddressController {
     public BulkUpsertResponse bulkUpsert(
             @Valid @RequestBody BulkUpsertRequest request,
             Authentication auth) {
-        return addressService.bulkUpsert(request, auth.getName());
+        BulkUpsertResponse result = addressService.bulkUpsert(request, auth.getName());
+        authAuditService.recordAddressBulkUpserted(auth.getName(), result.created(), result.updated(),
+                result.skipped(), result.errors().size());
+        return result;
     }
 
     // -------------------------------------------------------
@@ -315,7 +318,9 @@ public class AddressController {
             @PathVariable Long id,
             @Valid @RequestBody AddressRequest request,
             Authentication auth) {
-        return ResponseEntity.ok(addressService.update(id, request, auth.getName()));
+        AddressResponse updated = addressService.update(id, request, auth.getName());
+        authAuditService.recordAddressUpdated(auth.getName(), updated.id(), updated.address(), "PUT");
+        return ResponseEntity.ok(updated);
     }
 
     /**
@@ -329,15 +334,16 @@ public class AddressController {
     @PutMapping("/by-ip/{ip}")
     @PreAuthorize("hasAnyRole('ADMIN', 'IP')")
     @Operation(summary = "Créer ou remplacer une adresse par IP",
-            description = "Rôles requis : ADMIN ou IP. Crée l'adresse si absente (201), "
-                    + "la remplace sinon (200). Pratique pour l'automatisation idempotente.")
+            description = "Rôles requis : ADMIN ou IP. Crée l'adresse si absente ou la remplace "
+                    + "si elle existe. Une réponse 200 stable facilite l'automatisation idempotente.")
     public ResponseEntity<AddressResponse> upsertByIp(
             @PathVariable String ip,
             @RequestParam(defaultValue = "false") boolean override,
             @Valid @RequestBody AddressUpsertRequest request,
             Authentication auth) {
-        return ResponseEntity.ok(
-                addressService.upsertByIp(ip, request, override, auth.getName()));
+        AddressResponse result = addressService.upsertByIp(ip, request, override, auth.getName());
+        authAuditService.recordAddressUpserted(auth.getName(), result.id(), result.address(), override);
+        return ResponseEntity.ok(result);
     }
 
     // -------------------------------------------------------
@@ -358,7 +364,9 @@ public class AddressController {
             @PathVariable Long id,
             @RequestBody Map<String, Object> fields,
             Authentication auth) {
-        return ResponseEntity.ok(addressService.patch(id, fields, auth.getName()));
+        AddressResponse updated = addressService.patch(id, fields, auth.getName());
+        authAuditService.recordAddressUpdated(auth.getName(), updated.id(), updated.address(), "PATCH");
+        return ResponseEntity.ok(updated);
     }
 
     // -------------------------------------------------------
@@ -466,6 +474,8 @@ public class AddressController {
                             new ByteArrayInputStream(content), override, auth.getName(), contextId)
                     : addressService.importCsv(
                             new ByteArrayInputStream(content), override, auth.getName(), contextId);
+            authAuditService.recordAddressImportCompleted(auth.getName(), format, response.totalRows(),
+                    response.created(), response.updatedLastSeen(), response.skipped(), response.errors());
             return ResponseEntity.ok(response);
         } catch (CsvParseException e) {
             return ResponseEntity.badRequest()

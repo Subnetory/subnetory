@@ -23,7 +23,6 @@
                 <h2 class="sn-card__title" th:text="#{scan.command.title}">Commande de scan</h2>
             </div>
             <form th:action="@{/network/subnets/{id}/scan(id=${subnet.id()})}" method="post" class="sn-form sn-scan-form" data-scan-form>
-                <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
 
                 <div class="sn-scan-target">
                     <span th:text="#{scan.target.label}">Réseau ciblé</span>

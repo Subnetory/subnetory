@@ -36,7 +36,7 @@
                         <td><strong th:text="${ctx.name}">Default</strong></td>
                         <td class="sn-text-secondary" th:text="${ctx.description ?: '—'}">—</td>
                         <td class="sn-text-muted"
-                            th:text="${#temporals.format(ctx.createdAt.toLocalDate())}">01/01/2026</td>
+                            th:text="${#temporals.format(ctx.createdAt.toLocalDate(), datePattern)}">01/01/2026</td>
                         <td th:if="${canManage}" class="sn-table-actions">
                             <a th:href="@{/network/contexts/{id}/edit(id=${ctx.id})}"
                                class="sn-btn sn-btn--secondary sn-btn--sm" th:text="#{common.edit}">Modifier</a>
@@ -58,8 +58,7 @@
 
         <div class="sn-pagination" th:if="${!contexts.empty}">
             <span class="sn-pagination__info"
-                  th:with="suffix=#{pagination.contexts.suffix}"
-                  th:text="${contexts.totalElements} + ' ' + suffix">N contextes</span>
+                  th:text="${contexts.totalElements + ' ' + #messages.msg('pagination.contexts.suffix')}">N contextes</span>
             <nav class="sn-pagination__nav" th:if="${contexts.totalPages > 1}">
                 <a th:href="@{/network/contexts(page=${contexts.number - 1})}"
                    th:classappend="${contexts.first ? 'sn-pagination__btn--disabled' : ''}"

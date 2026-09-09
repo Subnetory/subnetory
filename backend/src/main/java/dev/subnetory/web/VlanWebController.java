@@ -163,6 +163,7 @@ public class VlanWebController {
                          Model model,
                          RedirectAttributes flash,
                          HttpServletResponse response,
+                         Authentication auth,
                          Locale locale) {
         if (errors.hasErrors()) {
             prepareFormModel(model, form, msg("pageTitle.vlanEdit", locale),
@@ -173,7 +174,10 @@ public class VlanWebController {
             return "network/vlan-form";
         }
         try {
-            vlanService.update(id, new VlanRequest(form.getName(), form.getVid(), form.getSiteId()));
+            VlanResponse updated = vlanService.update(
+                    id, new VlanRequest(form.getName(), form.getVid(), form.getSiteId()));
+            authAuditService.recordVlanUpdated(auth.getName(), updated.id(),
+                    "VLAN " + updated.vid() + " (" + updated.name() + ")");
             flash.addFlashAttribute("flashSuccess", msg("flash.vlan.updateSuccess", locale));
         } catch (ResourceNotFoundException e) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);

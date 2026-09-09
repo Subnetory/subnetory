@@ -237,6 +237,20 @@ class VlanCrudWebIT {
 
     @Test
     @WithMockUser(roles = "NETWORK")
+    void postCreate_vidZero_reRendersFormWithError() throws Exception {
+        mvc.perform(post("/network/vlans")
+                        .with(csrf())
+                        .param("vid", "0")
+                        .param("siteId", "10"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("network/vlan-form"))
+                .andExpect(model().attributeHasFieldErrors("form", "vid"));
+
+        verify(vlanService, never()).create(any());
+    }
+
+    @Test
+    @WithMockUser(roles = "NETWORK")
     void postCreate_nullSiteId_reRendersFormWithError() throws Exception {
         mvc.perform(post("/network/vlans")
                         .with(csrf())

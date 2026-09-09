@@ -8,7 +8,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.1.0</version>
+        <version>4.1.1</version>
         <relativePath/>
     </parent>
 
@@ -22,6 +22,11 @@
         <java.version>21</java.version>
         <jacoco.version>0.8.14</jacoco.version>
         <poi.version>5.5.1</poi.version>
+        <!-- Spring Boot 4.1.1 gere Tomcat 11.0.24, encore vulnerable aux
+             CVE-2026-65182, CVE-2026-65905 et CVE-2026-68525 detectees par
+             Trivy dans l'image. Retirer cette surcharge quand le BOM Spring
+             Boot gere Tomcat 11.0.25 ou une version ulterieure. -->
+        <tomcat.version>11.0.25</tomcat.version>
     </properties>
 
     <!-- Versions Testcontainers gérées par spring-boot-dependencies :
@@ -69,11 +74,9 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
-        <!-- Version epinglee explicitement (hors BOM Spring Boot) : le pilote 42.7.11
-             gere par spring-boot-dependencies 4.1.0 est vulnerable a CVE-2026-54291
-             (contournement silencieux du channel binding SCRAM-SHA-256-PLUS, CVSS 8.2 High,
-             detecte par le job CI dependency-scan / Trivy). Correctif disponible en 42.7.12 ;
-             42.7.13 est la derniere version stable (maintenance, pas de rupture connue). -->
+        <!-- Version epinglee explicitement : 42.7.11 etait vulnerable a
+             CVE-2026-54291 (contournement silencieux du channel binding
+             SCRAM-SHA-256-PLUS, CVSS 8.2 High). -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
@@ -250,6 +253,9 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
+                    <!-- Mockito 5.23 ne doit plus s'auto-attacher dynamiquement :
+                         l'agent est déclaré explicitement, compatible avec les JDK futurs. -->
+                    <argLine>@{argLine} -javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar</argLine>
                     <includes>
                         <include>**/*Test.java</include>
                         <include>**/*IT.java</include>

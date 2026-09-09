@@ -35,7 +35,6 @@
 
     <div class="sn-import-grid sn-import-grid--single">
         <form th:action="@{/network/addresses/import}" method="post" enctype="multipart/form-data" class="sn-import-card sn-import-card--single">
-            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
             <div class="sn-import-formats">
                 <span class="sn-import-card__format sn-import-card__format--csv">CSV</span>
                 <span class="sn-import-card__format sn-import-card__format--xlsx">XLSX</span>

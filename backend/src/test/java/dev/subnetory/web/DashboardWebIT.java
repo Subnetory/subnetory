@@ -52,7 +52,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class DashboardWebIT {
 
     @Container
-    static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:17-alpine")
+    static PostgreSQLContainer postgres = new PostgreSQLContainer(org.testcontainers.utility.DockerImageName.parse("postgres:17-alpine"))
             .withDatabaseName("subnetory_test")
             .withUsername("subnetory")
             .withPassword("subnetory");
@@ -244,7 +244,11 @@ class DashboardWebIT {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
-        assertThat(body).contains("10.99.0.0/24");
+        assertThat(body)
+                .contains("10.99.0.0/24")
+                .contains("<progress")
+                .contains("max=\"100\"")
+                .doesNotContain("style=\"width:");
     }
 
     @Test @Order(13)
@@ -279,4 +283,3 @@ class DashboardWebIT {
                 .andExpect(status().isOk());
     }
 }
-

@@ -130,12 +130,14 @@ class IpUtilsTest {
 
     @Test
     void usableAddressCount_isCorrect() {
-        // /24 inclusive = 256 adresses (network + broadcast comptés)
-        assertEquals(256, IpUtils.usableAddressCount("192.168.1.0/24"));
-        // /30 inclusive = 4 adresses
-        assertEquals(4, IpUtils.usableAddressCount("192.168.1.0/30"));
-        // /32 inclusive = 1 adresse
+        // /24 : réseau et broadcast exclus.
+        assertEquals(254, IpUtils.usableAddressCount("192.168.1.0/24"));
+        // /30 : réseau et broadcast exclus.
+        assertEquals(2, IpUtils.usableAddressCount("192.168.1.0/30"));
+        assertEquals(2, IpUtils.usableAddressCount("192.168.1.0/31"));
+        // /31 point-à-point et /32 hôte unique restent entièrement utilisables.
         assertEquals(1, IpUtils.usableAddressCount("192.168.1.1/32"));
+        assertEquals(253, IpUtils.assignableAddressCount("192.168.1.0/24", "192.168.1.1"));
     }
     @Test
     void cidrPrefixLength_returnsExpectedPrefix() {

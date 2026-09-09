@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity6"
       th:replace="~{layout/base :: layout(~{::#main-content})}">
@@ -70,7 +70,6 @@
             <details class="sn-mfa-disclosure">
                 <summary th:text="#{profile.mfa.regenerate.summary}">Regenerer mes codes de recuperation</summary>
                 <form th:action="@{/profile/mfa/recovery-codes/regenerate}" th:object="${mfaRegenerateForm}" method="post" class="sn-form">
-                    <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                     <div class="sn-form__group">
                         <label for="regenCode" class="sn-form__label" th:text="#{profile.mfa.regenerate.code.label}">Code MFA actuel</label>
                         <input id="regenCode" type="text" inputmode="numeric" autocomplete="one-time-code"
@@ -86,7 +85,6 @@
             <details class="sn-mfa-disclosure">
                 <summary th:text="#{profile.mfa.disable.summary}">Desactiver le MFA</summary>
                 <form th:action="@{/profile/mfa/disable}" th:object="${mfaDisableForm}" method="post" class="sn-form">
-                    <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                     <div class="sn-form__group">
                         <label for="disableCurrentPassword" class="sn-form__label" th:text="#{profile.mfa.disable.currentPassword.label}">Mot de passe actuel</label>
                         <input id="disableCurrentPassword" type="password" autocomplete="current-password"
@@ -122,10 +120,6 @@
               method="post"
               class="sn-form">
 
-            <input type="hidden"
-                   th:if="${_csrf != null}"
-                   th:name="${_csrf.parameterName}"
-                   th:value="${_csrf.token}">
 
             <div class="sn-form__group">
                 <label for="currentPassword" class="sn-form__label" th:text="#{profile.password.current.label}">Mot de passe actuel</label>

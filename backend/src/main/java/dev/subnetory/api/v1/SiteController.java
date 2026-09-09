@@ -70,8 +70,11 @@ public class SiteController {
                     + "le site a encore des sous-réseaux (409).")
     public ResponseEntity<SiteResponse> updateSite(
             @PathVariable Long id,
-            @Valid @RequestBody SiteRequest request) {
-        return ResponseEntity.ok(siteService.update(id, request));
+            @Valid @RequestBody SiteRequest request,
+            Authentication auth) {
+        SiteResponse updated = siteService.update(id, request);
+        authAuditService.recordSiteUpdated(auth.getName(), updated.id(), updated.name());
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")

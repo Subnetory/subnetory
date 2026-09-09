@@ -56,7 +56,7 @@
                             <span th:unless="${user.enabled}" class="sn-badge sn-badge--neutral" th:text="${lblInactive}">Inactif</span>
                         </td>
                         <td class="sn-text-muted"
-                            th:text="${#temporals.format(user.createdAt.toLocalDate())}">01/01/2026</td>
+                            th:text="${#temporals.format(user.createdAt.toLocalDate(), datePattern)}">01/01/2026</td>
                         <td class="sn-table-actions">
                             <a th:href="@{/admin/users/{id}(id=${user.id})}"
                                class="sn-btn sn-btn--secondary sn-btn--sm" th:text="#{admin.users.table.detail}">Détail</a>
@@ -70,8 +70,8 @@
         </div>
 
         <div class="sn-pagination" th:if="${!users.empty}">
-            <span class="sn-pagination__info" th:with="suffix=#{admin.users.pagination.suffix}"
-                  th:text="${users.totalElements} + ' ' + suffix">N utilisateurs</span>
+            <span class="sn-pagination__info"
+                  th:text="${users.totalElements + ' ' + #messages.msg('admin.users.pagination.suffix')}">N utilisateurs</span>
             <nav class="sn-pagination__nav" th:if="${users.totalPages > 1}">
                 <a th:href="@{/admin/users(page=${users.number - 1})}"
                    th:classappend="${users.first ? 'sn-pagination__btn--disabled' : ''}"

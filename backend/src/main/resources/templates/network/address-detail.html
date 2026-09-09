@@ -34,7 +34,7 @@
                 <div class="sn-detail__value sn-detail__value--mono" th:text="${address.address}">192.168.1.10</div>
             </div>
             <div class="sn-detail__field">
-                <div class="sn-detail__label" th:text="#{table.hostname}">Hostname</div>
+                <div class="sn-detail__label" th:text="#{table.hostname}">Nom d'hôte</div>
                 <div class="sn-detail__value"
                      th:with="empty=#{address.detail.hostnameEmpty}"
                      th:classappend="${address.hostname == null ? 'sn-detail__value--empty' : ''}"
@@ -89,7 +89,7 @@
             <div class="sn-detail__field">
                 <div class="sn-detail__label" th:text="#{table.lastSeen}">Dernière détection</div>
                 <div class="sn-detail__value"
-                     th:text="${address.lastSeenAt != null ? #temporals.format(address.lastSeenAt) : '—'}">—</div>
+                     th:text="${address.lastSeenAt != null ? #temporals.format(address.lastSeenAt, dateTimePattern) : '—'}">—</div>
             </div>
             <div class="sn-detail__field">
                 <div class="sn-detail__label" th:text="#{detail.label.modifiedBy}">Modifié par</div>
@@ -100,12 +100,12 @@
             <div class="sn-detail__field">
                 <div class="sn-detail__label" th:text="#{table.created}">Créé le</div>
                 <div class="sn-detail__value sn-text-muted"
-                     th:text="${#temporals.format(address.createdAt)}">01/01/2026</div>
+                     th:text="${#temporals.format(address.createdAt, dateTimePattern)}">01/01/2026</div>
             </div>
             <div class="sn-detail__field">
                 <div class="sn-detail__label" th:text="#{detail.label.updatedAt}">Mis à jour le</div>
                 <div class="sn-detail__value sn-text-muted"
-                     th:text="${#temporals.format(address.updatedAt)}">01/01/2026</div>
+                     th:text="${#temporals.format(address.updatedAt, dateTimePattern)}">01/01/2026</div>
             </div>
         </div>
     </div>

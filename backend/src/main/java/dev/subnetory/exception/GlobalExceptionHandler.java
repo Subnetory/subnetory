@@ -10,6 +10,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -65,6 +66,16 @@ public class GlobalExceptionHandler {
         pd.setType(URI.create(ERROR_BASE + "validation-error"));
         pd.setTitle("Validation Error");
         pd.setProperty("fields", fields);
+        pd.setProperty("timestamp", Instant.now());
+        return pd;
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ProblemDetail handleUnreadableJson(HttpMessageNotReadableException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, "Malformed or incomplete JSON request body");
+        pd.setType(URI.create(ERROR_BASE + "malformed-json"));
+        pd.setTitle("Malformed JSON");
         pd.setProperty("timestamp", Instant.now());
         return pd;
     }

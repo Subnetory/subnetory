@@ -17,6 +17,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -45,9 +46,12 @@ public class AdminAuditController {
             description = "Complète la purge automatique planifiée (subnetory.audit.retention.days, "
                     + "90 jours par défaut) par une action manuelle immédiate. Supprime définitivement "
                     + "toutes les entrées strictement antérieures à beforeDate.")
-    public AuditPurgeResponse purge(@RequestBody AuditPurgeRequest request) {
+    public AuditPurgeResponse purge(@RequestBody AuditPurgeRequest request, Authentication authentication) {
         var cutoff = request.beforeDate().atStartOfDay().atOffset(ZoneOffset.UTC);
         int deleted = retentionService.purgeOlderThan(cutoff);
+        // Écrit après la suppression dans une transaction distincte : même une purge
+        // totale laisse une preuve de l'opération et du nombre d'entrées détruites.
+        authAuditService.recordAuditLogPurged(authentication.getName(), cutoff, deleted);
         return new AuditPurgeResponse(deleted);
     }
 

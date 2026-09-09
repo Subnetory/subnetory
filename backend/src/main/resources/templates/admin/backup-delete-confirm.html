@@ -27,7 +27,7 @@
             </div>
             <div class="sn-form__group">
                 <label class="sn-form__label" th:text="#{backupRestoreConfirm.date.label}">Date de la sauvegarde</label>
-                <div class="sn-input" th:text="${#temporals.format(run.startedAt())}">—</div>
+                <div class="sn-input" th:text="${#temporals.format(run.startedAt(), dateTimePattern)}">—</div>
             </div>
             <div class="sn-form__group">
                 <label class="sn-form__label" th:text="#{profile.account.status}">Statut</label>
@@ -46,7 +46,6 @@
             Cette sauvegarde n'est référencée par aucune restauration conservée dans l'historique.
         </p>
         <form th:action="@{/admin/backup/runs/{id}/delete(id=${run.id()})}" method="post" class="sn-form">
-            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
             <div class="sn-form__actions">
                 <button type="submit" class="sn-btn sn-btn--danger"
                         th:attr="data-confirm=#{backupDelete.confirm.simple(${run.fileName() != null ? run.fileName() : fallbackName})}" th:text="#{backupDelete.submit}">
@@ -83,7 +82,7 @@
                 </thead>
                 <tbody>
                     <tr th:each="r : ${linkedRestores}">
-                        <td th:text="${#temporals.format(r.startedAt())}">—</td>
+                        <td th:text="${#temporals.format(r.startedAt(), dateTimePattern)}">—</td>
                         <td class="sn-text-mono sn-text-secondary" th:text="${r.backupFileName() ?: '—'}">—</td>
                         <td>
                             <span th:if="${r.status() == 'SUCCESS'}" class="sn-badge sn-badge--green" th:text="#{backup.status.success}">Réussie</span>
@@ -97,7 +96,6 @@
         </div>
 
         <form th:action="@{/admin/backup/runs/{id}/delete(id=${run.id()})}" method="post" class="sn-form sn-mt-4">
-            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
             <input type="hidden" name="cascade" value="true">
             <div class="sn-form__actions">
                 <button type="submit" class="sn-btn sn-btn--danger"

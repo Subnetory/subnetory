@@ -128,6 +128,8 @@ Ne pas utiliser `docker compose down -v` pendant une mise à jour.
 
 Flyway reste la source de vérité du schéma et applique automatiquement les migrations présentes (`backend/src/main/resources/db/migration/`, V1 à V21 au 04/08/2026 — ce nombre augmente à chaque migration ajoutée, se référer au contenu du répertoire plutôt qu'à ce document pour l'état exact courant).
 
+La migration V22 réserve le VID 0 conformément à 802.1Q et refuse volontairement de modifier une donnée existante sans décision humaine. Avant la mise à jour, vérifier qu'aucun VLAN 0 n'existe. Si V22 s'arrête, attribuer un VID compris entre 1 et 4094 (ou supprimer le VLAN après sauvegarde et validation), puis redémarrer l'application ; ne pas marquer la migration comme réussie manuellement.
+
 ## Sauvegarde PostgreSQL autonome
 
 ### Emplacement
@@ -458,6 +460,24 @@ docker compose -f docker-compose.prod.yml up -d
 ```
 
 Le PostgreSQL externe doit être sauvegardé, supervisé et sécurisé par l'exploitant.
+
+## Validation avant production
+
+Avant chaque mise en production :
+
+- exécuter le build Maven complet, y compris Testcontainers et les seuils JaCoCo ;
+- construire l'image depuis le commit validé puis attendre les deux healthchecks Compose ;
+- exécuter `scripts/audit-api.ps1` avec `-AllowDestructiveTests` uniquement sur une stack et un volume PostgreSQL jetables ;
+- conserver le rapport d'audit produit et contrôler les événements de sécurité attendus ;
+- tester une restauration réelle d'une sauvegarde récente sur une base isolée ;
+- laisser `HOST_BIND_ADDRESS=127.0.0.1` si un reverse proxy local publie l'application, et n'utiliser `0.0.0.0` qu'avec un pare-feu explicite ;
+- laisser `SWAGGER_ENABLED=false` en production, sauf besoin opérationnel validé ;
+- terminer TLS, l'authentification et la journalisation du proxy selon la politique de l'entreprise ;
+- exporter les journaux applicatifs et PostgreSQL vers un stockage supervisé hors de l'hôte.
+
+Les événements `AUDIT_LOG_PURGED` sont conservés par les purges automatiques et manuelles de Subnetory. Cette protection ne résiste toutefois pas à un administrateur PostgreSQL : pour une traçabilité opposable, expédier aussi les journaux vers un système distant en écriture seule ou immuable.
+
+Le scan Nmap s'exécute dans un conteneur non privilégié. Sa couverture dépend du routage, des ACL et des pare-feu du réseau cible ; valider chaque segment autorisé avant d'en faire un contrôle de disponibilité.
 
 ## Dépannage
 

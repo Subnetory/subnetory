@@ -56,7 +56,7 @@ class LdapAuthIT {
 
     @Container
     static PostgreSQLContainer postgres =
-            new PostgreSQLContainer("postgres:17-alpine");
+            new PostgreSQLContainer(org.testcontainers.utility.DockerImageName.parse("postgres:17-alpine"));
 
     static InMemoryDirectoryServer ldapServer;
 

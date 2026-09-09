@@ -38,7 +38,7 @@
             </div>
             <div class="sn-form__group">
                 <label class="sn-form__label" th:text="#{backupRestoreConfirm.date.label}">Date de la sauvegarde</label>
-                <div class="sn-input" th:text="${#temporals.format(run.startedAt())}">—</div>
+                <div class="sn-input" th:text="${#temporals.format(run.startedAt(), dateTimePattern)}">—</div>
             </div>
             <div class="sn-form__group">
                 <label class="sn-form__label" th:text="#{backup.size}">Taille</label>
@@ -62,7 +62,6 @@
             <h2 class="sn-card__title" th:text="#{backupRestoreConfirm.confirmation.title}">Confirmation</h2>
         </div>
         <form th:action="@{/admin/backup/runs/{id}/restore(id=${run.id()})}" method="post" class="sn-form">
-            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
 
             <div class="sn-form__group">
                 <label for="confirmationText" class="sn-form__label">

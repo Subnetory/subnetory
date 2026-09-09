@@ -43,6 +43,8 @@ public class RestoreMaintenanceGate {
     private final Object lock = new Object();
     private boolean restoreInProgress = false;
     private int activeMutations = 0;
+    private final ThreadLocal<Integer> mutationsAdmittedOnCurrentThread =
+            ThreadLocal.withInitial(() -> 0);
 
     /**
      * Tente d'admettre une nouvelle mutation. Retourne {@code false} si une
@@ -58,6 +60,7 @@ public class RestoreMaintenanceGate {
                 return false;
             }
             activeMutations++;
+            mutationsAdmittedOnCurrentThread.set(mutationsAdmittedOnCurrentThread.get() + 1);
             return true;
         }
     }
@@ -65,6 +68,15 @@ public class RestoreMaintenanceGate {
     /** Contrepartie obligatoire d'un {@link #tryAdmitMutation()} ayant retourne {@code true}. */
     public void releaseMutation() {
         synchronized (lock) {
+            int ownedByCurrentThread = mutationsAdmittedOnCurrentThread.get();
+            if (ownedByCurrentThread <= 0) {
+                throw new IllegalStateException("No admitted mutation belongs to the current thread");
+            }
+            if (ownedByCurrentThread == 1) {
+                mutationsAdmittedOnCurrentThread.remove();
+            } else {
+                mutationsAdmittedOnCurrentThread.set(ownedByCurrentThread - 1);
+            }
             activeMutations--;
             if (activeMutations <= 0) {
                 lock.notifyAll();
@@ -109,11 +121,12 @@ public class RestoreMaintenanceGate {
      */
     public boolean awaitDrain(Duration timeout) throws InterruptedException {
         synchronized (lock) {
+            int ownedByCurrentThread = mutationsAdmittedOnCurrentThread.get();
             long deadlineNanos = System.nanoTime() + timeout.toNanos();
-            while (activeMutations > 0) {
+            while (activeMutations > ownedByCurrentThread) {
                 long remainingNanos = deadlineNanos - System.nanoTime();
                 if (remainingNanos <= 0) {
-                    return activeMutations == 0;
+                    return activeMutations <= ownedByCurrentThread;
                 }
                 long remainingMillis = Duration.ofNanos(remainingNanos).toMillis();
                 lock.wait(Math.max(remainingMillis, 1));
@@ -126,6 +139,13 @@ public class RestoreMaintenanceGate {
     public int activeMutationCount() {
         synchronized (lock) {
             return activeMutations;
+        }
+    }
+
+    /** Mutations encore en vol, hors requête de restauration portée par le thread appelant. */
+    public int activeMutationCountExcludingCurrentThread() {
+        synchronized (lock) {
+            return Math.max(0, activeMutations - mutationsAdmittedOnCurrentThread.get());
         }
     }
 }

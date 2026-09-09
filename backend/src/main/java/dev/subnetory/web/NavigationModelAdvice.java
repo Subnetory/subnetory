@@ -18,6 +18,11 @@ import org.springframework.ui.Model;
 @ControllerAdvice(basePackages = "dev.subnetory.web")
 public class NavigationModelAdvice {
 
+    private static final String DATE_PATTERN_FR = "dd/MM/yyyy";
+    private static final String DATE_PATTERN_EN = "MM/dd/yyyy";
+    private static final String DATE_TIME_PATTERN_FR = "dd/MM/yyyy HH:mm:ss XXX";
+    private static final String DATE_TIME_PATTERN_EN = "MM/dd/yyyy hh:mm:ss a XXX";
+
     private final ObjectProvider<NetworkContextService> contextServiceProvider;
     private final ObjectProvider<ActiveContextService> activeContextServiceProvider;
 
@@ -32,6 +37,9 @@ public class NavigationModelAdvice {
                                    Authentication authentication,
                                    HttpSession session,
                                    HttpServletRequest request) {
+        boolean french = "fr".equalsIgnoreCase(request.getLocale().getLanguage());
+        model.addAttribute("datePattern", french ? DATE_PATTERN_FR : DATE_PATTERN_EN);
+        model.addAttribute("dateTimePattern", french ? DATE_TIME_PATTERN_FR : DATE_TIME_PATTERN_EN);
         if (authentication == null || !authentication.isAuthenticated()) {
             model.addAttribute("navigationContexts", List.of());
             return;

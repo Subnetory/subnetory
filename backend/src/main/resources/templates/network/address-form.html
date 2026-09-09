@@ -15,10 +15,6 @@
     <div th:if="${formError}" class="sn-alert sn-alert--error" th:text="${formError}"></div>
 
     <div class="sn-card sn-card--padded sn-form-card">
-        <div class="sn-card__header">
-            <h2 class="sn-card__title" th:text="${pageTitle}">Adresse IP</h2>
-        </div>
-
         <form th:action="${formAction}" th:object="${form}" method="post" novalidate class="sn-form">
 
             <input type="hidden" th:field="*{id}" />
@@ -49,7 +45,7 @@
                     <option value="" th:text="#{select.placeholder.subnet}">— Sélectionner un sous-réseau —</option>
                     <option th:each="s : ${allSubnets}"
                             th:value="${s.id}"
-                            th:text="|${s.network} — ${s.siteName}|">Subnet</option>
+                            th:text="|${s.network} — ${s.siteName}|">Sous-réseau</option>
                 </select>
                 <span class="sn-form__error"
                       th:if="${#fields.hasErrors('subnetId')}"
@@ -74,7 +70,7 @@
             </div>
 
             <div class="sn-form__group" th:classappend="${#fields.hasErrors('hostname')} ? ' sn-form__group--error'">
-                <label for="hostname" class="sn-form__label" th:text="#{table.hostname}">Hostname</label>
+                <label for="hostname" class="sn-form__label" th:text="#{table.hostname}">Nom d'hôte</label>
                 <input type="text"
                        id="hostname"
                        th:field="*{hostname}"

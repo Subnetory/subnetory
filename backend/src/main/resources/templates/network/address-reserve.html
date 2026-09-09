@@ -18,7 +18,6 @@
     <div th:if="${formError}" class="sn-alert sn-alert--error" th:text="${formError}"></div>
 
     <form th:action="@{/network/addresses/reserve/generate}" th:object="${form}" method="post" novalidate>
-        <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
 
         <div class="sn-card sn-card--padded">
             <div class="sn-card__header">
@@ -32,7 +31,7 @@
                         <option value="" th:text="#{select.placeholder.subnet}">— Sélectionner un sous-réseau —</option>
                         <option th:each="s : ${allSubnets}"
                                 th:value="${s.id}"
-                                th:text="|${s.network} — ${s.siteName}|">Subnet</option>
+                                th:text="|${s.network} — ${s.siteName}|">Sous-réseau</option>
                     </select>
                 </div>
 
@@ -75,8 +74,7 @@
             </div>
 
             <p class="sn-text-muted"
-               th:with="suffix=#{reserve.rowsReady.suffix}"
-               th:text="${form.rows.size()} + ' ' + suffix">
+               th:text="${form.rows.size() + ' ' + #messages.msg('reserve.rowsReady.suffix')}">
                 N ligne(s) prête(s)
             </p>
 
@@ -84,18 +82,19 @@
                 <table class="sn-table">
                     <thead>
                         <tr>
-                            <th th:text="#{table.include}">Inclure</th>
-                            <th th:text="#{table.ip}">Adresse IP</th>
-                            <th th:text="#{table.hostname}">Hostname</th>
-                            <th th:text="#{common.description}">Description</th>
-                            <th th:text="#{table.mac}">MAC</th>
-                            <th th:text="#{table.temporary}">Temporaire</th>
+                            <th scope="col" th:text="#{table.include}">Inclure</th>
+                            <th scope="col" th:text="#{table.ip}">Adresse IP</th>
+                            <th scope="col" th:text="#{table.hostname}">Nom d'hôte</th>
+                            <th scope="col" th:text="#{common.description}">Description</th>
+                            <th scope="col" th:text="#{table.mac}">MAC</th>
+                            <th scope="col" th:text="#{table.temporary}">Temporaire</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr th:each="row, rowStat : *{rows}">
                             <td>
-                                <input type="checkbox" class="sn-table-checkbox" th:field="*{rows[__${rowStat.index}__].included}">
+                                <input type="checkbox" class="sn-table-checkbox" th:field="*{rows[__${rowStat.index}__].included}"
+                                       th:attr="aria-label=#{reserve.include.aria(${row.address})}">
                             </td>
                             <td class="sn-text-mono">
                                 <span th:text="${row.address}">10.0.0.10</span>
@@ -103,18 +102,22 @@
                             </td>
                             <td>
                                 <input type="text" th:field="*{rows[__${rowStat.index}__].hostname}"
-                                       class="sn-input" th:placeholder="#{reserve.hostname.placeholder}" maxlength="100">
+                                       class="sn-input" th:placeholder="#{reserve.hostname.placeholder}" maxlength="100"
+                                       th:attr="aria-label=#{reserve.hostname.aria(${row.address})}">
                             </td>
                             <td>
                                 <input type="text" th:field="*{rows[__${rowStat.index}__].description}"
-                                       class="sn-input" th:placeholder="#{reserve.description.placeholder}" maxlength="500">
+                                       class="sn-input" th:placeholder="#{reserve.description.placeholder}" maxlength="500"
+                                       th:attr="aria-label=#{reserve.description.aria(${row.address})}">
                             </td>
                             <td>
                                 <input type="text" th:field="*{rows[__${rowStat.index}__].mac}"
-                                       class="sn-input sn-text-mono" th:placeholder="#{reserve.mac.placeholder}" maxlength="17">
+                                       class="sn-input sn-text-mono" th:placeholder="#{reserve.mac.placeholder}" maxlength="17"
+                                       th:attr="aria-label=#{reserve.mac.aria(${row.address})}">
                             </td>
                             <td>
-                                <input type="checkbox" class="sn-table-checkbox" th:field="*{rows[__${rowStat.index}__].temporary}">
+                                <input type="checkbox" class="sn-table-checkbox" th:field="*{rows[__${rowStat.index}__].temporary}"
+                                       th:attr="aria-label=#{reserve.temporary.aria(${row.address})}">
                             </td>
                         </tr>
                     </tbody>

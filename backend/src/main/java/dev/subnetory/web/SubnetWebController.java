@@ -20,6 +20,7 @@ import dev.subnetory.service.VlanService;
 import dev.subnetory.util.IpUtils;
 import dev.subnetory.util.CsvSafeValue;
 import dev.subnetory.web.form.SubnetForm;
+import io.swagger.v3.oas.annotations.Hidden;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
@@ -300,6 +301,7 @@ public class SubnetWebController {
      * <p>Endpoint protégé par la session Web (/network/**), afin d'être utilisable
      * depuis la GUI Thymeleaf sans token JWT Bearer.</p>
      */
+    @Hidden
     @GetMapping("/{id}/available-ips")
     @PreAuthorize("isAuthenticated()")
     @ResponseBody
@@ -467,6 +469,7 @@ public class SubnetWebController {
                          Model model,
                          RedirectAttributes flash,
                          HttpServletResponse response,
+                         Authentication auth,
                          Locale locale) {
         if (errors.hasErrors()) {
             prepareFormModel(model, form, msg("pageTitle.subnetEdit", locale),
@@ -478,7 +481,8 @@ public class SubnetWebController {
             return "network/subnet-form";
         }
         try {
-            subnetService.update(id, toRequest(form));
+            SubnetResponse updated = subnetService.update(id, toRequest(form));
+            authAuditService.recordSubnetUpdated(auth.getName(), updated.id(), updated.network());
             flash.addFlashAttribute("flashSuccess", msg("flash.subnet.updateSuccess", locale));
         } catch (ResourceNotFoundException e) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);

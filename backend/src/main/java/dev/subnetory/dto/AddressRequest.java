@@ -28,7 +28,8 @@ public record AddressRequest(
         @NotNull(message = "Subnet ID is required")
         Long subnetId,
 
-        boolean temporary,
+        @NotNull(message = "Temporary flag is required")
+        Boolean temporary,
 
         /**
          * Source de découverte. Valeurs acceptées : manual, api, csv, nmap, arp-scan, dns.

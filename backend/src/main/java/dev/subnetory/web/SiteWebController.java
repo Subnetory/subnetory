@@ -169,6 +169,7 @@ public class SiteWebController {
                          Model model,
                          RedirectAttributes flash,
                          HttpServletResponse response,
+                         Authentication auth,
                          Locale locale) {
         if (errors.hasErrors()) {
             prepareFormModel(model, form, msg("pageTitle.siteEdit", locale),
@@ -183,7 +184,9 @@ public class SiteWebController {
             return "network/site-form";
         }
         try {
-            siteService.update(id, new SiteRequest(form.getName(), form.getCode(), form.getContextId()));
+            SiteResponse updated = siteService.update(
+                    id, new SiteRequest(form.getName(), form.getCode(), form.getContextId()));
+            authAuditService.recordSiteUpdated(auth.getName(), updated.id(), updated.name());
             flash.addFlashAttribute("flashSuccess", msg("flash.site.updateSuccess", locale));
         } catch (ResourceNotFoundException e) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);

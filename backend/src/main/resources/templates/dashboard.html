@@ -116,11 +116,10 @@
                             th:text="${entry.capacity}">0</td>
 
                         <td class="sn-util-cell">
-                            <div class="sn-util-bar">
-                                <div class="sn-util-bar__fill"
-                                     th:classappend="${'sn-util-bar' + '__fill--' + (entry.utilizationPct >= 85 ? 'high' : (entry.utilizationPct >= 60 ? 'medium' : 'low'))}"
-                                     th:style="'width:' + ${entry.utilizationPct} + '%'"></div>
-                            </div>
+                            <progress class="sn-util-bar sn-util-bar__fill"
+                                      th:classappend="${'sn-util-bar' + '__fill--' + (entry.utilizationPct >= 85 ? 'high' : (entry.utilizationPct >= 60 ? 'medium' : 'low'))}"
+                                      max="100" th:value="${entry.utilizationPct}"
+                                      th:attr="aria-label=#{table.utilization}">0</progress>
                             <span class="sn-util-pct"
                                   th:text="${entry.utilizationPct + ' %'}">0 %</span>
                         </td>

@@ -32,9 +32,8 @@ import java.util.List;
  * </ol>
  *
  * <h3>Définition de la capacité</h3>
- * <p>{@code IpUtils.usableAddressCount} utilise {@code setInclusiveHostCount(true)} :
- * la capacité inclut l'adresse réseau et le broadcast. C'est la « capacité
- * théorique » du bloc CIDR, cohérente avec le comportement existant d'IpUtils.</p>
+ * <p>La capacité exclut réseau, broadcast et passerelle. Les /31 suivent
+ * RFC 3021 (deux hôtes) et les /32 représentent un hôte.</p>
  *
  * <h3>Gestion des cas limites</h3>
  * <ul>
@@ -122,11 +121,11 @@ public class DashboardService {
     // ── private helpers ────────────────────────────────────────────────────
 
     private SubnetUtilizationEntry toUtilizationEntry(SubnetUsageProjection p) {
-        long capacity = safeCapacity(p.getNetwork());
+        long capacity = safeCapacity(p.getNetwork(), p.getGateway());
         long used     = p.getUsedCount() != null ? p.getUsedCount() : 0L;
         long available    = Math.max(0L, capacity - used);
         int  utilizationPct = capacity > 0
-                ? (int) Math.min(100L, (used * 100L) / capacity)
+                ? (int) Math.min(100L, ((used * 100L) + capacity - 1L) / capacity)
                 : 0;
 
         return new SubnetUtilizationEntry(
@@ -148,12 +147,16 @@ public class DashboardService {
      * <p>Retourne 0 si le CIDR est invalide (IPv6 ou format non reconnu par IpUtils)
      * plutôt que de propager une exception vers la vue.</p>
      */
-    static long safeCapacity(String network) {
+    static long safeCapacity(String network, String gateway) {
         if (network == null) return 0L;
         try {
-            return IpUtils.usableAddressCount(network);
+            return IpUtils.assignableAddressCount(network, gateway);
         } catch (IllegalArgumentException e) {
             return 0L;
         }
+    }
+
+    static long safeCapacity(String network) {
+        return safeCapacity(network, null);
     }
 }

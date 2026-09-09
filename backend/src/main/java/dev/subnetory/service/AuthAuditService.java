@@ -82,15 +82,26 @@ public class AuthAuditService {
     public static final String BACKUP_PURGED = "BACKUP_PURGED";
     public static final String BACKUP_SETTINGS_UPDATED = "BACKUP_SETTINGS_UPDATED";
     public static final String ADDRESS_CREATED = "ADDRESS_CREATED";
+    public static final String ADDRESS_UPDATED = "ADDRESS_UPDATED";
+    public static final String ADDRESS_UPSERTED = "ADDRESS_UPSERTED";
+    public static final String ADDRESS_BULK_UPSERTED = "ADDRESS_BULK_UPSERTED";
+    public static final String ADDRESS_IMPORT_COMPLETED = "ADDRESS_IMPORT_COMPLETED";
     public static final String ADDRESS_DELETED = "ADDRESS_DELETED";
     public static final String VLAN_CREATED = "VLAN_CREATED";
+    public static final String VLAN_UPDATED = "VLAN_UPDATED";
     public static final String VLAN_DELETED = "VLAN_DELETED";
     public static final String CONTEXT_CREATED = "CONTEXT_CREATED";
+    public static final String CONTEXT_UPDATED = "CONTEXT_UPDATED";
     public static final String CONTEXT_DELETED = "CONTEXT_DELETED";
     public static final String SITE_CREATED = "SITE_CREATED";
+    public static final String SITE_UPDATED = "SITE_UPDATED";
     public static final String SITE_DELETED = "SITE_DELETED";
     public static final String SUBNET_CREATED = "SUBNET_CREATED";
+    public static final String SUBNET_UPDATED = "SUBNET_UPDATED";
     public static final String SUBNET_DELETED = "SUBNET_DELETED";
+    public static final String SUBNET_SCAN_COMPLETED = "SUBNET_SCAN_COMPLETED";
+    public static final String SUBNET_SCAN_FAILED = "SUBNET_SCAN_FAILED";
+    public static final String AUDIT_LOG_PURGED = "AUDIT_LOG_PURGED";
 
     private static final int MAX_USER_AGENT_LENGTH = 255;
     private static final int MAX_MESSAGE_LENGTH = 500;
@@ -382,6 +393,34 @@ public class AuthAuditService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordAddressUpdated(String username, Long addressId, String address, String operation) {
+        record(ADDRESS_UPDATED, username, null, null, null, true,
+                "Adresse IP modifiee. id=" + addressId + ", address=" + address + ", operation=" + operation);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordAddressUpserted(String username, Long addressId, String address, boolean override) {
+        record(ADDRESS_UPSERTED, username, null, null, null, true,
+                "Adresse IP traitee par upsert. id=" + addressId + ", address=" + address + ", override=" + override);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordAddressBulkUpserted(String username, int created, int updated, int skipped, int errors) {
+        record(ADDRESS_BULK_UPSERTED, username, null, null, null, true,
+                "Upsert d'adresses en masse termine. created=" + created + ", updated=" + updated
+                        + ", skipped=" + skipped + ", errors=" + errors);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordAddressImportCompleted(String username, String format, int totalRows,
+                                             int created, int updated, int skipped, int errors) {
+        record(ADDRESS_IMPORT_COMPLETED, username, null, null, null, true,
+                "Import d'adresses termine. format=" + format + ", totalRows=" + totalRows
+                        + ", created=" + created + ", updated=" + updated + ", skipped=" + skipped
+                        + ", errors=" + errors);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordAddressDeleted(String username, Long addressId, String address) {
         record(ADDRESS_DELETED, username, null, null, null, true,
                 "Adresse IP supprimee. id=" + addressId + ", address=" + address);
@@ -391,6 +430,12 @@ public class AuthAuditService {
     public void recordVlanCreated(String username, Long vlanId, String label) {
         record(VLAN_CREATED, username, null, null, null, true,
                 "VLAN cree. id=" + vlanId + ", label=" + label);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordVlanUpdated(String username, Long vlanId, String label) {
+        record(VLAN_UPDATED, username, null, null, null, true,
+                "VLAN modifie. id=" + vlanId + ", label=" + label);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -406,6 +451,12 @@ public class AuthAuditService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordContextUpdated(String username, Long contextId, String name) {
+        record(CONTEXT_UPDATED, username, null, null, null, true,
+                "Contexte modifie. id=" + contextId + ", name=" + name);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordContextDeleted(String username, Long contextId, String name) {
         record(CONTEXT_DELETED, username, null, null, null, true,
                 "Contexte supprime. id=" + contextId + ", name=" + name);
@@ -418,6 +469,12 @@ public class AuthAuditService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordSiteUpdated(String username, Long siteId, String name) {
+        record(SITE_UPDATED, username, null, null, null, true,
+                "Site modifie. id=" + siteId + ", name=" + name);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordSiteDeleted(String username, Long siteId, String name) {
         record(SITE_DELETED, username, null, null, null, true,
                 "Site supprime. id=" + siteId + ", name=" + name);
@@ -427,6 +484,34 @@ public class AuthAuditService {
     public void recordSubnetCreated(String username, Long subnetId, String network) {
         record(SUBNET_CREATED, username, null, null, null, true,
                 "Sous-reseau cree. id=" + subnetId + ", network=" + network);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordSubnetUpdated(String username, Long subnetId, String network) {
+        record(SUBNET_UPDATED, username, null, null, null, true,
+                "Sous-reseau modifie. id=" + subnetId + ", network=" + network);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordSubnetScanCompleted(String username, Long subnetId, String network,
+                                          int hostsFound, int created, int updated, int errors) {
+        record(SUBNET_SCAN_COMPLETED, username, null, null, null, true,
+                "Scan Nmap termine. subnetId=" + subnetId + ", network=" + network
+                        + ", hostsFound=" + hostsFound + ", created=" + created
+                        + ", updated=" + updated + ", errors=" + errors);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordSubnetScanFailed(String username, Long subnetId, String reason, String message) {
+        record(SUBNET_SCAN_FAILED, username, null, null, null, false,
+                "Echec du scan Nmap. subnetId=" + subnetId + ", reason=" + reason
+                        + (message == null || message.isBlank() ? "" : " — " + message));
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordAuditLogPurged(String username, java.time.OffsetDateTime cutoff, int deleted) {
+        record(AUDIT_LOG_PURGED, username, null, null, null, true,
+                "Journal d'audit purge. cutoff=" + cutoff + ", deleted=" + deleted);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

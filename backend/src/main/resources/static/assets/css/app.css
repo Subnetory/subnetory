@@ -275,7 +275,10 @@
    petit/plus fade que prevu. Taille et graisse fixees une seule fois
    au bon endroit desormais. */
 
-@media (max-width: 1380px) {
+/* Une barre sur une seule ligne commence à se chevaucher avant 1440 px,
+   particulièrement avec les libellés français. Basculer un peu plus tôt
+   garantit que navigation, langue et profil restent séparés. */
+@media (max-width: 1500px) {
   .sn-appbar { grid-template-columns: 1fr; gap: 9px; }
   .sn-appbar__left, .sn-appbar__right { position: absolute; top: 12px; }
   .sn-appbar__left { left: 18px; }
@@ -284,10 +287,12 @@
 }
 
 @media (max-width: 820px) {
-  .sn-appbar { position: relative; padding: 12px; }
+  .sn-appbar { position: relative; padding: 8px; gap: 6px; }
   .sn-appbar__left, .sn-appbar__right { position: static; }
-  .sn-appbar__left, .sn-appbar__right, .sn-appbar__center, .sn-main-nav { flex-wrap: wrap; justify-content: center; }
-  .sn-appbar__center { padding-top: 0; }
+  .sn-appbar__left, .sn-appbar__right { flex-wrap: nowrap; justify-content: center; }
+  .sn-appbar__center { padding-top: 0; width: 100%; flex-wrap: nowrap; }
+  .sn-main-nav { width: 100%; flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scrollbar-width: thin; }
+  .sn-nav-tile { min-width: 42px; justify-content: center; padding: 8px 10px; }
   .sn-profile-chip__text, .sn-nav-tile span:last-child { display: none; }
   .sn-context-switcher__label { display: none; }
 }
@@ -954,6 +959,17 @@ a:hover { text-decoration: underline; }
   flex-wrap: wrap;
 }
 
+.sn-filter-field {
+  display: grid;
+  gap: 4px;
+}
+
+.sn-filter-field__label {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 650;
+}
+
 /* Cellule description tronquée avec max-width */
 .sn-cell-desc {
   max-width: 200px;
@@ -1107,7 +1123,9 @@ a:hover { text-decoration: underline; }
 
 
 .sn-form-card {
-    max-width: 640px;
+    width: 100%;
+    max-width: 760px;
+    margin-inline: auto;
 }
 
 .sn-form-group {
@@ -1406,6 +1424,18 @@ textarea.sn-form-control {
   overflow: hidden;
   min-width: 60px;
 }
+
+progress.sn-util-bar {
+  appearance: none;
+  border: 0;
+}
+
+progress.sn-util-bar::-webkit-progress-bar { background: var(--color-border); border-radius: 999px; }
+progress.sn-util-bar::-webkit-progress-value { background: var(--util-color, var(--color-success)); border-radius: 999px; }
+progress.sn-util-bar::-moz-progress-bar { background: var(--util-color, var(--color-success)); border-radius: 999px; }
+progress.sn-util-bar__fill--low { --util-color: var(--color-success); }
+progress.sn-util-bar__fill--medium { --util-color: var(--color-warning); }
+progress.sn-util-bar__fill--high { --util-color: var(--color-danger); }
 
 .sn-util-bar__fill {
   height: 100%;

@@ -53,7 +53,6 @@
         <div class="sn-context-switcher">
             <form th:action="@{/context-selection}" method="post" class="sn-context-switcher__form">
                 <input type="hidden" name="returnTo" th:value="${currentRequestPath}">
-                <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                 <label for="globalContext" class="sn-context-switcher__label" th:text="#{context.active}">Contexte actif</label>
                 <select id="globalContext" name="contextId" data-auto-submit class="sn-context-switcher__select"
                         th:aria-label="#{context.select.aria}">
@@ -64,17 +63,16 @@
             </form>
             <form th:action="@{/context-selection/reset}" method="post" class="sn-context-switcher__reset">
                 <input type="hidden" name="returnTo" th:value="${currentRequestPath}">
-                <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                 <button type="submit" class="sn-icon-button" th:title="#{context.reset}" th:aria-label="#{context.reset}">↺</button>
             </form>
         </div>
 
         <nav class="sn-main-nav" th:aria-label="#{nav.network.aria}">
-            <a th:href="@{/network/contexts}" class="sn-nav-tile" th:classappend="${activeSection == 'contexts' ? ' active' : ''}"><span class="sn-nav-tile__icon">◎</span><span th:text="#{nav.contexts}">Contextes</span></a>
-            <a th:href="@{/network/sites}" class="sn-nav-tile" th:classappend="${activeSection == 'sites' ? ' active' : ''}"><span class="sn-nav-tile__icon">⌖</span><span th:text="#{nav.sites}">Sites</span></a>
-            <a th:href="@{/network/vlans}" class="sn-nav-tile" th:classappend="${activeSection == 'vlans' ? ' active' : ''}"><span class="sn-nav-tile__icon">◇</span><span th:text="#{nav.vlans}">VLAN</span></a>
-            <a th:href="@{/network/subnets}" class="sn-nav-tile" th:classappend="${activeSection == 'subnets' ? ' active' : ''}"><span class="sn-nav-tile__icon">▦</span><span th:text="#{nav.subnets}">Sous-réseaux</span></a>
-            <a th:href="@{/network/addresses}" class="sn-nav-tile" th:classappend="${activeSection == 'addresses' ? ' active' : ''}"><span class="sn-nav-tile__icon">⌁</span><span th:text="#{nav.addresses}">Adresses IP</span></a>
+            <a th:href="@{/network/contexts}" class="sn-nav-tile" th:title="#{nav.contexts}" th:aria-label="#{nav.contexts}" th:classappend="${activeSection == 'contexts' ? ' active' : ''}"><span class="sn-nav-tile__icon" aria-hidden="true">◎</span><span th:text="#{nav.contexts}">Contextes</span></a>
+            <a th:href="@{/network/sites}" class="sn-nav-tile" th:title="#{nav.sites}" th:aria-label="#{nav.sites}" th:classappend="${activeSection == 'sites' ? ' active' : ''}"><span class="sn-nav-tile__icon" aria-hidden="true">⌖</span><span th:text="#{nav.sites}">Sites</span></a>
+            <a th:href="@{/network/vlans}" class="sn-nav-tile" th:title="#{nav.vlans}" th:aria-label="#{nav.vlans}" th:classappend="${activeSection == 'vlans' ? ' active' : ''}"><span class="sn-nav-tile__icon" aria-hidden="true">◇</span><span th:text="#{nav.vlans}">VLAN</span></a>
+            <a th:href="@{/network/subnets}" class="sn-nav-tile" th:title="#{nav.subnets}" th:aria-label="#{nav.subnets}" th:classappend="${activeSection == 'subnets' ? ' active' : ''}"><span class="sn-nav-tile__icon" aria-hidden="true">▦</span><span th:text="#{nav.subnets}">Sous-réseaux</span></a>
+            <a th:href="@{/network/addresses}" class="sn-nav-tile" th:title="#{nav.addresses}" th:aria-label="#{nav.addresses}" th:classappend="${activeSection == 'addresses' ? ' active' : ''}"><span class="sn-nav-tile__icon" aria-hidden="true">⌁</span><span th:text="#{nav.addresses}">Adresses IP</span></a>
         </nav>
     </div>
 

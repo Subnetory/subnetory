@@ -4,6 +4,27 @@ All notable changes to Subnetory will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows semantic versioning pragmatically during early development.
 
+## [Unreleased]
+
+### Added
+
+* Journalisation exploitable des mises à jour réseau, upserts/imports/réservations d'adresses, scans Nmap réussis ou échoués et purges du journal ; l'événement de purge survit désormais à la purge qu'il trace.
+* Scripts PowerShell reproductibles d'audit API complet sur une stack Docker isolée, couvrant le contrat OpenAPI, les rôles, les contextes, les sauvegardes/restaurations, Nmap et la présence des événements d'audit.
+
+### Changed
+
+* Docker Compose publie désormais l'application sur l'interface loopback par défaut, avec une variable explicite pour les déploiements nécessitant une exposition réseau ; le guide d'exploitation détaille les réglages et contrôles de production.
+* La sérialisation des pages REST utilise un format stable et le contrat OpenAPI reflète les réponses et validations réellement exposées.
+
+### Fixed
+
+* Les trois vulnérabilités critiques Tomcat détectées par Trivy (`CVE-2026-65182`, `CVE-2026-65905` et `CVE-2026-68525`) sont corrigées par la mise à niveau vers Spring Boot 4.1.1 et Tomcat 11.0.25.
+* Les VLAN assignables sont strictement limités à `1..4094` dans l'API, l'interface, le domaine et PostgreSQL, avec une migration Flyway additive.
+* Les JWT émis immédiatement après un changement de mot de passe ne sont plus rejetés par une perte de précision temporelle, tandis que les anciens jetons restent invalidés de manière sûre.
+* Une restauration ne s'attend plus elle-même pendant le drainage des mutations et les erreurs JSON malformées ou incomplètes produisent une réponse `400` stable plutôt qu'une erreur serveur.
+* La capacité et le taux d'utilisation des sous-réseaux tiennent correctement compte des adresses réservées, y compris pour les `/31` et `/32`, et la jauge reste compatible avec la politique CSP.
+* Les parcours Web FR/EN ont été harmonisés : traductions et compteurs, formulaires, actions impossibles, accessibilité, navigation mobile et en-tête bureau sans chevauchement.
+
 ## [0.8.10] - 2026-08-05
 
 > **Note :** les tags `v0.8.7`, `v0.8.8` et `v0.8.9` ont brièvement existé sur le dépôt public mais n'ont jamais produit de GitHub Release. `v0.8.7` a échoué avant la moindre étape de publication (voir le correctif Buildx ci-dessous). `v0.8.8` est allé plus loin — image construite, poussée sur GHCR et signée avec succès — avant d'échouer à l'étape suivante (voir le correctif SBOM ci-dessous). `v0.8.9` est allé plus loin encore — image construite/poussée/signée, SBOM et `SHA256SUMS.txt` générés avec succès — avant d'échouer à la signature de `SHA256SUMS.txt` elle-même (voir le correctif Cosign ci-dessous), laissant une image `ghcr.io/subnetory/subnetory:v0.8.9` publiée et signée mais sans GitHub Release. La protection des tags GitHub a empêché de déplacer ou supprimer l'un ou l'autre une fois chaque correctif appliqué ; republication directe sous la version suivante à chaque fois plutôt que de contourner cette protection. Ces trois tags restent visibles sur le dépôt.

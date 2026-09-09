@@ -80,6 +80,39 @@ class UserTokenInvalidationValidatorTest {
     }
 
     @Test
+    void rejectsLegacyTokenIssuedInSameSecondBeforeHigherPrecisionThreshold() {
+        Jwt token = jwt("alice", ISSUED_AT);
+        when(repository.findNotBeforeByUsername("alice"))
+                .thenReturn(Optional.of(ISSUED_AT.plusMillis(842)));
+
+        OAuth2TokenValidatorResult result = validator.validate(token);
+
+        assertThat(result.hasErrors()).isTrue();
+    }
+
+    @Test
+    void acceptsNewTokenPreciselyIssuedAfterThresholdInSameSecond() {
+        Jwt token = jwt("alice", ISSUED_AT, ISSUED_AT.plusMillis(900));
+        when(repository.findNotBeforeByUsername("alice"))
+                .thenReturn(Optional.of(ISSUED_AT.plusMillis(842)));
+
+        OAuth2TokenValidatorResult result = validator.validate(token);
+
+        assertThat(result.hasErrors()).isFalse();
+    }
+
+    @Test
+    void rejectsNewTokenPreciselyIssuedBeforeThresholdInSameSecond() {
+        Jwt token = jwt("alice", ISSUED_AT, ISSUED_AT.plusMillis(400));
+        when(repository.findNotBeforeByUsername("alice"))
+                .thenReturn(Optional.of(ISSUED_AT.plusMillis(842)));
+
+        OAuth2TokenValidatorResult result = validator.validate(token);
+
+        assertThat(result.hasErrors()).isTrue();
+    }
+
+    @Test
     void acceptsTokenIssuedAfterInvalidationThreshold() {
         Jwt token = jwt("alice", ISSUED_AT.plusSeconds(2));
         when(repository.findNotBeforeByUsername("alice"))
@@ -91,6 +124,10 @@ class UserTokenInvalidationValidatorTest {
     }
 
     private static Jwt jwt(String subject, Instant issuedAt) {
+        return jwt(subject, issuedAt, null);
+    }
+
+    private static Jwt jwt(String subject, Instant issuedAt, Instant preciseIssuedAt) {
         Jwt.Builder builder = Jwt.withTokenValue("token")
                 .header("alg", "HS256")
                 .expiresAt(ISSUED_AT.plusSeconds(3600));
@@ -101,6 +138,9 @@ class UserTokenInvalidationValidatorTest {
 
         if (issuedAt != null) {
             builder.issuedAt(issuedAt);
+        }
+        if (preciseIssuedAt != null) {
+            builder.claim(JwtTokenService.PRECISE_ISSUED_AT_CLAIM, preciseIssuedAt.toString());
         }
 
         return builder.build();

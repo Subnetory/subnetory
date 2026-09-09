@@ -39,7 +39,6 @@
         </div>
 
         <form th:action="@{/profile/mfa/setup}" th:object="${form}" method="post" class="sn-form">
-            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
 
             <div class="sn-form__group">
                 <label for="mfaCode" class="sn-form__label" th:text="#{mfaSetup.code.label}">Code a 6 chiffres</label>

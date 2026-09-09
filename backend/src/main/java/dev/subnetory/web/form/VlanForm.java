@@ -14,7 +14,7 @@ public class VlanForm {
     private String name;
 
     @NotNull(message = "{validation.vlanId.required}")
-    @Min(value = 0,    message = "{validation.vlanId.range}")
+    @Min(value = 1,    message = "{validation.vlanId.range}")
     @Max(value = 4094, message = "{validation.vlanId.range}")
     private Integer vid;
 

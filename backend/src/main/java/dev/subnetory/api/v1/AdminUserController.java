@@ -215,6 +215,7 @@ public class AdminUserController {
             case "ROLE_READ_ONLY" -> "Lecture seule sur les contextes autorisés.";
             case "ROLE_NETWORK" -> "Création et modification des contextes, sites, VLAN, sous-réseaux et scans.";
             case "ROLE_IP" -> "Création, modification, suppression, import et export des adresses IP.";
+            case "ROLE_BACKUP" -> "Création, consultation et téléchargement des sauvegardes.";
             default -> "Rôle non attribuable.";
         };
     }

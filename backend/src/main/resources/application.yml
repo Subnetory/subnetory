@@ -221,6 +221,9 @@ logging:
   level:
     dev.subnetory: INFO
     org.springframework.security: WARN
+    # Le ProviderManager Web est assemblé explicitement (LOCAL puis LDAP
+    # dynamique). Ce message d'auto-configuration est donc attendu et bruité.
+    org.springframework.security.config.annotation.authentication.configuration.InitializeUserDetailsBeanManagerConfigurer: ERROR
     org.hibernate.SQL: WARN
 
 server:
@@ -285,8 +288,10 @@ server:
 # Les URLs sont en permitAll() dans SecurityConfig (chaîne @Order(2)).
 springdoc:
   api-docs:
+    enabled: ${SUBNETORY_SWAGGER_ENABLED:true}
     path: /v3/api-docs
   swagger-ui:
+    enabled: ${SUBNETORY_SWAGGER_ENABLED:true}
     path: /swagger-ui.html
     try-it-out-enabled: true
     # Désactive le validateur externe — évite les appels vers validator.swagger.io

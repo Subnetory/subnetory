@@ -17,6 +17,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -50,7 +51,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class NetworkWebPagesIT {
 
     @Container
-    static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:17-alpine")
+    static PostgreSQLContainer postgres = new PostgreSQLContainer(org.testcontainers.utility.DockerImageName.parse("postgres:17-alpine"))
             .withDatabaseName("subnetory_test")
             .withUsername("subnetory")
             .withPassword("subnetory");
@@ -131,7 +132,8 @@ class NetworkWebPagesIT {
     void assets_css_publicWithoutAuth() throws Exception {
         mvc.perform(get("/assets/css/app.css"))
                 .andExpect(status().isOk())
-                .andExpect(content().contentTypeCompatibleWith("text/css"));
+                .andExpect(content().contentTypeCompatibleWith("text/css"))
+                .andExpect(content().string(containsString("@media (max-width: 1500px)")));
     }
 
     @Test @Order(5) @DisplayName("GET /assets/js/app.js → 200 sans auth")

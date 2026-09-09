@@ -67,9 +67,33 @@ public final class IpUtils {
             || ip.equals(info.getBroadcastAddress());
     }
 
-    /** Nombre total d'adresses utilisables (exclut network et broadcast pour /24 et moins). */
+    /**
+     * Nombre d'hôtes utilisables selon les règles IPv4 usuelles.
+     * Réseau et broadcast sont exclus jusqu'au /30. Un /31 conserve ses deux
+     * extrémités (RFC 3021) et un /32 représente un hôte unique.
+     */
     public static long usableAddressCount(String cidr) {
-        return info(cidr).getAddressCountLong();
+        int prefix = cidrPrefixLength(cidr);
+        long total = totalAddressCount(cidr);
+        return prefix <= 30 ? total - 2 : total;
+    }
+
+    /** Nombre brut d'adresses du bloc, borné à l'espace IPv4. */
+    public static long totalAddressCount(String cidr) {
+        int prefix = cidrPrefixLength(cidr);
+        return 1L << (32 - prefix);
+    }
+
+    /** Capacité réellement attribuable après réservation éventuelle de la passerelle. */
+    public static long assignableAddressCount(String cidr, String gateway) {
+        long usable = usableAddressCount(cidr);
+        if (gateway == null || gateway.isBlank() || !isValidIpv4(gateway) || !isInNetwork(gateway, cidr)) {
+            return usable;
+        }
+        int prefix = cidrPrefixLength(cidr);
+        boolean endpointExcluded = prefix <= 30
+                && (gateway.equals(networkAddress(cidr)) || gateway.equals(broadcastAddress(cidr)));
+        return endpointExcluded ? usable : Math.max(0L, usable - 1L);
     }
 
     /** Retourne la longueur de préfixe d'un CIDR IPv4 valide. */
@@ -139,7 +163,7 @@ public final class IpUtils {
             throw new IllegalArgumentException("Invalid CIDR: " + cidr);
         }
         SubnetUtils utils = new SubnetUtils(cidr);
-        utils.setInclusiveHostCount(true); // network + broadcast comptés comme utilisables
+        utils.setInclusiveHostCount(true);
         return utils.getInfo();
     }
 

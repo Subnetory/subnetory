@@ -6,6 +6,7 @@ import dev.subnetory.dto.BulkUpsertRequest;
 import dev.subnetory.dto.BulkUpsertResponse;
 import dev.subnetory.exception.ResourceNotFoundException;
 import dev.subnetory.service.AddressService;
+import dev.subnetory.service.AuthAuditService;
 import dev.subnetory.service.SubnetService;
 import dev.subnetory.util.IpUtils;
 import org.slf4j.Logger;
@@ -76,6 +77,7 @@ public class ScanService {
     private final SubnetService subnetService;
     private final AddressService addressService;
     private final RestoreMaintenanceGate restoreMaintenanceGate;
+    private final AuthAuditService authAuditService;
 
     @Value("${subnetory.scan.timeout-seconds:60}")
     private int timeoutSeconds;
@@ -140,10 +142,12 @@ public class ScanService {
     private final Map<String, Integer> activeScansByUser = new HashMap<>();
 
     public ScanService(SubnetService subnetService, AddressService addressService,
-                       RestoreMaintenanceGate restoreMaintenanceGate) {
+                       RestoreMaintenanceGate restoreMaintenanceGate,
+                       AuthAuditService authAuditService) {
         this.subnetService = subnetService;
         this.addressService = addressService;
         this.restoreMaintenanceGate = restoreMaintenanceGate;
+        this.authAuditService = authAuditService;
     }
 
     @PostConstruct
@@ -162,6 +166,28 @@ public class ScanService {
      *                       si le scan expire ou si une erreur d'exécution survient
      */
     public ScanResponse scan(Long subnetId, ScanRequest request, String currentUser)
+            throws ScanException {
+        ScanResponse response;
+        try {
+            response = executeScan(subnetId, request, currentUser);
+        } catch (ScanException e) {
+            authAuditService.recordSubnetScanFailed(
+                    currentUser, subnetId, e.getReason().name(), e.getMessage());
+            throw e;
+        } catch (RuntimeException e) {
+            authAuditService.recordSubnetScanFailed(
+                    currentUser, subnetId, e.getClass().getSimpleName(), e.getMessage());
+            throw e;
+        }
+
+        authAuditService.recordSubnetScanCompleted(
+                currentUser, subnetId, response.network(), response.hostsFound(),
+                response.created(), response.updatedLastSeen() + response.overwritten(),
+                response.errors());
+        return response;
+    }
+
+    private ScanResponse executeScan(Long subnetId, ScanRequest request, String currentUser)
             throws ScanException {
 
         // Correctif securite FAIBLE (second audit externe 04/08/2026) :
@@ -271,7 +297,7 @@ public class ScanService {
     private void validateSubnetSize(String cidr) throws ScanException {
         int prefix = prefixLengthOf(cidr);
         if (prefix < MIN_ALLOWED_PREFIX_LENGTH) {
-            long usableHosts = Math.max(0, IpUtils.usableAddressCount(cidr) - 2);
+            long usableHosts = IpUtils.usableAddressCount(cidr);
             throw new ScanException(
                     String.format(
                             "Subnet %s is too large for synchronous scan (%d usable hosts, max 254). " +

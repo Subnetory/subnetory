@@ -12,12 +12,14 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class JwtTokenServiceTest {
 
@@ -43,5 +45,9 @@ class JwtTokenServiceTest {
         assertDoesNotThrow(() -> UUID.fromString(first.getId()));
         assertDoesNotThrow(() -> UUID.fromString(second.getId()));
         assertNotEquals(first.getId(), second.getId());
+        Instant preciseIssuedAt = assertDoesNotThrow(() -> Instant.parse(
+                first.getClaimAsString(JwtTokenService.PRECISE_ISSUED_AT_CLAIM)));
+        assertFalse(preciseIssuedAt.isBefore(first.getIssuedAt()));
+        assertFalse(preciseIssuedAt.isAfter(first.getIssuedAt().plusSeconds(1)));
     }
 }

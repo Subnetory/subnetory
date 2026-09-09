@@ -31,8 +31,7 @@ public class BulkReservationForm {
     @Max(value = 50, message = "{validation.reserve.additionalCount.max}")
     private int additionalCount = 10;
 
-    @Valid
-    private List<BulkReservationRow> rows = new ArrayList<>();
+    private List<@Valid BulkReservationRow> rows = new ArrayList<>();
 
     public Long getSubnetId()              { return subnetId; }
     public void setSubnetId(Long subnetId) { this.subnetId = subnetId; }

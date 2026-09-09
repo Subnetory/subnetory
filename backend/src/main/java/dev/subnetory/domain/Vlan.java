@@ -1,6 +1,8 @@
 package dev.subnetory.domain;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import java.time.OffsetDateTime;
 
 @Entity
@@ -15,6 +17,8 @@ public class Vlan {
     private String name;
 
     @Column(nullable = false)
+    @Min(1)
+    @Max(4094)
     private Short vid;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

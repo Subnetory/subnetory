@@ -88,14 +88,14 @@ class RestoreMaintenanceGateTest {
     @Test
     void awaitDrain_waitsForInFlightMutationToRelease() throws Exception {
         RestoreMaintenanceGate gate = new RestoreMaintenanceGate();
-        assertThat(gate.tryAdmitMutation()).isTrue();
-        gate.begin();
-
         ExecutorService executor = Executors.newSingleThreadExecutor();
+        CountDownLatch admittedLatch = new CountDownLatch(1);
         CountDownLatch releasedLatch = new CountDownLatch(1);
         try {
             executor.submit(() -> {
                 try {
+                    assertThat(gate.tryAdmitMutation()).isTrue();
+                    admittedLatch.countDown();
                     Thread.sleep(100);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -104,6 +104,8 @@ class RestoreMaintenanceGateTest {
                     releasedLatch.countDown();
                 }
             });
+            assertThat(admittedLatch.await(1, TimeUnit.SECONDS)).isTrue();
+            gate.begin();
 
             boolean drained = gate.awaitDrain(Duration.ofSeconds(5));
 
@@ -118,13 +120,49 @@ class RestoreMaintenanceGateTest {
     @Test
     void awaitDrain_returnsFalseWhenTimeoutExpiresWithMutationStillActive() throws InterruptedException {
         RestoreMaintenanceGate gate = new RestoreMaintenanceGate();
-        gate.tryAdmitMutation();
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        CountDownLatch admittedLatch = new CountDownLatch(1);
+        CountDownLatch releaseLatch = new CountDownLatch(1);
+        try {
+            executor.submit(() -> {
+                assertThat(gate.tryAdmitMutation()).isTrue();
+                admittedLatch.countDown();
+                try {
+                    releaseLatch.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } finally {
+                    gate.releaseMutation();
+                }
+            });
+            assertThat(admittedLatch.await(1, TimeUnit.SECONDS)).isTrue();
+            gate.begin();
+
+            boolean drained = gate.awaitDrain(Duration.ofMillis(50));
+
+            assertThat(drained).isFalse();
+            assertThat(gate.activeMutationCount()).isEqualTo(1);
+            assertThat(gate.activeMutationCountExcludingCurrentThread()).isEqualTo(1);
+        } finally {
+            releaseLatch.countDown();
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void awaitDrain_excludesRestoreRequestAdmittedOnCurrentThread() throws InterruptedException {
+        RestoreMaintenanceGate gate = new RestoreMaintenanceGate();
+        assertThat(gate.tryAdmitMutation()).isTrue();
         gate.begin();
 
         boolean drained = gate.awaitDrain(Duration.ofMillis(50));
 
-        assertThat(drained).isFalse();
+        assertThat(drained).isTrue();
         assertThat(gate.activeMutationCount()).isEqualTo(1);
+        assertThat(gate.activeMutationCountExcludingCurrentThread()).isZero();
+
+        gate.releaseMutation();
+        gate.end();
     }
 
     /**

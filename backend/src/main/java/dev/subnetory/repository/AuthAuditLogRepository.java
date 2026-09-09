@@ -32,6 +32,7 @@ public interface AuthAuditLogRepository extends JpaRepository<AuthAuditLog, Long
             String targetUsername);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("delete from AuthAuditLog log where log.createdAt < :cutoff")
+    @Query("delete from AuthAuditLog log where log.createdAt < :cutoff "
+            + "and log.eventType <> 'AUDIT_LOG_PURGED'")
     int deleteOlderThan(@Param("cutoff") OffsetDateTime cutoff);
 }

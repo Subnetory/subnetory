@@ -133,6 +133,7 @@ public class NetworkContextWebController {
                          Model model,
                          RedirectAttributes flash,
                          HttpServletResponse response,
+                         Authentication auth,
                          Locale locale) {
         if (errors.hasErrors()) {
             prepareFormModel(model, form, msg("pageTitle.contextEdit", locale),
@@ -143,7 +144,9 @@ public class NetworkContextWebController {
             return "network/context-form";
         }
         try {
-            contextService.update(id, new NetworkContextRequest(form.getName(), form.getDescription()));
+            NetworkContextResponse updated = contextService.update(
+                    id, new NetworkContextRequest(form.getName(), form.getDescription()));
+            authAuditService.recordContextUpdated(auth.getName(), updated.id(), updated.name());
             flash.addFlashAttribute("flashSuccess", msg("flash.context.updateSuccess", locale));
         } catch (ResourceNotFoundException e) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);

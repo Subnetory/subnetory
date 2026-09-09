@@ -118,7 +118,16 @@ public class AddressWebController {
         model.addAttribute("hostnameFilter", hostname);
         model.addAttribute("macFilter", mac);
         model.addAttribute("selectedSubnetId", subnetId);
-        model.addAttribute("canManage", canManage(auth));
+        boolean manageable = canManage(auth);
+        boolean hasAvailableSubnets = false;
+        if (manageable) {
+            var availableSubnets = activeContextId == null
+                    ? subnetService.findAll(Pageable.unpaged())
+                    : subnetService.findByContext(activeContextId, Pageable.unpaged());
+            hasAvailableSubnets = availableSubnets != null && !availableSubnets.isEmpty();
+        }
+        model.addAttribute("canManage", manageable);
+        model.addAttribute("hasAvailableSubnets", hasAvailableSubnets);
         model.addAttribute("activeSection", "addresses");
         model.addAttribute("pageTitle", msg("nav.addresses", locale));
         return "network/addresses";
@@ -335,6 +344,8 @@ public class AddressWebController {
          CsvImportResponse result = "xlsx".equals(format)
                  ? addressService.importXlsx(new ByteArrayInputStream(content), override, auth.getName(), activeContextId)
                  : addressService.importCsv(new ByteArrayInputStream(content), override, auth.getName(), activeContextId);
+         authAuditService.recordAddressImportCompleted(auth.getName(), format, result.totalRows(),
+                 result.created(), result.updatedLastSeen(), result.skipped(), result.errors());
 
          flash.addFlashAttribute("importResult", result);
          flash.addFlashAttribute("importFormat", label);
@@ -479,6 +490,8 @@ public class AddressWebController {
 
         BulkUpsertResponse result = addressService.bulkUpsert(
                 new BulkUpsertRequest(entries, false), auth.getName());
+        authAuditService.recordAddressBulkUpserted(auth.getName(), result.created(), result.updated(),
+                result.skipped(), result.errors().size());
 
         model.addAttribute("result", result);
         model.addAttribute("activeSection", "addresses");
@@ -605,7 +618,8 @@ public class AddressWebController {
             return "network/address-form";
         }
         try {
-            addressService.update(id, toRequest(form), auth.getName());
+            AddressResponse updated = addressService.update(id, toRequest(form), auth.getName());
+            authAuditService.recordAddressUpdated(auth.getName(), updated.id(), updated.address(), "WEB");
             flash.addFlashAttribute("flashSuccess", msg("flash.address.updateSuccess", locale));
         } catch (ResourceNotFoundException e) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);

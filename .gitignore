@@ -90,3 +90,6 @@ terraform.tfstate.*
 /backups/
 *.dump
 *.sql.gz
+
+# Generated API audit evidence (may contain inventory data)
+/reports/

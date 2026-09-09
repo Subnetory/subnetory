@@ -11,24 +11,29 @@
             <h1 class="sn-page__title" th:text="#{nav.sites}">Sites</h1>
             <p class="sn-page__subtitle" th:text="#{site.subtitle}">Organisez vos emplacements physiques ou logiques par contexte.</p>
         </div>
-        <div th:if="${canManage}">
+        <div th:if="${canManage and !contexts.empty}">
             <a href="/network/sites/new" class="sn-btn sn-btn--primary" th:text="#{site.button.new}">+ Nouveau site</a>
         </div>
     </div>
 
     <div th:if="${flashSuccess}" class="sn-alert sn-alert--success" th:text="${flashSuccess}"></div>
     <div th:if="${flashError}"   class="sn-alert sn-alert--error"   th:text="${flashError}"></div>
+    <div th:if="${canManage and contexts.empty}" class="sn-alert sn-alert--info">
+        <span th:text="#{site.parentRequired}">Créez d'abord un contexte.</span>
+        <a th:href="@{/network/contexts/new}" th:text="#{context.button.new}">Nouveau contexte</a>
+    </div>
 
     <form th:action="@{/network/sites}" method="get" class="sn-search sn-filter-bar">
-        <select name="contextId" class="sn-search__select"
-                th:aria-label="#{filter.context.aria}"
-                data-auto-submit>
-            <option value="" th:text="#{site.filter.allContexts}">Tous les contextes</option>
-            <option th:each="ctx : ${contexts}"
-                    th:value="${ctx.id}"
-                    th:text="${ctx.name}"
-                    th:selected="${ctx.id == selectedContextId}">Default</option>
-        </select>
+        <label class="sn-filter-field">
+            <span class="sn-filter-field__label" th:text="#{filter.context.label}">Contexte</span>
+            <select name="contextId" class="sn-search__select" data-auto-submit>
+                <option value="" th:text="#{site.filter.allContexts}">Tous les contextes</option>
+                <option th:each="ctx : ${contexts}"
+                        th:value="${ctx.id}"
+                        th:text="${ctx.name}"
+                        th:selected="${ctx.id == selectedContextId}">Default</option>
+            </select>
+        </label>
     </form>
 
     <div class="sn-card">
@@ -50,7 +55,7 @@
                         <td><strong th:text="${site.name}">Site</strong></td>
                         <td class="sn-text-secondary" th:text="${site.contextName}">Default</td>
                         <td class="sn-text-muted"
-                            th:text="${#temporals.format(site.createdAt.toLocalDate())}">01/01/2026</td>
+                            th:text="${#temporals.format(site.createdAt.toLocalDate(), datePattern)}">01/01/2026</td>
                         <td th:if="${canManage}" class="sn-table-actions">
                             <a th:href="@{/network/sites/{id}/edit(id=${site.id})}"
                                class="sn-btn sn-btn--secondary sn-btn--sm" th:text="#{common.edit}">Modifier</a>
@@ -72,8 +77,7 @@
 
         <div class="sn-pagination" th:if="${!sites.empty}">
             <span class="sn-pagination__info"
-                  th:with="suffix=#{pagination.sites.suffix}"
-                  th:text="${sites.totalElements} + ' ' + suffix">N sites</span>
+                  th:text="${sites.totalElements + ' ' + #messages.msg('pagination.sites.suffix')}">N sites</span>
             <nav class="sn-pagination__nav" th:if="${sites.totalPages > 1}">
                 <a th:href="@{/network/sites(page=${sites.number - 1}, contextId=${selectedContextId})}"
                    th:classappend="${sites.first ? 'sn-pagination__btn--disabled' : ''}"

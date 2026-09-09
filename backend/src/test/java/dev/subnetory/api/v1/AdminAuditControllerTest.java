@@ -12,6 +12,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 class AdminAuditControllerTest {
 
@@ -39,8 +40,16 @@ class AdminAuditControllerTest {
         when(retentionService.purgeOlderThan(org.mockito.ArgumentMatchers.any()))
                 .thenReturn(7);
 
-        var response = controller.purge(new dev.subnetory.dto.AuditPurgeRequest(java.time.LocalDate.of(2026, 1, 1)));
+        var authentication = mock(org.springframework.security.core.Authentication.class);
+        when(authentication.getName()).thenReturn("admin");
+        var response = controller.purge(
+                new dev.subnetory.dto.AuditPurgeRequest(java.time.LocalDate.of(2026, 1, 1)),
+                authentication);
 
         assertThat(response.deletedCount()).isEqualTo(7);
+        verify(authAuditService).recordAuditLogPurged(
+                org.mockito.ArgumentMatchers.eq("admin"),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.eq(7));
     }
 }

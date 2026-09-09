@@ -406,6 +406,24 @@ public class UserAdminService {
         return saved;
     }
 
+    /** État destiné à l'interface ; les garde-fous serveur restent l'autorité. */
+    @Transactional(readOnly = true)
+    public boolean canDisableOrDelete(Long targetId, String currentUsername) {
+        User target = findById(targetId);
+        User current = findByUsername(currentUsername);
+        if (target.getId().equals(current.getId())) {
+            return false;
+        }
+        return !hasRole(target, ROLE_ADMIN) || userRepository.countActiveByRoleName(ROLE_ADMIN) > 1;
+    }
+
+    /** Indique si le rôle ADMIN peut être retiré depuis le formulaire. */
+    @Transactional(readOnly = true)
+    public boolean canRemoveAdminRole(Long targetId) {
+        User target = findById(targetId);
+        return !hasRole(target, ROLE_ADMIN) || userRepository.countActiveByRoleName(ROLE_ADMIN) > 1;
+    }
+
     /**
      * Supprime definitivement un compte utilisateur (03/08/2026, fonctionnalite
      * manquante identifiee lors de la relecture avant publication : seule la

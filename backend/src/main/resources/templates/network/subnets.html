@@ -20,7 +20,7 @@
             <a th:href="@{/network/subnets/export/xlsx(siteId=${selectedSiteId},contextId=${selectedContextId})}"
                class="sn-btn sn-btn--ghost sn-btn--sm">↓ Excel</a>
             <!-- Nouveau sous-réseau — conditionnel canManage -->
-            <a th:if="${canManage}" href="/network/subnets/new"
+            <a th:if="${canManage and !sites.empty}" href="/network/subnets/new"
                class="sn-btn sn-btn--primary" th:text="#{subnet.button.new}">+ Nouveau sous-réseau</a>
         </div>
     </div>
@@ -29,22 +29,32 @@
     <div th:if="${scanError}"   class="sn-scan-result sn-scan-result--error" th:text="${scanError}"></div>
     <div th:if="${flashSuccess}" class="sn-alert sn-alert--success" th:text="${flashSuccess}"></div>
     <div th:if="${flashError}"   class="sn-alert sn-alert--error"   th:text="${flashError}"></div>
+    <div th:if="${canManage and sites.empty}" class="sn-alert sn-alert--info">
+        <span th:text="#{subnet.parentRequired}">Créez d'abord un site.</span>
+        <a th:href="@{/network/sites/new}" th:text="#{site.button.new}">Nouveau site</a>
+    </div>
 
     <form th:action="@{/network/subnets}" method="get" class="sn-search sn-filter-bar">
-        <select name="contextId" class="sn-search__select" th:aria-label="#{filter.context.aria}" data-auto-submit>
-            <option value="" th:text="#{site.filter.allContexts}">Tous les contextes</option>
-            <option th:each="ctx : ${contexts}"
-                    th:value="${ctx.id}"
-                    th:text="${ctx.name}"
-                    th:selected="${ctx.id == selectedContextId}">Default</option>
-        </select>
-        <select name="siteId" class="sn-search__select" th:aria-label="#{filter.site.aria}" data-auto-submit>
-            <option value="" th:text="#{vlan.filter.allSites}">Tous les sites</option>
-            <option th:each="site : ${sites}"
-                    th:value="${site.id}"
-                    th:text="|${site.code} — ${site.name}|"
-                    th:selected="${site.id == selectedSiteId}">SITE</option>
-        </select>
+        <label class="sn-filter-field">
+            <span class="sn-filter-field__label" th:text="#{filter.context.label}">Contexte</span>
+            <select name="contextId" class="sn-search__select" data-auto-submit>
+                <option value="" th:text="#{site.filter.allContexts}">Tous les contextes</option>
+                <option th:each="ctx : ${contexts}"
+                        th:value="${ctx.id}"
+                        th:text="${ctx.name}"
+                        th:selected="${ctx.id == selectedContextId}">Default</option>
+            </select>
+        </label>
+        <label class="sn-filter-field">
+            <span class="sn-filter-field__label" th:text="#{filter.site.label}">Site</span>
+            <select name="siteId" class="sn-search__select" data-auto-submit>
+                <option value="" th:text="#{vlan.filter.allSites}">Tous les sites</option>
+                <option th:each="site : ${sites}"
+                        th:value="${site.id}"
+                        th:text="|${site.code} — ${site.name}|"
+                        th:selected="${site.id == selectedSiteId}">SITE</option>
+            </select>
+        </label>
     </form>
 
     <div class="sn-card">
@@ -54,7 +64,7 @@
                     <tr>
                         <th th:text="#{table.network}">Réseau</th>
                         <th th:text="#{common.description}">Description</th>
-                        <th th:text="#{table.gateway}">Gateway</th>
+                        <th th:text="#{table.gateway}">Passerelle</th>
                         <th th:text="#{table.vlan}">VLAN</th>
                         <th th:text="#{common.site}">Site</th>
                         <th th:text="#{common.context}">Contexte</th>
@@ -120,8 +130,7 @@
 
         <div class="sn-pagination" th:if="${!subnets.empty}">
             <span class="sn-pagination__info"
-                  th:with="suffix=#{pagination.subnets.suffix}"
-                  th:text="${subnets.totalElements} + ' ' + suffix">N subnets</span>
+                  th:text="${subnets.totalElements + ' ' + #messages.msg('pagination.subnets.suffix')}">N sous-réseaux</span>
             <nav class="sn-pagination__nav" th:if="${subnets.totalPages > 1}">
                 <a th:href="@{/network/subnets(page=${subnets.number - 1}, contextId=${selectedContextId}, siteId=${selectedSiteId}, vlanId=${selectedVlanId})}"
                    th:classappend="${subnets.first ? 'sn-pagination__btn--disabled' : ''}"

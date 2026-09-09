@@ -15,10 +15,6 @@
     <div th:if="${formError}" class="sn-alert sn-alert--error" th:text="${formError}"></div>
 
     <div class="sn-card sn-card--padded sn-form-card">
-        <div class="sn-card__header">
-            <h2 class="sn-card__title" th:text="${pageTitle}">Sous-réseau</h2>
-        </div>
-
         <form th:action="${formAction}" th:object="${form}" method="post" novalidate class="sn-form">
 
             <input type="hidden" th:field="*{id}" />
@@ -55,7 +51,7 @@
             </div>
 
             <div class="sn-form__group">
-                <label for="gateway" class="sn-form__label" th:text="#{subnet.form.gateway.label}">Gateway</label>
+                <label for="gateway" class="sn-form__label" th:text="#{subnet.form.gateway.label}">Passerelle</label>
                 <input type="text"
                        id="gateway"
                        th:field="*{gateway}"
@@ -112,7 +108,7 @@
                     <option th:each="s : ${allSubnets}"
                             th:if="${form.id == null or s.id != form.id}"
                             th:value="${s.id}"
-                            th:text="|${s.network} — ${s.siteName}|">Subnet</option>
+                            th:text="|${s.network} — ${s.siteName}|">Sous-réseau</option>
                 </select>
             </div>
 

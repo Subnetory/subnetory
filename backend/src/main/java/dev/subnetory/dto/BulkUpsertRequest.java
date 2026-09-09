@@ -17,8 +17,7 @@ import java.util.List;
  */
 public record BulkUpsertRequest(
         @NotEmpty(message = "Addresses list must not be empty")
-        @Valid
-        List<BulkUpsertEntry> addresses,
+        List<@Valid BulkUpsertEntry> addresses,
 
         boolean override
 ) {

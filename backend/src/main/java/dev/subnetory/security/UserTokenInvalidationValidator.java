@@ -2,6 +2,7 @@ package dev.subnetory.security;
 
 import dev.subnetory.repository.UserTokenInvalidationRepository;
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.Optional;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
@@ -29,6 +30,11 @@ public class UserTokenInvalidationValidator implements OAuth2TokenValidator<Jwt>
         "The token was issued before the user token invalidation threshold.",
         null);
 
+    private static final OAuth2Error INVALID_PRECISE_IAT = new OAuth2Error(
+        "invalid_token",
+        "The token precise issued-at claim is invalid.",
+        null);
+
     private final UserTokenInvalidationRepository repository;
 
     public UserTokenInvalidationValidator(UserTokenInvalidationRepository repository) {
@@ -53,7 +59,22 @@ public class UserTokenInvalidationValidator implements OAuth2TokenValidator<Jwt>
             return OAuth2TokenValidatorResult.failure(MISSING_IAT);
         }
 
-        if (issuedAt.isBefore(notBefore.get())) {
+        // NumericDate tronque iat à la seconde : il est donc impossible de
+        // distinguer deux jetons séparés par un logout-all dans la même seconde.
+        // Les jetons Subnetory récents embarquent l'instant ISO précis. Pour les
+        // anciens jetons, la comparaison stricte conserve le comportement sûr :
+        // ils restent refusés jusqu'à la seconde suivante.
+        Instant effectiveIssuedAt = issuedAt;
+        String preciseIssuedAt = token.getClaimAsString(JwtTokenService.PRECISE_ISSUED_AT_CLAIM);
+        if (StringUtils.hasText(preciseIssuedAt)) {
+            try {
+                effectiveIssuedAt = Instant.parse(preciseIssuedAt);
+            } catch (DateTimeParseException e) {
+                return OAuth2TokenValidatorResult.failure(INVALID_PRECISE_IAT);
+            }
+        }
+
+        if (effectiveIssuedAt.isBefore(notBefore.get())) {
             return OAuth2TokenValidatorResult.failure(TOKEN_TOO_OLD);
         }
 

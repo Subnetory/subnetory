@@ -342,11 +342,13 @@ class BackupExecutionServiceTest {
     @Test
     void awaitRestoreDrain_mutationReleasedBeforeTimeout_returnsOnceDrained() throws Exception {
         ReflectionTestUtils.setField(service, "restoreDrainTimeoutSeconds", 5);
-        assertThat(restoreMaintenanceGate.tryAdmitMutation()).isTrue();
 
         java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor();
+        java.util.concurrent.CountDownLatch admitted = new java.util.concurrent.CountDownLatch(1);
         try {
             executor.submit(() -> {
+                assertThat(restoreMaintenanceGate.tryAdmitMutation()).isTrue();
+                admitted.countDown();
                 try {
                     Thread.sleep(100);
                 } catch (InterruptedException e) {
@@ -355,6 +357,7 @@ class BackupExecutionServiceTest {
                     restoreMaintenanceGate.releaseMutation();
                 }
             });
+            assertThat(admitted.await(2, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
 
             ReflectionTestUtils.invokeMethod(service, "awaitRestoreDrain", "subnetory-20260801.dump", "admin");
 
@@ -372,18 +375,35 @@ class BackupExecutionServiceTest {
      * {@code RestoreMaintenanceGateTest#awaitDrain_returnsFalseWhenTimeoutExpiresWithMutationStillActive}.
      */
     @Test
-    void awaitRestoreDrain_timesOutWithMutationStillActive_proceedsAnywayWithoutThrowing() {
+    void awaitRestoreDrain_timesOutWithMutationStillActive_proceedsAnywayWithoutThrowing() throws Exception {
         ReflectionTestUtils.setField(service, "restoreDrainTimeoutSeconds", 0);
-        assertThat(restoreMaintenanceGate.tryAdmitMutation()).isTrue();
+        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor();
+        java.util.concurrent.CountDownLatch admitted = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        try {
+            executor.submit(() -> {
+                assertThat(restoreMaintenanceGate.tryAdmitMutation()).isTrue();
+                admitted.countDown();
+                try {
+                    release.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } finally {
+                    restoreMaintenanceGate.releaseMutation();
+                }
+            });
+            assertThat(admitted.await(2, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
 
-        ReflectionTestUtils.invokeMethod(service, "awaitRestoreDrain", "subnetory-20260801.dump", "admin");
+            ReflectionTestUtils.invokeMethod(service, "awaitRestoreDrain", "subnetory-20260801.dump", "admin");
 
-        // Le comportement volontaire (documente) est de proceder quand meme :
-        // bloquer indefiniment une restauration a cause d'une requete bloquee
-        // serait lui-meme un deni de service. La mutation reste donc comptee
-        // (jamais relachee dans ce test) — c'est bien le residu attendu.
-        assertThat(restoreMaintenanceGate.activeMutationCount()).isEqualTo(1);
-        restoreMaintenanceGate.releaseMutation();
+            // Le comportement volontaire (documente) est de proceder quand meme :
+            // bloquer indefiniment une restauration a cause d'une requete bloquee
+            // serait lui-meme un deni de service.
+            assertThat(restoreMaintenanceGate.activeMutationCount()).isEqualTo(1);
+        } finally {
+            release.countDown();
+            executor.shutdownNow();
+        }
     }
 
     // -------------------------------------------------------

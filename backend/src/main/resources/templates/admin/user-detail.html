@@ -58,7 +58,7 @@
                 <div class="sn-detail__field">
                     <div class="sn-detail__label" th:text="#{table.created}">Cree le</div>
                     <div class="sn-detail__value sn-text-muted"
-                         th:text="${#temporals.format(user.createdAt)}">01/01/2026</div>
+                         th:text="${#temporals.format(user.createdAt, dateTimePattern)}">01/01/2026</div>
                 </div>
             </div>
         </div>
@@ -72,11 +72,14 @@
                 <div class="sn-roles-list">
                     <th:block th:each="role : ${allRoles}">
                         <label class="sn-chip-checkbox">
+                            <input th:if="${role.name == 'ROLE_ADMIN' and !canRemoveAdminRole}"
+                                   type="hidden" name="roleIds" th:value="${role.id}">
                             <input type="checkbox"
                                    class="sn-chip-checkbox__input"
                                    name="roleIds"
                                    th:value="${role.id}"
-                                   th:checked="${userRoleIds.contains(role.id)}" />
+                                   th:checked="${userRoleIds.contains(role.id)}"
+                                   th:disabled="${role.name == 'ROLE_ADMIN' and !canRemoveAdminRole}" />
                             <span class="sn-chip-checkbox__pill" th:text="${#strings.replace(role.name, 'ROLE_', '')}">ADMIN</span>
                         </label>
                     </th:block>
@@ -147,13 +150,17 @@
                     <button type="submit" class="sn-btn sn-btn--primary" th:text="#{admin.userDetail.access.enable}">Activer</button>
                 </form>
 
-                <form th:if="${user.enabled}"
+                <form th:if="${user.enabled and canDisableOrDelete}"
                       th:action="@{/admin/users/{id}/disable(id=${user.id})}"
                       method="post"
                       class="sn-inline-form"
                       th:attr="data-confirm=#{admin.userDetail.access.disable.confirm(${user.username})}">
                     <button type="submit" class="sn-btn sn-btn--danger" th:text="#{admin.userDetail.access.disable}">Desactiver</button>
                 </form>
+                <span th:if="${user.enabled and !canDisableOrDelete}"
+                      class="sn-text-muted" th:text="#{admin.userDetail.protectedAction}">
+                    Action indisponible pour votre compte ou le dernier administrateur actif.
+                </span>
             </div>
 
             <hr class="sn-mt-3 sn-mb-3">
@@ -169,10 +176,6 @@
                   class="sn-inline-form"
                   th:attr="data-confirm=#{admin.userDetail.apiTokens.revoke.confirm(${user.username})}">
 
-                <input type="hidden"
-                       th:if="${_csrf != null}"
-                       th:name="${_csrf.parameterName}"
-                       th:value="${_csrf.token}">
 
                 <button type="submit" class="sn-btn sn-btn--danger" th:text="#{admin.userDetail.apiTokens.revoke}">
                     Revoquer les tokens API
@@ -198,10 +201,6 @@
                       class="sn-inline-form"
                       th:attr="data-confirm=#{admin.userDetail.mfa.disable.confirm(${user.username})}">
 
-                    <input type="hidden"
-                           th:if="${_csrf != null}"
-                           th:name="${_csrf.parameterName}"
-                           th:value="${_csrf.token}">
 
                     <button type="submit" class="sn-btn sn-btn--danger" th:text="#{profile.mfa.disable.submit}">
                         Desactiver le MFA
@@ -222,10 +221,6 @@
                   method="post"
                   class="sn-form">
 
-                <input type="hidden"
-                       th:if="${_csrf != null}"
-                       th:name="${_csrf.parameterName}"
-                       th:value="${_csrf.token}">
 
                 <div class="sn-form__group">
                     <label for="newPassword" class="sn-form__label" th:text="#{profile.password.new.label}">Nouveau mot de passe</label>
@@ -258,20 +253,21 @@
                 d'audit et les sauvegardes existantes qui le mentionnent restent conserves.
             </div>
 
-            <form th:action="@{/admin/users/{id}/delete(id=${user.id})}"
+            <form th:if="${canDisableOrDelete}"
+                  th:action="@{/admin/users/{id}/delete(id=${user.id})}"
                   method="post"
                   class="sn-inline-form sn-mt-3"
                   th:attr="data-confirm=#{admin.userDetail.delete.confirm(${user.username})}">
 
-                <input type="hidden"
-                       th:if="${_csrf != null}"
-                       th:name="${_csrf.parameterName}"
-                       th:value="${_csrf.token}">
 
                 <button type="submit" class="sn-btn sn-btn--danger" th:text="#{admin.userDetail.delete.submit}">
                     Supprimer définitivement ce compte
                 </button>
             </form>
+            <p th:unless="${canDisableOrDelete}" class="sn-text-muted sn-mt-3"
+               th:text="#{admin.userDetail.protectedAction}">
+                Action indisponible pour votre compte ou le dernier administrateur actif.
+            </p>
         </div>
 
     </div>

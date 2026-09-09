@@ -170,6 +170,7 @@ public class AdminWebController {
     public String detail(@PathVariable Long id,
                          Model model,
                          HttpServletResponse response,
+                         Authentication authentication,
                          Locale locale) {
         try {
             var user = userAdminService.findById(id);
@@ -179,6 +180,9 @@ public class AdminWebController {
             model.addAttribute("form", new UserRoleForm());
             model.addAttribute("contextForm", new UserContextForm());
             model.addAttribute("canManageApiTokens", true);
+            model.addAttribute("canDisableOrDelete",
+                    userAdminService.canDisableOrDelete(id, authentication.getName()));
+            model.addAttribute("canRemoveAdminRole", userAdminService.canRemoveAdminRole(id));
 
             Set<Long> userRoleIds = user.getRoles().stream()
                     .map(Role::getId)
@@ -231,10 +235,12 @@ public class AdminWebController {
      */
     @PostMapping("/audit-log/purge")
     public String purgeAuditLog(@RequestParam("beforeDate") java.time.LocalDate beforeDate,
+                                Authentication authentication,
                                 RedirectAttributes flash,
                                 Locale locale) {
         var cutoff = beforeDate.atStartOfDay().atOffset(java.time.ZoneOffset.UTC);
         int deleted = authAuditRetentionService.purgeOlderThan(cutoff);
+        authAuditService.recordAuditLogPurged(authentication.getName(), cutoff, deleted);
         flash.addFlashAttribute("flashSuccess",
                 msg("flash.admin.auditPurged", locale, beforeDate, deleted));
         return "redirect:/admin/audit-log";

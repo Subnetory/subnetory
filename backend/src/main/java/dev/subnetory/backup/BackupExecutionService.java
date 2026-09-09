@@ -575,7 +575,8 @@ public class BackupExecutionService {
                                 + "(file={} performedBy={}) — proceeding with pg_restore anyway, "
                                 + "indefinitely blocking a restore on a stuck request would itself "
                                 + "be a denial of service.",
-                        restoreDrainTimeoutSeconds, restoreMaintenanceGate.activeMutationCount(),
+                        restoreDrainTimeoutSeconds,
+                        restoreMaintenanceGate.activeMutationCountExcludingCurrentThread(),
                         fileName, performedBy);
             }
         } catch (InterruptedException e) {

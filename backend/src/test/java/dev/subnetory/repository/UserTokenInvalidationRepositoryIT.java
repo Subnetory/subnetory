@@ -22,7 +22,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 class UserTokenInvalidationRepositoryIT {
 
     @Container
-    static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:17-alpine");
+    static PostgreSQLContainer postgres = new PostgreSQLContainer(org.testcontainers.utility.DockerImageName.parse("postgres:17-alpine"));
 
     @DynamicPropertySource
     static void registerProperties(DynamicPropertyRegistry registry) {

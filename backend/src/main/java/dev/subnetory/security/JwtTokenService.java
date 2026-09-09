@@ -26,6 +26,9 @@ import java.util.UUID;
 @Service
 public class JwtTokenService {
 
+    /** Précision conservée en complément du NumericDate JWT, limité à la seconde. */
+    public static final String PRECISE_ISSUED_AT_CLAIM = "subnetory_iat";
+
     private static final JwsHeader HS256_HEADER =
         JwsHeader.with(MacAlgorithm.HS256).build();
 
@@ -50,6 +53,7 @@ public class JwtTokenService {
             .expiresAt(now.plus(expirationMinutes, ChronoUnit.MINUTES))
             .id(UUID.randomUUID().toString())
             .subject(authentication.getName())
+            .claim(PRECISE_ISSUED_AT_CLAIM, now.toString())
             .claim("roles", roles)
             .build();
 

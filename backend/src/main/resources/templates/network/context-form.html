@@ -15,10 +15,6 @@
     <div th:if="${formError}" class="sn-alert sn-alert--error" th:text="${formError}"></div>
 
     <div class="sn-card sn-card--padded sn-form-card">
-        <div class="sn-card__header">
-            <h2 class="sn-card__title" th:text="${pageTitle}">Contexte</h2>
-        </div>
-
         <form th:action="${formAction}" th:object="${form}" method="post" novalidate class="sn-form">
 
             <input type="hidden" th:field="*{id}" />

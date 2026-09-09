@@ -47,12 +47,12 @@
                 <div>
                     <dt th:text="#{backup.schedule.nextRun}">Prochaine exécution</dt>
                     <dd th:if="${nextRunAt != null}"
-                        th:text="${#temporals.format(nextRunAt)}">01/01/2026 02:00</dd>
+                        th:text="${#temporals.format(nextRunAt, dateTimePattern)}">01/01/2026 02:00</dd>
                     <dd th:unless="${nextRunAt != null}" class="sn-text-muted">—</dd>
                 </div>
                 <div>
                     <dt th:text="#{backup.schedule.retention}">Rétention</dt>
-                    <dd th:with="suffix=#{backup.retention.suffix}" th:text="${retentionCount} + ' ' + suffix">14 sauvegarde(s)</dd>
+                    <dd th:text="${retentionCount + ' ' + #messages.msg('backup.retention.suffix')}">14 sauvegarde(s)</dd>
                 </div>
                 <div>
                     <dt th:text="#{backup.schedule.encryption}">Chiffrement</dt>
@@ -81,7 +81,7 @@
             <dl class="sn-ldap-summary" th:if="${lastRun != null}">
                 <div>
                     <dt th:text="#{audit.table.date}">Date</dt>
-                    <dd th:text="${#temporals.format(lastRun.startedAt())}">—</dd>
+                    <dd th:text="${#temporals.format(lastRun.startedAt(), dateTimePattern)}">—</dd>
                 </div>
                 <div>
                     <dt th:text="#{backup.duration}">Durée</dt>
@@ -96,7 +96,7 @@
                 Aucune sauvegarde réussie pour l'instant.
             </p>
             <p th:if="${lastFailedRun != null}" class="sn-ldap-note sn-text-danger" th:with="pfx=#{backup.lastFailed.prefix}">
-                <th:block th:text="${pfx}">⚠ Dernier échec le</th:block> <span th:text="${#temporals.format(lastFailedRun.startedAt())}"></span> —
+                <th:block th:text="${pfx}">⚠ Dernier échec le</th:block> <span th:text="${#temporals.format(lastFailedRun.startedAt(), dateTimePattern)}"></span> —
                 <span th:text="${lastFailedRun.errorMessage()}"></span>
             </p>
         </article>
@@ -133,7 +133,6 @@
             </div>
 
             <form th:action="@{/admin/backup/settings}" th:object="${backupForm}" method="post" class="sn-form">
-                <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
 
                 <div class="sn-form__group sn-form__group--checkbox">
                     <label class="sn-chip-checkbox">
@@ -234,7 +233,6 @@
             </div>
             <div class="sn-ldap-actions">
                 <form th:action="@{/admin/backup/trigger}" method="post" class="sn-form">
-                    <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                     <p class="sn-ldap-note" th:text="#{backup.action.trigger.hint}">
                         Lance immédiatement une sauvegarde complète de la base, hors planification.
                     </p>
@@ -255,7 +253,6 @@
                      externe, constat F-01, 04/08/2026). -->
                 <form th:action="@{/admin/backup/import}" method="post" enctype="multipart/form-data"
                       class="sn-form sn-action-divider" sec:authorize="hasRole('ADMIN')">
-                    <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                     <div class="sn-form__group">
                         <label for="backupImportFile" class="sn-form__label" th:text="#{backup.action.import.label}">Importer une sauvegarde (.dump)</label>
                         <div class="sn-file-picker" data-file-drop>
@@ -280,7 +277,6 @@
                      AdminBackupWebController#purge) — troisieme audit
                      externe, constat F-01, 04/08/2026. -->
                 <form th:action="@{/admin/backup/purge}" method="post" class="sn-form sn-action-divider" sec:authorize="hasRole('ADMIN')">
-                    <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                     <div class="sn-form__group">
                         <label for="backupPurgeDate" class="sn-form__label" th:text="#{backup.purge.label}">Purger l'historique avant le</label>
                         <input id="backupPurgeDate" name="beforeDate" type="date" class="sn-input sn-input--w200" required>
@@ -325,7 +321,7 @@
                 </thead>
                 <tbody>
                     <tr th:each="run : ${history}">
-                        <td th:text="${#temporals.format(run.startedAt())}">—</td>
+                        <td th:text="${#temporals.format(run.startedAt(), dateTimePattern)}">—</td>
                         <td>
                             <span th:if="${run.triggerSource() == 'SCHEDULED'}" class="sn-badge sn-badge--neutral" th:text="#{backup.trigger.scheduled}">Planifiée</span>
                             <span th:if="${run.triggerSource() == 'MANUAL'}" class="sn-badge sn-badge--neutral" th:text="#{backup.trigger.manual}">Manuelle</span>
@@ -385,8 +381,8 @@
         </div>
 
         <div class="sn-pagination" th:if="${!history.empty}">
-            <span class="sn-pagination__info" th:with="suffix=#{backup.retention.suffix}"
-                  th:text="${history.totalElements} + ' ' + suffix">N sauvegardes</span>
+            <span class="sn-pagination__info"
+                  th:text="${history.totalElements + ' ' + #messages.msg('backup.retention.suffix')}">N sauvegardes</span>
             <nav class="sn-pagination__nav" th:if="${history.totalPages > 1}">
                 <a th:href="@{/admin/backup(page=${history.number - 1})}"
                    th:classappend="${history.first ? 'sn-pagination__btn--disabled' : ''}"
@@ -422,7 +418,7 @@
                 </thead>
                 <tbody>
                     <tr th:each="r : ${restoreHistory}">
-                        <td th:text="${#temporals.format(r.startedAt())}">—</td>
+                        <td th:text="${#temporals.format(r.startedAt(), dateTimePattern)}">—</td>
                         <td class="sn-text-mono sn-text-secondary" th:text="${r.backupFileName() ?: '—'}">—</td>
                         <td>
                             <span th:if="${r.status() == 'SUCCESS'}" class="sn-badge sn-badge--green" th:text="#{backup.status.success}">Réussie</span>

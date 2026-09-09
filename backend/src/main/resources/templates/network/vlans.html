@@ -11,22 +11,29 @@
             <h1 class="sn-page__title" th:text="#{nav.vlans}">VLANs</h1>
             <p class="sn-page__subtitle" th:text="#{vlan.subtitle}">Organisez vos VLAN par site et suivez leur utilisation.</p>
         </div>
-        <div th:if="${canManage}">
+        <div th:if="${canManage and !sites.empty}">
             <a href="/network/vlans/new" class="sn-btn sn-btn--primary" th:text="#{vlan.button.new}">+ Nouveau VLAN</a>
         </div>
     </div>
 
     <div th:if="${flashSuccess}" class="sn-alert sn-alert--success" th:text="${flashSuccess}"></div>
     <div th:if="${flashError}"   class="sn-alert sn-alert--error"   th:text="${flashError}"></div>
+    <div th:if="${canManage and sites.empty}" class="sn-alert sn-alert--info">
+        <span th:text="#{vlan.parentRequired}">Créez d'abord un site.</span>
+        <a th:href="@{/network/sites/new}" th:text="#{site.button.new}">Nouveau site</a>
+    </div>
 
     <form th:action="@{/network/vlans}" method="get" class="sn-search sn-filter-bar">
-        <select name="siteId" class="sn-search__select" th:aria-label="#{filter.site.aria}" data-auto-submit>
-            <option value="" th:text="#{vlan.filter.allSites}">Tous les sites</option>
-            <option th:each="site : ${sites}"
-                    th:value="${site.id}"
-                    th:text="|${site.code} — ${site.name}|"
-                    th:selected="${site.id == selectedSiteId}">SITE</option>
-        </select>
+        <label class="sn-filter-field">
+            <span class="sn-filter-field__label" th:text="#{filter.site.label}">Site</span>
+            <select name="siteId" class="sn-search__select" data-auto-submit>
+                <option value="" th:text="#{vlan.filter.allSites}">Tous les sites</option>
+                <option th:each="site : ${sites}"
+                        th:value="${site.id}"
+                        th:text="|${site.code} — ${site.name}|"
+                        th:selected="${site.id == selectedSiteId}">SITE</option>
+            </select>
+        </label>
     </form>
 
     <div class="sn-card">
@@ -48,7 +55,7 @@
                         <td th:text="${vlan.name ?: '—'}">VLAN-100</td>
                         <td class="sn-text-secondary" th:text="${vlan.siteName}">Site</td>
                         <td class="sn-text-muted"
-                            th:text="${#temporals.format(vlan.createdAt.toLocalDate())}">01/01/2026</td>
+                            th:text="${#temporals.format(vlan.createdAt.toLocalDate(), datePattern)}">01/01/2026</td>
                         <td th:if="${canManage}" class="sn-table-actions">
                             <a th:href="@{/network/vlans/{id}/edit(id=${vlan.id})}"
                                class="sn-btn sn-btn--secondary sn-btn--sm" th:text="#{common.edit}">Modifier</a>
@@ -70,8 +77,7 @@
 
         <div class="sn-pagination" th:if="${!vlans.empty}">
             <span class="sn-pagination__info"
-                  th:with="suffix=#{pagination.vlans.suffix}"
-                  th:text="${vlans.totalElements} + ' ' + suffix">N VLANs</span>
+                  th:text="${vlans.totalElements + ' ' + #messages.msg('pagination.vlans.suffix')}">N VLANs</span>
             <nav class="sn-pagination__nav" th:if="${vlans.totalPages > 1}">
                 <a th:href="@{/network/vlans(page=${vlans.number - 1}, siteId=${selectedSiteId})}"
                    th:classappend="${vlans.first ? 'sn-pagination__btn--disabled' : ''}"

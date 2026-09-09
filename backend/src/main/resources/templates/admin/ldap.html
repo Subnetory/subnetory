@@ -110,7 +110,6 @@
             </div>
 
             <form th:action="@{/admin/ldap}" th:object="${ldapForm}" method="post" class="sn-form">
-                <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
 
                 <div class="sn-form__group sn-form__group--checkbox">
                     <label class="sn-chip-checkbox">
@@ -216,12 +215,10 @@
 
             <div class="sn-ldap-actions">
                 <form th:action="@{/admin/ldap/test-connection}" method="post" class="sn-form">
-                    <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                     <button type="submit" class="sn-btn sn-btn--primary" th:text="#{ldap.diagnostics.testConnection}">Tester la connexion</button>
                 </form>
 
                 <form th:action="@{/admin/ldap/test-user}" method="post" class="sn-form sn-ldap-user-test">
-                    <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                     <label for="ldapUsername" class="sn-form__label" th:text="#{ldap.diagnostics.usernameLabel}">Identifiant à rechercher</label>
                     <div class="sn-ldap-user-test__row">
                         <input id="ldapUsername"

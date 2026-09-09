@@ -39,7 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AddressControllerIT {
 
     @Container
-    static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:17-alpine")
+    static PostgreSQLContainer postgres = new PostgreSQLContainer(org.testcontainers.utility.DockerImageName.parse("postgres:17-alpine"))
             .withDatabaseName("subnetory_test")
             .withUsername("subnetory")
             .withPassword("subnetory");
@@ -189,6 +189,27 @@ class AddressControllerIT {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test @Order(7)
+    @DisplayName("POST /addresses — JSON incomplet ou malformé → 400 stable")
+    void createAddress_unreadableJson_returns400ProblemDetail() throws Exception {
+        String incomplete = "{\"address\":\"172.16.0.21\",\"subnetId\":" + testSubnetId + "}";
+        mvc.perform(post("/api/v1/addresses")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(incomplete))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Validation Error"))
+                .andExpect(jsonPath("$.fields.temporary").value("Temporary flag is required"));
+
+        mvc.perform(post("/api/v1/addresses")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{not-json"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Malformed JSON"))
+                .andExpect(jsonPath("$.type").value("https://subnetory.dev/errors/malformed-json"));
     }
 
     // -------------------------------------------------------

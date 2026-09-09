@@ -28,10 +28,6 @@
           method="post"
           class="sn-login-form">
 
-        <input type="hidden"
-               th:if="${_csrf != null}"
-               th:name="${_csrf.parameterName}"
-               th:value="${_csrf.token}">
 
         <div class="sn-login-field">
             <label class="sn-login-label" for="code" th:text="#{loginMfa.code.label}">Code TOTP ou de recuperation</label>
@@ -53,10 +49,6 @@
     </form>
 
     <form th:action="@{/logout}" method="post" class="sn-logout-form">
-        <input type="hidden"
-               th:if="${_csrf != null}"
-               th:name="${_csrf.parameterName}"
-               th:value="${_csrf.token}">
         <button type="submit"
                 class="sn-btn sn-btn--ghost sn-login-submit" th:text="#{loginMfa.logout}">
             Se deconnecter

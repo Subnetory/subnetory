@@ -55,6 +55,7 @@
                             <option value="USER_ROLES_UPDATED" th:selected="${eventType == 'USER_ROLES_UPDATED'}">USER_ROLES_UPDATED</option>
                             <option value="USER_ENABLED" th:selected="${eventType == 'USER_ENABLED'}">USER_ENABLED</option>
                             <option value="USER_DISABLED" th:selected="${eventType == 'USER_DISABLED'}">USER_DISABLED</option>
+                            <option value="USER_DELETED" th:selected="${eventType == 'USER_DELETED'}">USER_DELETED</option>
                             <option value="MFA_ENABLED" th:selected="${eventType == 'MFA_ENABLED'}">MFA_ENABLED</option>
                             <option value="MFA_DISABLED" th:selected="${eventType == 'MFA_DISABLED'}">MFA_DISABLED</option>
                             <option value="MFA_RECOVERY_CODES_REGENERATED" th:selected="${eventType == 'MFA_RECOVERY_CODES_REGENERATED'}">MFA_RECOVERY_CODES_REGENERATED</option>
@@ -72,15 +73,26 @@
                         </optgroup>
                         <optgroup th:label="#{audit.filter.optgroup.network}" label="Ressources réseau">
                             <option value="ADDRESS_CREATED" th:selected="${eventType == 'ADDRESS_CREATED'}">ADDRESS_CREATED</option>
+                            <option value="ADDRESS_UPDATED" th:selected="${eventType == 'ADDRESS_UPDATED'}">ADDRESS_UPDATED</option>
+                            <option value="ADDRESS_UPSERTED" th:selected="${eventType == 'ADDRESS_UPSERTED'}">ADDRESS_UPSERTED</option>
+                            <option value="ADDRESS_BULK_UPSERTED" th:selected="${eventType == 'ADDRESS_BULK_UPSERTED'}">ADDRESS_BULK_UPSERTED</option>
+                            <option value="ADDRESS_IMPORT_COMPLETED" th:selected="${eventType == 'ADDRESS_IMPORT_COMPLETED'}">ADDRESS_IMPORT_COMPLETED</option>
                             <option value="ADDRESS_DELETED" th:selected="${eventType == 'ADDRESS_DELETED'}">ADDRESS_DELETED</option>
                             <option value="VLAN_CREATED" th:selected="${eventType == 'VLAN_CREATED'}">VLAN_CREATED</option>
+                            <option value="VLAN_UPDATED" th:selected="${eventType == 'VLAN_UPDATED'}">VLAN_UPDATED</option>
                             <option value="VLAN_DELETED" th:selected="${eventType == 'VLAN_DELETED'}">VLAN_DELETED</option>
                             <option value="CONTEXT_CREATED" th:selected="${eventType == 'CONTEXT_CREATED'}">CONTEXT_CREATED</option>
+                            <option value="CONTEXT_UPDATED" th:selected="${eventType == 'CONTEXT_UPDATED'}">CONTEXT_UPDATED</option>
                             <option value="CONTEXT_DELETED" th:selected="${eventType == 'CONTEXT_DELETED'}">CONTEXT_DELETED</option>
                             <option value="SITE_CREATED" th:selected="${eventType == 'SITE_CREATED'}">SITE_CREATED</option>
+                            <option value="SITE_UPDATED" th:selected="${eventType == 'SITE_UPDATED'}">SITE_UPDATED</option>
                             <option value="SITE_DELETED" th:selected="${eventType == 'SITE_DELETED'}">SITE_DELETED</option>
                             <option value="SUBNET_CREATED" th:selected="${eventType == 'SUBNET_CREATED'}">SUBNET_CREATED</option>
+                            <option value="SUBNET_UPDATED" th:selected="${eventType == 'SUBNET_UPDATED'}">SUBNET_UPDATED</option>
                             <option value="SUBNET_DELETED" th:selected="${eventType == 'SUBNET_DELETED'}">SUBNET_DELETED</option>
+                            <option value="SUBNET_SCAN_COMPLETED" th:selected="${eventType == 'SUBNET_SCAN_COMPLETED'}">SUBNET_SCAN_COMPLETED</option>
+                            <option value="SUBNET_SCAN_FAILED" th:selected="${eventType == 'SUBNET_SCAN_FAILED'}">SUBNET_SCAN_FAILED</option>
+                            <option value="AUDIT_LOG_PURGED" th:selected="${eventType == 'AUDIT_LOG_PURGED'}">AUDIT_LOG_PURGED</option>
                         </optgroup>
                     </select>
                 </div>
@@ -113,7 +125,6 @@
             attendre la prochaine exécution planifiée.</th:block>
         </p>
         <form th:action="@{/admin/audit-log/purge}" method="post" class="sn-form">
-            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
             <div class="sn-form__group">
                 <label for="auditPurgeDate" class="sn-form__label" th:text="#{audit.purge.label}">Purger le journal avant le</label>
                 <input id="auditPurgeDate" name="beforeDate" type="date" class="sn-input sn-input--w200" required>
@@ -147,7 +158,7 @@
 
                 <tr th:each="log : ${logs.content}">
                     <td class="sn-text-muted"
-                        th:text="${log.createdAt != null ? #temporals.format(log.createdAt) : '-'}">
+                        th:text="${log.createdAt != null ? #temporals.format(log.createdAt, dateTimePattern) : '-'}">
                         01/06/2026 22:00:00
                     </td>
 
