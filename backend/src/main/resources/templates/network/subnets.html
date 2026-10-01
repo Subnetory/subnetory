@@ -15,9 +15,9 @@
             <!-- Exports — liens vers les endpoints Web session, filtres actifs transmis.
                  Accessibles à tous les utilisateurs authentifiés (pas de canManage requis).
                  Sprint 2.9 -->
-            <a th:href="@{/network/subnets/export/csv(siteId=${selectedSiteId},contextId=${selectedContextId})}"
+            <a th:href="@{/network/subnets/export/csv(siteId=${selectedSiteId},contextId=${selectedContextId},q=${query})}"
                class="sn-btn sn-btn--ghost sn-btn--sm">↓ CSV</a>
-            <a th:href="@{/network/subnets/export/xlsx(siteId=${selectedSiteId},contextId=${selectedContextId})}"
+            <a th:href="@{/network/subnets/export/xlsx(siteId=${selectedSiteId},contextId=${selectedContextId},q=${query})}"
                class="sn-btn sn-btn--ghost sn-btn--sm">↓ Excel</a>
             <!-- Nouveau sous-réseau — conditionnel canManage -->
             <a th:if="${canManage and !sites.empty}" href="/network/subnets/new"
@@ -35,6 +35,12 @@
     </div>
 
     <form th:action="@{/network/subnets}" method="get" class="sn-search sn-filter-bar">
+        <label class="sn-filter-field">
+            <span class="sn-filter-field__label" th:text="#{filter.search.label}">Recherche</span>
+            <input type="text" name="q" class="sn-search__input"
+                   th:value="${query}"
+                   th:placeholder="#{subnet.search.placeholder}">
+        </label>
         <label class="sn-filter-field">
             <span class="sn-filter-field__label" th:text="#{filter.context.label}">Contexte</span>
             <select name="contextId" class="sn-search__select" data-auto-submit>
@@ -55,6 +61,18 @@
                         th:selected="${site.id == selectedSiteId}">SITE</option>
             </select>
         </label>
+        <label class="sn-filter-field">
+            <span class="sn-filter-field__label" th:text="#{filter.vlan.label}">VLAN</span>
+            <select name="vlanId" class="sn-search__select" data-auto-submit>
+                <option value="" th:text="#{subnet.filter.allVlans}">Tous les VLAN</option>
+                <option th:each="v : ${vlans}"
+                        th:value="${v.id}"
+                        th:text="|${v.vid} — ${v.name ?: '—'} (${v.siteName})|"
+                        th:selected="${v.id == selectedVlanId}">VLAN</option>
+            </select>
+        </label>
+        <button type="submit" class="sn-btn sn-btn--primary sn-btn--sm" th:text="#{common.search}">Rechercher</button>
+        <a th:href="@{/network/subnets}" class="sn-btn sn-btn--ghost sn-btn--sm" th:text="#{common.reset}">Réinitialiser</a>
     </form>
 
     <div class="sn-card">
@@ -109,9 +127,9 @@
                                 <a th:href="@{/network/addresses/reserve(subnetId=${row.id})}"
                                    sec:authorize="hasAnyRole('ADMIN', 'IP')"
                                    class="sn-btn sn-btn--ghost sn-btn--sm" th:text="#{subnet.action.reserveIp}">Réserver IP</a>
-                                <a th:href="@{/network/subnets/{id}/edit(id=${row.id})}"
+                                <a th:href="@{/network/subnets/{id}/edit(id=${row.id}, returnTo=${returnTo})}"
                                    class="sn-btn sn-btn--secondary sn-btn--sm" th:text="#{common.edit}">Modifier</a>
-                                <form th:action="@{/network/subnets/{id}/delete(id=${row.id})}"
+                                <form th:action="@{/network/subnets/{id}/delete(id=${row.id}, returnTo=${returnTo})}"
                                       method="post"
                                       class="sn-inline-form"
                                       th:attr="data-confirm=#{subnet.confirm.delete(${row.network})}"
@@ -132,16 +150,16 @@
             <span class="sn-pagination__info"
                   th:text="${subnets.totalElements + ' ' + #messages.msg('pagination.subnets.suffix')}">N sous-réseaux</span>
             <nav class="sn-pagination__nav" th:if="${subnets.totalPages > 1}">
-                <a th:href="@{/network/subnets(page=${subnets.number - 1}, contextId=${selectedContextId}, siteId=${selectedSiteId}, vlanId=${selectedVlanId})}"
+                <a th:href="@{/network/subnets(page=${subnets.number - 1}, contextId=${selectedContextId}, siteId=${selectedSiteId}, vlanId=${selectedVlanId}, q=${query})}"
                    th:classappend="${subnets.first ? 'sn-pagination__btn--disabled' : ''}"
                    class="sn-pagination__btn">‹</a>
                 <th:block th:each="i : ${#numbers.sequence(0, subnets.totalPages - 1)}">
-                    <a th:href="@{/network/subnets(page=${i}, contextId=${selectedContextId}, siteId=${selectedSiteId}, vlanId=${selectedVlanId})}"
+                    <a th:href="@{/network/subnets(page=${i}, contextId=${selectedContextId}, siteId=${selectedSiteId}, vlanId=${selectedVlanId}, q=${query})}"
                        th:text="${i + 1}"
                        th:classappend="${i == subnets.number ? 'active' : ''}"
                        class="sn-pagination__btn">1</a>
                 </th:block>
-                <a th:href="@{/network/subnets(page=${subnets.number + 1}, contextId=${selectedContextId}, siteId=${selectedSiteId}, vlanId=${selectedVlanId})}"
+                <a th:href="@{/network/subnets(page=${subnets.number + 1}, contextId=${selectedContextId}, siteId=${selectedSiteId}, vlanId=${selectedVlanId}, q=${query})}"
                    th:classappend="${subnets.last ? 'sn-pagination__btn--disabled' : ''}"
                    class="sn-pagination__btn">›</a>
             </nav>

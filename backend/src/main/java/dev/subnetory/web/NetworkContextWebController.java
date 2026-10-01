@@ -52,11 +52,19 @@ public class NetworkContextWebController {
 
     @GetMapping
     public String list(@RequestParam(defaultValue = "0") int page,
+                       @RequestParam(required = false) String q,
                        Model model,
                        Authentication authentication,
                        Locale locale) {
-        model.addAttribute("contexts",
-                contextService.findAll(PageRequest.of(page, PAGE_SIZE, Sort.by("name"))));
+        int safePage = Math.max(page, 0);
+        var contexts = contextService.search(q, PageRequest.of(safePage, PAGE_SIZE, Sort.by("name")));
+        if (contexts.isEmpty() && safePage > 0 && contexts.getTotalPages() > 0) {
+            contexts = contextService.search(q,
+                    PageRequest.of(contexts.getTotalPages() - 1, PAGE_SIZE, Sort.by("name")));
+        }
+        model.addAttribute("contexts", contexts);
+        model.addAttribute("query", q);
+        model.addAttribute("returnTo", ReturnTo.currentUrl());
         model.addAttribute("canManage", canManage(authentication));
         model.addAttribute("activeSection", "contexts");
         model.addAttribute("pageTitle", msg("nav.contexts", locale));
@@ -100,7 +108,7 @@ public class NetworkContextWebController {
                     "/network/contexts", "/network/contexts");
             return "network/context-form";
         }
-        return "redirect:/network/contexts";
+        return ReturnTo.redirect("/network/contexts");
     }
 
     // ── Formulaire édition ─────────────────────────────────────────────────
@@ -158,7 +166,7 @@ public class NetworkContextWebController {
             model.addAttribute("currentRequestPath", "/network/contexts/" + id + "/edit");
             return "network/context-form";
         }
-        return "redirect:/network/contexts";
+        return ReturnTo.redirect("/network/contexts");
     }
 
     // ── Suppression ────────────────────────────────────────────────────────
@@ -176,7 +184,7 @@ public class NetworkContextWebController {
         } catch (DataIntegrityViolationException e) {
             flash.addFlashAttribute("flashError", msg("flash.context.deleteConflict", locale));
         }
-        return "redirect:/network/contexts";
+        return ReturnTo.redirect("/network/contexts");
     }
 
     // ── Utilitaires privés ─────────────────────────────────────────────────
@@ -187,8 +195,8 @@ public class NetworkContextWebController {
                                   String cancelUrl) {
         model.addAttribute("form", form);
         model.addAttribute("pageTitle", pageTitle);
-        model.addAttribute("formAction", formAction);
-        model.addAttribute("cancelUrl", cancelUrl);
+        model.addAttribute("formAction", ReturnTo.withReturnTo(formAction));
+        model.addAttribute("cancelUrl", ReturnTo.cancelUrl(cancelUrl));
         model.addAttribute("activeSection", "contexts");
     }
 

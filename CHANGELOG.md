@@ -4,6 +4,20 @@ All notable changes to Subnetory will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows semantic versioning pragmatically during early development.
 
+## [Unreleased]
+
+### Added
+
+* Server-side text search in the Contexts, Sites, VLANs and Subnets tabs, across all pages: case-insensitive partial matching, several terms combined with AND (context name and description; site name or code; VLAN number or name; subnet CIDR, description or gateway). It honours the active context and the contexts the user is allowed to access.
+* Global search in the header: a results page grouped by type (5 per type, with a "See all N results" link to the filtered tab) and edit links according to the user's role.
+* VLAN filter on the subnet list.
+* After editing, creating or deleting from a list, the user returns to that list with the search, filters and page preserved (`returnTo` parameter restricted to internal paths).
+
+### Changed
+
+* The subnet CSV/Excel export now also applies the search term.
+* Requesting a page beyond the last page of a list now shows the last valid page instead of an empty one.
+
 ## [0.8.11] - 2026-09-09
 
 ### Added

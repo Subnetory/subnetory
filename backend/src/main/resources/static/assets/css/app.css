@@ -2816,3 +2816,8 @@ textarea.sn-input {
     position: static;
   }
 }
+
+/* Recherche globale du bandeau */
+.sn-global-search { display: flex; align-items: center; margin: 0 .75rem; }
+.sn-global-search .sn-search__input { min-width: 12rem; max-width: 18rem; }
+.sn-card--search > .sn-card__title { padding: var(--space-4) var(--space-4) var(--space-2); }

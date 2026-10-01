@@ -1,5 +1,6 @@
 package dev.subnetory.service;
 
+import dev.subnetory.repository.SubnetSpecifications;
 import dev.subnetory.domain.NetworkContext;
 import dev.subnetory.domain.Site;
 import dev.subnetory.domain.Subnet;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -83,6 +85,27 @@ public class SubnetService {
         var allowedIds = contextAccessService.allowedContextIds();
         if (allowedIds.isEmpty()) return Page.empty(pageable);
         return subnetRepository.findByVlanIdAndContextIdIn(vlanId, allowedIds, pageable).map(this::toResponse);
+    }
+
+    /**
+     * Recherche textuelle paginée (CIDR, description, passerelle), limitée aux
+     * contextes autorisés via le contexte propre de chaque sous-réseau.
+     */
+    public Page<SubnetResponse> search(String q, Long contextId, Long siteId, Long vlanId, Pageable pageable) {
+        if (contextId != null) contextAccessService.requireAccess(contextId);
+        if (siteId != null) siteService.getEntityById(siteId);
+        if (vlanId != null) vlanService.getEntityById(vlanId);
+        var spec = SubnetSpecifications.withFilters(q, contextId, siteId, vlanId,
+                contextAccessService.allowedContextIds());
+        return subnetRepository.findAll(spec, pageable).map(this::toResponse);
+    }
+
+    /**
+     * Export filtré par une recherche textuelle (même périmètre que {@link #search}),
+     * sans pagination, trié par réseau.
+     */
+    public List<SubnetResponse> searchAllForExport(String q, Long contextId, Long siteId) {
+        return search(q, contextId, siteId, null, Pageable.unpaged(Sort.by("network"))).getContent();
     }
 
     public SubnetResponse findById(Long id) {

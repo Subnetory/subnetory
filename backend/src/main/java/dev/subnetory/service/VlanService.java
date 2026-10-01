@@ -1,5 +1,6 @@
 package dev.subnetory.service;
 
+import dev.subnetory.repository.VlanSpecifications;
 import dev.subnetory.domain.Site;
 import dev.subnetory.domain.Vlan;
 import dev.subnetory.dto.VlanRequest;
@@ -48,6 +49,14 @@ public class VlanService {
     public Page<VlanResponse> findByContext(Long contextId, Pageable pageable) {
         contextAccessService.requireAccess(contextId);
         return vlanRepository.findBySiteContextId(contextId, pageable).map(this::toResponse);
+    }
+
+    /** Recherche textuelle paginée (VID, nom), limitée aux contextes autorisés. */
+    public Page<VlanResponse> search(String q, Long contextId, Long siteId, Pageable pageable) {
+        if (contextId != null) contextAccessService.requireAccess(contextId);
+        if (siteId != null) siteService.getEntityById(siteId);
+        var spec = VlanSpecifications.withFilters(q, contextId, siteId, contextAccessService.allowedContextIds());
+        return vlanRepository.findAll(spec, pageable).map(this::toResponse);
     }
 
     public VlanResponse findById(Long id) {

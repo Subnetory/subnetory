@@ -113,6 +113,7 @@ public class AddressWebController {
         var pageNumbers = IntStream.range(0, Math.min(addresses.getTotalPages(), 10))
                 .boxed().toList();
         model.addAttribute("addresses", addresses);
+        model.addAttribute("returnTo", ReturnTo.currentUrl());
         model.addAttribute("addressPageNumbers", pageNumbers);
         model.addAttribute("query", q);
         model.addAttribute("hostnameFilter", hostname);
@@ -576,7 +577,7 @@ public class AddressWebController {
                     "/network/addresses", "/network/addresses");
             return "network/address-form";
         }
-        return "redirect:/network/addresses";
+        return ReturnTo.redirect("/network/addresses");
     }
 
     // ── Formulaire édition ─────────────────────────────────────────────────
@@ -642,7 +643,7 @@ public class AddressWebController {
                     "/network/addresses/" + id);
             return "network/address-form";
         }
-        return "redirect:/network/addresses/" + id;
+        return ReturnTo.redirect("/network/addresses/" + id);
     }
 
     // ── Suppression ────────────────────────────────────────────────────────
@@ -658,7 +659,7 @@ public class AddressWebController {
         } catch (ResourceNotFoundException e) {
             flash.addFlashAttribute("flashError", msg("flash.address.notFound", locale));
         }
-        return "redirect:/network/addresses";
+        return ReturnTo.redirect("/network/addresses");
     }
 
     // ── Utilitaires privés ─────────────────────────────────────────────────
@@ -669,8 +670,8 @@ public class AddressWebController {
                                   String cancelUrl) {
         model.addAttribute("form", form);
         model.addAttribute("pageTitle", pageTitle);
-        model.addAttribute("formAction", formAction);
-        model.addAttribute("cancelUrl", cancelUrl);
+        model.addAttribute("formAction", ReturnTo.withReturnTo(formAction));
+        model.addAttribute("cancelUrl", ReturnTo.cancelUrl(cancelUrl));
         model.addAttribute("activeSection", "addresses");
         Long activeContextId = activeContextService == null
                 ? null : activeContextService.getCurrentRequestContext();

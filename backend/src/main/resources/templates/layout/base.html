@@ -67,6 +67,12 @@
             </form>
         </div>
 
+        <form th:action="@{/search}" method="get" role="search" class="sn-global-search">
+            <input type="search" name="q" maxlength="120" class="sn-search__input"
+                   th:value="${globalQuery}" th:placeholder="#{search.global.placeholder}"
+                   th:aria-label="#{search.global.label}">
+        </form>
+
         <nav class="sn-main-nav" th:aria-label="#{nav.network.aria}">
             <a th:href="@{/network/contexts}" class="sn-nav-tile" th:title="#{nav.contexts}" th:aria-label="#{nav.contexts}" th:classappend="${activeSection == 'contexts' ? ' active' : ''}"><span class="sn-nav-tile__icon" aria-hidden="true">◎</span><span th:text="#{nav.contexts}">Contextes</span></a>
             <a th:href="@{/network/sites}" class="sn-nav-tile" th:title="#{nav.sites}" th:aria-label="#{nav.sites}" th:classappend="${activeSection == 'sites' ? ' active' : ''}"><span class="sn-nav-tile__icon" aria-hidden="true">⌖</span><span th:text="#{nav.sites}">Sites</span></a>

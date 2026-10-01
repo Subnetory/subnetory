@@ -104,9 +104,9 @@
                         <td class="sn-text-muted"
                             th:text="${addr.lastSeenAt != null ? #temporals.format(addr.lastSeenAt, dateTimePattern) : '—'}">—</td>
                         <td th:if="${canManage}" class="sn-table-actions">
-                            <a th:href="@{/network/addresses/{id}/edit(id=${addr.id})}"
+                            <a th:href="@{/network/addresses/{id}/edit(id=${addr.id}, returnTo=${returnTo})}"
                                class="sn-btn sn-btn--secondary sn-btn--sm" th:text="#{common.edit}">Modifier</a>
-                            <form th:action="@{/network/addresses/{id}/delete(id=${addr.id})}"
+                            <form th:action="@{/network/addresses/{id}/delete(id=${addr.id}, returnTo=${returnTo})}"
                                   method="post"
                                   class="sn-inline-form"
                                   th:attr="data-confirm=#{address.confirm.delete(${addr.address})}"

@@ -441,4 +441,69 @@ class NetworkWebPagesIT {
                 .isEqualTo("30s");
     }
 
+    // --- Recherche dans les listes et recherche globale ---
+
+    @Test @Order(35) @WithMockUser(username = "admin", roles = {"ADMIN", "NETWORK"})
+    @DisplayName("GET /network/subnets?q=10.60 → ne garde que les sous-réseaux correspondants")
+    void subnets_search_filtersAcrossPages() throws Exception {
+        String html = mvc.perform(get("/network/subnets").param("q", "10.60"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(html).contains("10.60.0.0/24").doesNotContain("10.61.0.0/16");
+    }
+
+    @Test @Order(36) @WithMockUser(username = "admin", roles = {"ADMIN", "NETWORK"})
+    @DisplayName("GET /network/subnets?q=INTROUVABLE-XYZ → aucun sous-réseau")
+    void subnets_searchWithoutMatch_listsNothing() throws Exception {
+        String html = mvc.perform(get("/network/subnets").param("q", "introuvable-xyz"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(html).doesNotContain("10.60.0.0/24").doesNotContain("10.61.0.0/16");
+    }
+
+    @Test @Order(37) @WithMockUser(username = "admin", roles = {"ADMIN", "NETWORK"})
+    @DisplayName("Les liens Modifier/Supprimer et la pagination conservent la recherche (returnTo)")
+    void subnets_search_keepsStateInEditLinks() throws Exception {
+        String html = mvc.perform(get("/network/subnets?q=10.60&page=0"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(html).contains("/edit?returnTo=")
+                .contains("q%3D10.60");
+    }
+
+    @Test @Order(38) @WithMockUser(username = "admin", roles = {"ADMIN"})
+    @DisplayName("Listes Contextes, Sites et VLAN acceptent q → 200")
+    void otherLists_acceptSearch() throws Exception {
+        mvc.perform(get("/network/contexts").param("q", "default")).andExpect(status().isOk());
+        mvc.perform(get("/network/sites").param("q", "test")).andExpect(status().isOk());
+        mvc.perform(get("/network/vlans").param("q", "10")).andExpect(status().isOk());
+    }
+
+    @Test @Order(39) @WithMockUser(username = "admin", roles = {"ADMIN"})
+    @DisplayName("Page inexistante après filtrage → dernière page valide, pas de page vide")
+    void search_pageBeyondEnd_fallsBackToLastPage() throws Exception {
+        String html = mvc.perform(get("/network/subnets").param("q", "10.60").param("page", "99"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(html).contains("10.60.0.0/24");
+    }
+
+    @Test @Order(40) @WithMockUser(username = "admin", roles = {"ADMIN"})
+    @DisplayName("GET /search?q=10.60 → résultats groupés par type")
+    void globalSearch_groupsResultsByType() throws Exception {
+        String html = mvc.perform(get("/search").param("q", "10.60"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(html).contains("10.60.0.0/24").contains("10.60.0.5").doesNotContain("10.61.0.0/16");
+    }
+
+    @Test @Order(41) @WithMockUser(username = "admin", roles = {"ADMIN"})
+    @DisplayName("GET /search sans terme → 200 avec invite")
+    void globalSearch_withoutTerm_returns200() throws Exception {
+        mvc.perform(get("/search")).andExpect(status().isOk());
+    }
+
+    @Test @Order(42)
+    @DisplayName("Anonyme /search → redirect /login")
+    void globalSearch_anonymous_redirectsToLogin() throws Exception {
+        mvc.perform(get("/search").param("q", "10"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/login"));
+    }
+
 }
