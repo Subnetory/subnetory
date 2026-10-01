@@ -1,7 +1,7 @@
 # Backlog Subnetory
 
-Dernière mise à jour : 9 septembre 2026
-Référence auditée : `v0.8.11` / code applicatif `e117d70`
+Dernière mise à jour : 1 octobre 2026
+Référence auditée : `v0.8.13` / code applicatif `a27cb65`
 
 ## Ordre d'exécution
 

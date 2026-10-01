@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.8.13] - 2026-10-01
+
+> `v0.8.12` was tagged before the release preparation was merged, so its release workflow refused to build and nothing was published. Use `v0.8.13`.
+
 ### Added
 
 * Server-side text search in the Contexts, Sites, VLANs and Subnets tabs, across all pages: case-insensitive partial matching, several terms combined with AND (context name and description; site name or code; VLAN number or name; subnet CIDR, description or gateway). It honours the active context and the contexts the user is allowed to access.
@@ -17,6 +21,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 * The subnet CSV/Excel export now also applies the search term.
 * Requesting a page beyond the last page of a list now shows the last valid page instead of an empty one.
+
+### Fixed
+
+* Jackson is upgraded to 2.21.7 / 3.1.7 to fix three HIGH vulnerabilities in `jackson-databind` (`CVE-2026-68497`, `CVE-2026-91776` and `CVE-2026-91777`) reported by Trivy.
 
 ## [0.8.11] - 2026-09-09
 
@@ -345,7 +353,8 @@ Première version pensée comme point de départ public propre : `v0.7.0` reste 
 * Basic secured GUI with Thymeleaf.
 * Docker packaging and GitHub Actions CI/CD foundations.
 
-[Unreleased]: https://github.com/Subnetory/subnetory/compare/v0.8.11...HEAD
+[Unreleased]: https://github.com/Subnetory/subnetory/compare/v0.8.13...HEAD
+[0.8.13]: https://github.com/Subnetory/subnetory/releases/tag/v0.8.13
 [0.8.11]: https://github.com/Subnetory/subnetory/releases/tag/v0.8.11
 [0.8.10]: https://github.com/Subnetory/subnetory/releases/tag/v0.8.10
 [0.8.6]: https://github.com/Subnetory/subnetory/releases/tag/v0.8.6
