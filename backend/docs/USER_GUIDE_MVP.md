@@ -204,6 +204,34 @@ Cliquer sur une IP proposée remplit automatiquement le champ adresse.
 
 ---
 
+## Searching lists
+
+Each tab under **Network** has a **Search** field. The search covers all pages, not
+only the page being displayed. It is partial and case-insensitive, and when several
+terms are separated by spaces, all of them must match.
+
+| Tab | Searched fields |
+|---|---|
+| Contexts | name, description |
+| Sites | name, code |
+| VLANs | number (VID), name |
+| Subnets | CIDR, description, gateway |
+| IP addresses | address, hostname, description, MAC, subnet, site, context, discovery source |
+
+The search is limited to the **active context** (header menu). With no active context
+(↺ button), it covers **all contexts you have access to**, never more. It can be
+combined with the list filters (context, site, VLAN). The subnet and IP address CSV and
+Excel exports apply the search term.
+
+After editing, creating or deleting from a list, you return to that same list with the
+search, filters and page preserved.
+
+### Global search
+
+The header **Search everywhere…** field opens a results page grouped by type (first 5
+results per type). The **See all N results** link opens the matching tab, already
+filtered. An **Edit** button appears according to your role.
+
 ## Recherche d'adresses IP
 
 Navigation : **Adresses IP**

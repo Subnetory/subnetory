@@ -25,6 +25,12 @@
 
     <form th:action="@{/network/vlans}" method="get" class="sn-search sn-filter-bar">
         <label class="sn-filter-field">
+            <span class="sn-filter-field__label" th:text="#{filter.search.label}">Recherche</span>
+            <input type="text" name="q" class="sn-search__input"
+                   th:value="${query}"
+                   th:placeholder="#{vlan.search.placeholder}">
+        </label>
+        <label class="sn-filter-field">
             <span class="sn-filter-field__label" th:text="#{filter.site.label}">Site</span>
             <select name="siteId" class="sn-search__select" data-auto-submit>
                 <option value="" th:text="#{vlan.filter.allSites}">Tous les sites</option>
@@ -34,6 +40,8 @@
                         th:selected="${site.id == selectedSiteId}">SITE</option>
             </select>
         </label>
+        <button type="submit" class="sn-btn sn-btn--primary sn-btn--sm" th:text="#{common.search}">Rechercher</button>
+        <a th:href="@{/network/vlans}" class="sn-btn sn-btn--ghost sn-btn--sm" th:text="#{common.reset}">Réinitialiser</a>
     </form>
 
     <div class="sn-card">
@@ -57,9 +65,9 @@
                         <td class="sn-text-muted"
                             th:text="${#temporals.format(vlan.createdAt.toLocalDate(), datePattern)}">01/01/2026</td>
                         <td th:if="${canManage}" class="sn-table-actions">
-                            <a th:href="@{/network/vlans/{id}/edit(id=${vlan.id})}"
+                            <a th:href="@{/network/vlans/{id}/edit(id=${vlan.id}, returnTo=${returnTo})}"
                                class="sn-btn sn-btn--secondary sn-btn--sm" th:text="#{common.edit}">Modifier</a>
-                            <form th:action="@{/network/vlans/{id}/delete(id=${vlan.id})}"
+                            <form th:action="@{/network/vlans/{id}/delete(id=${vlan.id}, returnTo=${returnTo})}"
                                   method="post"
                                   class="sn-inline-form"
                                   th:attr="data-confirm=#{vlan.confirm.delete(${vlan.vid})}"
@@ -79,16 +87,16 @@
             <span class="sn-pagination__info"
                   th:text="${vlans.totalElements + ' ' + #messages.msg('pagination.vlans.suffix')}">N VLANs</span>
             <nav class="sn-pagination__nav" th:if="${vlans.totalPages > 1}">
-                <a th:href="@{/network/vlans(page=${vlans.number - 1}, siteId=${selectedSiteId})}"
+                <a th:href="@{/network/vlans(page=${vlans.number - 1}, siteId=${selectedSiteId}, q=${query})}"
                    th:classappend="${vlans.first ? 'sn-pagination__btn--disabled' : ''}"
                    class="sn-pagination__btn">‹</a>
                 <th:block th:each="i : ${#numbers.sequence(0, vlans.totalPages - 1)}">
-                    <a th:href="@{/network/vlans(page=${i}, siteId=${selectedSiteId})}"
+                    <a th:href="@{/network/vlans(page=${i}, siteId=${selectedSiteId}, q=${query})}"
                        th:text="${i + 1}"
                        th:classappend="${i == vlans.number ? 'active' : ''}"
                        class="sn-pagination__btn">1</a>
                 </th:block>
-                <a th:href="@{/network/vlans(page=${vlans.number + 1}, siteId=${selectedSiteId})}"
+                <a th:href="@{/network/vlans(page=${vlans.number + 1}, siteId=${selectedSiteId}, q=${query})}"
                    th:classappend="${vlans.last ? 'sn-pagination__btn--disabled' : ''}"
                    class="sn-pagination__btn">›</a>
             </nav>

@@ -65,23 +65,28 @@ public class VlanWebController {
     @GetMapping
     public String list(@RequestParam(defaultValue = "0") int page,
                        @RequestParam(required = false) Long siteId,
+                       @RequestParam(required = false) String q,
                        Model model,
                        Authentication authentication,
                        HttpSession session,
                        Locale locale) {
-        var pageable = PageRequest.of(page, PAGE_SIZE, Sort.by("vid"));
         Long activeContextId = activeContextService == null ? null : activeContextService.get(session);
         if (siteId != null) {
             var site = siteService.findById(siteId);
             if (activeContextId != null && !activeContextId.equals(site.contextId())) {
                 throw new ResourceNotFoundException("Site", siteId);
             }
-            model.addAttribute("vlans", vlanService.findBySite(siteId, pageable));
-        } else if (activeContextId != null) {
-            model.addAttribute("vlans", vlanService.findByContext(activeContextId, pageable));
-        } else {
-            model.addAttribute("vlans", vlanService.findAll(pageable));
         }
+        int safePage = Math.max(page, 0);
+        var vlans = vlanService.search(q, activeContextId, siteId,
+                PageRequest.of(safePage, PAGE_SIZE, Sort.by("vid")));
+        if (vlans.isEmpty() && safePage > 0 && vlans.getTotalPages() > 0) {
+            vlans = vlanService.search(q, activeContextId, siteId,
+                    PageRequest.of(vlans.getTotalPages() - 1, PAGE_SIZE, Sort.by("vid")));
+        }
+        model.addAttribute("vlans", vlans);
+        model.addAttribute("query", q);
+        model.addAttribute("returnTo", ReturnTo.currentUrl());
         model.addAttribute("sites", activeContextId == null
                 ? siteService.findAll(PageRequest.of(0, 200, Sort.by("code")))
                 : siteService.findByContext(activeContextId, PageRequest.of(0, 200, Sort.by("code"))));
@@ -130,7 +135,7 @@ public class VlanWebController {
                     "/network/vlans", "/network/vlans");
             return "network/vlan-form";
         }
-        return "redirect:/network/vlans";
+        return ReturnTo.redirect("/network/vlans");
     }
 
     // ── Formulaire édition ─────────────────────────────────────────────────
@@ -190,7 +195,7 @@ public class VlanWebController {
             model.addAttribute("currentRequestPath", "/network/vlans/" + id + "/edit");
             return "network/vlan-form";
         }
-        return "redirect:/network/vlans";
+        return ReturnTo.redirect("/network/vlans");
     }
 
     // ── Suppression ────────────────────────────────────────────────────────
@@ -209,7 +214,7 @@ public class VlanWebController {
         } catch (DataIntegrityViolationException e) {
             flash.addFlashAttribute("flashError", msg("flash.vlan.deleteConflict", locale));
         }
-        return "redirect:/network/vlans";
+        return ReturnTo.redirect("/network/vlans");
     }
 
     // ── Utilitaires privés ─────────────────────────────────────────────────
@@ -220,8 +225,8 @@ public class VlanWebController {
                                   String cancelUrl) {
         model.addAttribute("form", form);
         model.addAttribute("pageTitle", pageTitle);
-        model.addAttribute("formAction", formAction);
-        model.addAttribute("cancelUrl", cancelUrl);
+        model.addAttribute("formAction", ReturnTo.withReturnTo(formAction));
+        model.addAttribute("cancelUrl", ReturnTo.cancelUrl(cancelUrl));
         model.addAttribute("activeSection", "vlans");
         Long activeContextId = activeContextService == null
                 ? null : activeContextService.getCurrentRequestContext();

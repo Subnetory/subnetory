@@ -25,6 +25,12 @@
 
     <form th:action="@{/network/sites}" method="get" class="sn-search sn-filter-bar">
         <label class="sn-filter-field">
+            <span class="sn-filter-field__label" th:text="#{filter.search.label}">Recherche</span>
+            <input type="text" name="q" class="sn-search__input"
+                   th:value="${query}"
+                   th:placeholder="#{site.search.placeholder}">
+        </label>
+        <label class="sn-filter-field">
             <span class="sn-filter-field__label" th:text="#{filter.context.label}">Contexte</span>
             <select name="contextId" class="sn-search__select" data-auto-submit>
                 <option value="" th:text="#{site.filter.allContexts}">Tous les contextes</option>
@@ -34,6 +40,8 @@
                         th:selected="${ctx.id == selectedContextId}">Default</option>
             </select>
         </label>
+        <button type="submit" class="sn-btn sn-btn--primary sn-btn--sm" th:text="#{common.search}">Rechercher</button>
+        <a th:href="@{/network/sites}" class="sn-btn sn-btn--ghost sn-btn--sm" th:text="#{common.reset}">Réinitialiser</a>
     </form>
 
     <div class="sn-card">
@@ -57,9 +65,9 @@
                         <td class="sn-text-muted"
                             th:text="${#temporals.format(site.createdAt.toLocalDate(), datePattern)}">01/01/2026</td>
                         <td th:if="${canManage}" class="sn-table-actions">
-                            <a th:href="@{/network/sites/{id}/edit(id=${site.id})}"
+                            <a th:href="@{/network/sites/{id}/edit(id=${site.id}, returnTo=${returnTo})}"
                                class="sn-btn sn-btn--secondary sn-btn--sm" th:text="#{common.edit}">Modifier</a>
-                            <form th:action="@{/network/sites/{id}/delete(id=${site.id})}"
+                            <form th:action="@{/network/sites/{id}/delete(id=${site.id}, returnTo=${returnTo})}"
                                   method="post"
                                   class="sn-inline-form"
                                   th:attr="data-confirm=#{site.confirm.delete(${site.name})}"
@@ -79,16 +87,16 @@
             <span class="sn-pagination__info"
                   th:text="${sites.totalElements + ' ' + #messages.msg('pagination.sites.suffix')}">N sites</span>
             <nav class="sn-pagination__nav" th:if="${sites.totalPages > 1}">
-                <a th:href="@{/network/sites(page=${sites.number - 1}, contextId=${selectedContextId})}"
+                <a th:href="@{/network/sites(page=${sites.number - 1}, contextId=${selectedContextId}, q=${query})}"
                    th:classappend="${sites.first ? 'sn-pagination__btn--disabled' : ''}"
                    class="sn-pagination__btn">‹</a>
                 <th:block th:each="i : ${#numbers.sequence(0, sites.totalPages - 1)}">
-                    <a th:href="@{/network/sites(page=${i}, contextId=${selectedContextId})}"
+                    <a th:href="@{/network/sites(page=${i}, contextId=${selectedContextId}, q=${query})}"
                        th:text="${i + 1}"
                        th:classappend="${i == sites.number ? 'active' : ''}"
                        class="sn-pagination__btn">1</a>
                 </th:block>
-                <a th:href="@{/network/sites(page=${sites.number + 1}, contextId=${selectedContextId})}"
+                <a th:href="@{/network/sites(page=${sites.number + 1}, contextId=${selectedContextId}, q=${query})}"
                    th:classappend="${sites.last ? 'sn-pagination__btn--disabled' : ''}"
                    class="sn-pagination__btn">›</a>
             </nav>

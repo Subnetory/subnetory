@@ -1,5 +1,6 @@
 package dev.subnetory.service;
 
+import dev.subnetory.repository.SiteSpecifications;
 import dev.subnetory.domain.NetworkContext;
 import dev.subnetory.domain.Site;
 import dev.subnetory.dto.SiteRequest;
@@ -41,6 +42,16 @@ public class SiteService {
     public Page<SiteResponse> findByContext(Long contextId, Pageable pageable) {
         contextAccessService.requireAccess(contextId);
         return siteRepository.findByContextId(contextId, pageable).map(this::toResponse);
+    }
+
+    /**
+     * Recherche textuelle paginée (nom, code). Toujours limitée aux contextes
+     * autorisés ; {@code contextId} (contexte actif) ne fait que restreindre davantage.
+     */
+    public Page<SiteResponse> search(String q, Long contextId, Pageable pageable) {
+        if (contextId != null) contextAccessService.requireAccess(contextId);
+        var spec = SiteSpecifications.withFilters(q, contextId, contextAccessService.allowedContextIds());
+        return siteRepository.findAll(spec, pageable).map(this::toResponse);
     }
 
     public SiteResponse findById(Long id) {

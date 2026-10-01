@@ -4,9 +4,10 @@ import dev.subnetory.domain.Vlan;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import java.util.Collection;
 
-public interface VlanRepository extends JpaRepository<Vlan, Long> {
+public interface VlanRepository extends JpaRepository<Vlan, Long>, JpaSpecificationExecutor<Vlan> {
 
     Page<Vlan> findBySiteId(Long siteId, Pageable pageable);
 

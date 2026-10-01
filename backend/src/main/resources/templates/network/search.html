@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <div class="sn-page__header">
+        <div>
+            <h1 class="sn-page__title" th:text="#{search.title}">Recherche</h1>
+            <p class="sn-page__subtitle" th:text="#{search.subtitle}">Résultats regroupés par type, dans les contextes auxquels vous avez accès.</p>
+        </div>
+    </div>
+
+    <form th:action="@{/search}" method="get" class="sn-search sn-filter-bar">
+        <label class="sn-filter-field">
+            <span class="sn-filter-field__label" th:text="#{filter.search.label}">Recherche</span>
+            <input type="search" name="q" class="sn-search__input" maxlength="120"
+                   th:value="${query}" th:placeholder="#{search.global.placeholder}" autofocus>
+        </label>
+        <button type="submit" class="sn-btn sn-btn--primary sn-btn--sm" th:text="#{common.search}">Rechercher</button>
+    </form>
+
+    <div th:if="${query.isEmpty()}" class="sn-alert sn-alert--info" th:text="#{search.hint}">Saisissez un terme.</div>
+
+    <div th:if="${result != null and result.total() == 0}" class="sn-alert sn-alert--info"
+         th:text="#{search.noResults(${query})}">Aucun résultat.</div>
+
+    <!-- Contextes -->
+    <div class="sn-card sn-card--search" th:if="${result != null and !result.contexts().empty}">
+        <h2 class="sn-card__title" th:text="#{nav.contexts}">Contextes</h2>
+        <div class="sn-table-wrapper"><table class="sn-table"><tbody>
+            <tr th:each="c : ${result.contexts()}">
+                <td><a class="sn-row-link" th:href="@{/network/sites(contextId=${c.id})}" th:text="${c.name}">Contexte</a></td>
+                <td class="sn-text-secondary" th:text="${c.description ?: '—'}">—</td>
+                <td th:if="${canManageContexts}" class="sn-table-actions">
+                    <a th:href="@{/network/contexts/{id}/edit(id=${c.id}, returnTo=${returnTo})}"
+                       class="sn-btn sn-btn--secondary sn-btn--sm" th:text="#{common.edit}">Modifier</a>
+                </td>
+            </tr>
+        </tbody></table></div>
+        <div class="sn-pagination"><span class="sn-pagination__info">
+            <a th:if="${result.contexts().totalElements > limit}" th:href="@{/network/contexts(q=${query})}"
+               th:text="#{search.seeAll(${result.contexts().totalElements})}">Voir tout</a>
+        </span></div>
+    </div>
+
+    <!-- Sites -->
+    <div class="sn-card sn-card--search" th:if="${result != null and !result.sites().empty}">
+        <h2 class="sn-card__title" th:text="#{nav.sites}">Sites</h2>
+        <div class="sn-table-wrapper"><table class="sn-table"><tbody>
+            <tr th:each="s : ${result.sites()}">
+                <td class="sn-text-mono"><a class="sn-row-link" th:href="@{/network/vlans(siteId=${s.id})}" th:text="${s.code}">SITE</a></td>
+                <td th:text="${s.name}">Site</td>
+                <td class="sn-text-secondary" th:text="${s.contextName}">Contexte</td>
+                <td th:if="${canManageNetwork}" class="sn-table-actions">
+                    <a th:href="@{/network/sites/{id}/edit(id=${s.id}, returnTo=${returnTo})}"
+                       class="sn-btn sn-btn--secondary sn-btn--sm" th:text="#{common.edit}">Modifier</a>
+                </td>
+            </tr>
+        </tbody></table></div>
+        <div class="sn-pagination"><span class="sn-pagination__info">
+            <a th:if="${result.sites().totalElements > limit}" th:href="@{/network/sites(q=${query})}"
+               th:text="#{search.seeAll(${result.sites().totalElements})}">Voir tout</a>
+        </span></div>
+    </div>
+
+    <!-- VLAN -->
+    <div class="sn-card sn-card--search" th:if="${result != null and !result.vlans().empty}">
+        <h2 class="sn-card__title" th:text="#{nav.vlans}">VLAN</h2>
+        <div class="sn-table-wrapper"><table class="sn-table"><tbody>
+            <tr th:each="v : ${result.vlans()}">
+                <td><a class="sn-row-link" th:href="@{/network/subnets(vlanId=${v.id})}"><span class="sn-badge sn-badge--blue" th:text="${v.vid}">100</span></a></td>
+                <td th:text="${v.name ?: '—'}">VLAN</td>
+                <td class="sn-text-secondary" th:text="${v.siteName}">Site</td>
+                <td th:if="${canManageNetwork}" class="sn-table-actions">
+                    <a th:href="@{/network/vlans/{id}/edit(id=${v.id}, returnTo=${returnTo})}"
+                       class="sn-btn sn-btn--secondary sn-btn--sm" th:text="#{common.edit}">Modifier</a>
+                </td>
+            </tr>
+        </tbody></table></div>
+        <div class="sn-pagination"><span class="sn-pagination__info">
+            <a th:if="${result.vlans().totalElements > limit}" th:href="@{/network/vlans(q=${query})}"
+               th:text="#{search.seeAll(${result.vlans().totalElements})}">Voir tout</a>
+        </span></div>
+    </div>
+
+    <!-- Sous-réseaux -->
+    <div class="sn-card sn-card--search" th:if="${result != null and !result.subnets().empty}">
+        <h2 class="sn-card__title" th:text="#{nav.subnets}">Sous-réseaux</h2>
+        <div class="sn-table-wrapper"><table class="sn-table"><tbody>
+            <tr th:each="n : ${result.subnets()}">
+                <td class="sn-text-mono"><a class="sn-row-link" th:href="@{/network/addresses(subnetId=${n.id})}" th:text="${n.network}">10.0.0.0/24</a></td>
+                <td th:text="${n.description ?: '—'}">—</td>
+                <td class="sn-text-mono" th:text="${n.gateway ?: '—'}">—</td>
+                <td class="sn-text-secondary" th:text="${n.siteName}">Site</td>
+                <td th:if="${canManageNetwork}" class="sn-table-actions">
+                    <a th:href="@{/network/subnets/{id}/edit(id=${n.id}, returnTo=${returnTo})}"
+                       class="sn-btn sn-btn--secondary sn-btn--sm" th:text="#{common.edit}">Modifier</a>
+                </td>
+            </tr>
+        </tbody></table></div>
+        <div class="sn-pagination"><span class="sn-pagination__info">
+            <a th:if="${result.subnets().totalElements > limit}" th:href="@{/network/subnets(q=${query})}"
+               th:text="#{search.seeAll(${result.subnets().totalElements})}">Voir tout</a>
+        </span></div>
+    </div>
+
+    <!-- Adresses IP -->
+    <div class="sn-card sn-card--search" th:if="${result != null and !result.addresses().empty}">
+        <h2 class="sn-card__title" th:text="#{nav.addresses}">Adresses IP</h2>
+        <div class="sn-table-wrapper"><table class="sn-table"><tbody>
+            <tr th:each="a : ${result.addresses()}">
+                <td class="sn-text-mono"><a class="sn-row-link" th:href="@{/network/addresses/{id}(id=${a.id})}" th:text="${a.address}">10.0.0.1</a></td>
+                <td th:text="${a.hostname ?: '—'}">—</td>
+                <td class="sn-text-secondary" th:text="${a.subnetNetwork}">10.0.0.0/24</td>
+                <td th:if="${canManageIp}" class="sn-table-actions">
+                    <a th:href="@{/network/addresses/{id}/edit(id=${a.id}, returnTo=${returnTo})}"
+                       class="sn-btn sn-btn--secondary sn-btn--sm" th:text="#{common.edit}">Modifier</a>
+                </td>
+            </tr>
+        </tbody></table></div>
+        <div class="sn-pagination"><span class="sn-pagination__info">
+            <a th:if="${result.addresses().totalElements > limit}" th:href="@{/network/addresses(q=${query})}"
+               th:text="#{search.seeAll(${result.addresses().totalElements})}">Voir tout</a>
+        </span></div>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

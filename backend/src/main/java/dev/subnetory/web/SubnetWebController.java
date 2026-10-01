@@ -117,27 +117,28 @@ public class SubnetWebController {
                        @RequestParam(required = false) Long contextId,
                        @RequestParam(required = false) Long siteId,
                        @RequestParam(required = false) Long vlanId,
+                       @RequestParam(required = false) String q,
                        Authentication auth,
                        Model model,
                        HttpSession session,
                        Locale locale) {
-        var pageable = PageRequest.of(page, PAGE_SIZE, Sort.by("network"));
         Long selectedContextId = activeContextService == null
                 ? contextId : activeContextService.resolve(session, contextId);
-        Page<SubnetResponse> subnets;
-        if (vlanId != null) {
-            // Navigation drill-down VLAN → subnets (audit du 31/07/2026).
-            subnets = subnetService.findByVlan(vlanId, pageable);
-        } else if (siteId != null) {
+        if (siteId != null) {
             var site = siteService.findById(siteId);
             if (selectedContextId != null && !selectedContextId.equals(site.contextId())) {
                 throw new ResourceNotFoundException("Site", siteId);
             }
-            subnets = subnetService.findBySite(siteId, pageable);
-        } else if (selectedContextId != null) {
-            subnets = subnetService.findByContext(selectedContextId, pageable);
-        } else {
-            subnets = subnetService.findAll(pageable);
+        }
+        int safePage = Math.max(page, 0);
+        // Drill-down VLAN → sous-réseaux : comportement historique conservé, le VLAN
+        // n'est pas restreint au contexte actif (les contextes autorisés restent imposés).
+        Long searchContextId = vlanId != null ? null : selectedContextId;
+        Page<SubnetResponse> subnets = subnetService.search(q, searchContextId, siteId, vlanId,
+                PageRequest.of(safePage, PAGE_SIZE, Sort.by("network")));
+        if (subnets.isEmpty() && safePage > 0 && subnets.getTotalPages() > 0) {
+            subnets = subnetService.search(q, searchContextId, siteId, vlanId,
+                    PageRequest.of(subnets.getTotalPages() - 1, PAGE_SIZE, Sort.by("network")));
         }
 
         var rows = subnets.map(s -> new SubnetRowView(
@@ -154,12 +155,16 @@ public class SubnetWebController {
         boolean canManage = canManage(auth);
 
         model.addAttribute("subnets", rows);
+        model.addAttribute("query", q);
+        model.addAttribute("returnTo", ReturnTo.currentUrl());
         model.addAttribute("contexts",
                 contextService.findAll(PageRequest.of(0, 100, Sort.by("name"))));
         model.addAttribute("sites", selectedContextId == null
                 ? siteService.findAll(PageRequest.of(0, 200, Sort.by("code")))
                 : siteService.findByContext(selectedContextId,
                         PageRequest.of(0, 200, Sort.by("code"))));
+        model.addAttribute("vlans", vlanService.search(null, selectedContextId, siteId,
+                PageRequest.of(0, 200, Sort.by("vid"))).getContent());
         model.addAttribute("selectedContextId", selectedContextId);
         model.addAttribute("selectedSiteId", siteId);
         model.addAttribute("selectedVlanId", vlanId);
@@ -185,6 +190,7 @@ public class SubnetWebController {
     public void exportCsv(
             @RequestParam(required = false) Long siteId,
             @RequestParam(required = false) Long contextId,
+            @RequestParam(required = false) String q,
             HttpServletResponse response,
             HttpSession session) throws IOException {
 
@@ -196,7 +202,9 @@ public class SubnetWebController {
         Long selectedContextId = activeContextService == null
                 ? contextId : activeContextService.resolve(session, contextId);
         validateSiteWithinActiveContext(siteId, selectedContextId);
-        List<SubnetResponse> subnets = subnetService.findAllForExport(siteId, selectedContextId);
+        List<SubnetResponse> subnets = (q == null || q.isBlank())
+                ? subnetService.findAllForExport(siteId, selectedContextId)
+                : subnetService.searchAllForExport(q, selectedContextId, siteId);
 
         try (CSVWriter writer = new CSVWriter(
                 response.getWriter(),
@@ -236,6 +244,7 @@ public class SubnetWebController {
     public void exportXlsx(
             @RequestParam(required = false) Long siteId,
             @RequestParam(required = false) Long contextId,
+            @RequestParam(required = false) String q,
             HttpServletResponse response,
             HttpSession session,
             Locale locale) throws IOException {
@@ -248,7 +257,9 @@ public class SubnetWebController {
         Long selectedContextId = activeContextService == null
                 ? contextId : activeContextService.resolve(session, contextId);
         validateSiteWithinActiveContext(siteId, selectedContextId);
-        List<SubnetResponse> subnets = subnetService.findAllForExport(siteId, selectedContextId);
+        List<SubnetResponse> subnets = (q == null || q.isBlank())
+                ? subnetService.findAllForExport(siteId, selectedContextId)
+                : subnetService.searchAllForExport(q, selectedContextId, siteId);
 
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet(msg("export.subnets.sheetName", locale));
@@ -436,7 +447,7 @@ public class SubnetWebController {
                     "/network/subnets", "/network/subnets");
             return "network/subnet-form";
         }
-        return "redirect:/network/subnets";
+        return ReturnTo.redirect("/network/subnets");
     }
 
     // ── Formulaire édition ─────────────────────────────────────────────────
@@ -503,7 +514,7 @@ public class SubnetWebController {
             model.addAttribute("currentRequestPath", "/network/subnets/" + id + "/edit");
             return "network/subnet-form";
         }
-        return "redirect:/network/subnets";
+        return ReturnTo.redirect("/network/subnets");
     }
 
     // ── Suppression ────────────────────────────────────────────────────────
@@ -521,7 +532,7 @@ public class SubnetWebController {
         } catch (DataIntegrityViolationException e) {
             flash.addFlashAttribute("flashError", msg("flash.subnet.deleteConflict", locale));
         }
-        return "redirect:/network/subnets";
+        return ReturnTo.redirect("/network/subnets");
     }
 
     // ── Utilitaires privés ─────────────────────────────────────────────────
@@ -532,8 +543,8 @@ public class SubnetWebController {
                                   String cancelUrl) {
         model.addAttribute("form", form);
         model.addAttribute("pageTitle", pageTitle);
-        model.addAttribute("formAction", formAction);
-        model.addAttribute("cancelUrl", cancelUrl);
+        model.addAttribute("formAction", ReturnTo.withReturnTo(formAction));
+        model.addAttribute("cancelUrl", ReturnTo.cancelUrl(cancelUrl));
         model.addAttribute("activeSection", "subnets");
         Long activeContextId = activeContextService == null
                 ? null : activeContextService.getCurrentRequestContext();

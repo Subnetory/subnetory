@@ -19,6 +19,17 @@
     <div th:if="${flashSuccess}" class="sn-alert sn-alert--success" th:text="${flashSuccess}"></div>
     <div th:if="${flashError}"   class="sn-alert sn-alert--error"   th:text="${flashError}"></div>
 
+    <form th:action="@{/network/contexts}" method="get" class="sn-search sn-filter-bar">
+        <label class="sn-filter-field">
+            <span class="sn-filter-field__label" th:text="#{filter.search.label}">Recherche</span>
+            <input type="text" name="q" class="sn-search__input"
+                   th:value="${query}"
+                   th:placeholder="#{context.search.placeholder}">
+        </label>
+        <button type="submit" class="sn-btn sn-btn--primary sn-btn--sm" th:text="#{common.search}">Rechercher</button>
+        <a th:href="@{/network/contexts}" class="sn-btn sn-btn--ghost sn-btn--sm" th:text="#{common.reset}">Réinitialiser</a>
+    </form>
+
     <div class="sn-card">
         <div class="sn-table-wrapper">
             <table class="sn-table">
@@ -38,9 +49,9 @@
                         <td class="sn-text-muted"
                             th:text="${#temporals.format(ctx.createdAt.toLocalDate(), datePattern)}">01/01/2026</td>
                         <td th:if="${canManage}" class="sn-table-actions">
-                            <a th:href="@{/network/contexts/{id}/edit(id=${ctx.id})}"
+                            <a th:href="@{/network/contexts/{id}/edit(id=${ctx.id}, returnTo=${returnTo})}"
                                class="sn-btn sn-btn--secondary sn-btn--sm" th:text="#{common.edit}">Modifier</a>
-                            <form th:action="@{/network/contexts/{id}/delete(id=${ctx.id})}"
+                            <form th:action="@{/network/contexts/{id}/delete(id=${ctx.id}, returnTo=${returnTo})}"
                                   method="post"
                                   class="sn-inline-form"
                                   th:attr="data-confirm=#{context.confirm.delete(${ctx.name})}"
@@ -60,16 +71,16 @@
             <span class="sn-pagination__info"
                   th:text="${contexts.totalElements + ' ' + #messages.msg('pagination.contexts.suffix')}">N contextes</span>
             <nav class="sn-pagination__nav" th:if="${contexts.totalPages > 1}">
-                <a th:href="@{/network/contexts(page=${contexts.number - 1})}"
+                <a th:href="@{/network/contexts(page=${contexts.number - 1}, q=${query})}"
                    th:classappend="${contexts.first ? 'sn-pagination__btn--disabled' : ''}"
                    class="sn-pagination__btn">‹</a>
                 <th:block th:each="i : ${#numbers.sequence(0, contexts.totalPages - 1)}">
-                    <a th:href="@{/network/contexts(page=${i})}"
+                    <a th:href="@{/network/contexts(page=${i}, q=${query})}"
                        th:text="${i + 1}"
                        th:classappend="${i == contexts.number ? 'active' : ''}"
                        class="sn-pagination__btn">1</a>
                 </th:block>
-                <a th:href="@{/network/contexts(page=${contexts.number + 1})}"
+                <a th:href="@{/network/contexts(page=${contexts.number + 1}, q=${query})}"
                    th:classappend="${contexts.last ? 'sn-pagination__btn--disabled' : ''}"
                    class="sn-pagination__btn">›</a>
             </nav>

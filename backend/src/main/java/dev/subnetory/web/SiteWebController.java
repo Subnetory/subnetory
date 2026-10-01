@@ -65,18 +65,23 @@ public class SiteWebController {
     @GetMapping
     public String list(@RequestParam(defaultValue = "0") int page,
                        @RequestParam(required = false) Long contextId,
+                       @RequestParam(required = false) String q,
                        Model model,
                        Authentication authentication,
                        HttpSession session,
                        Locale locale) {
-        var pageable = PageRequest.of(page, PAGE_SIZE, Sort.by("code"));
         Long selectedContextId = activeContextService == null
                 ? contextId : activeContextService.resolve(session, contextId);
-        if (selectedContextId != null) {
-            model.addAttribute("sites", siteService.findByContext(selectedContextId, pageable));
-        } else {
-            model.addAttribute("sites", siteService.findAll(pageable));
+        int safePage = Math.max(page, 0);
+        var sites = siteService.search(q, selectedContextId,
+                PageRequest.of(safePage, PAGE_SIZE, Sort.by("code")));
+        if (sites.isEmpty() && safePage > 0 && sites.getTotalPages() > 0) {
+            sites = siteService.search(q, selectedContextId,
+                    PageRequest.of(sites.getTotalPages() - 1, PAGE_SIZE, Sort.by("code")));
         }
+        model.addAttribute("sites", sites);
+        model.addAttribute("query", q);
+        model.addAttribute("returnTo", ReturnTo.currentUrl());
         model.addAttribute("contexts", contextService.findAll(PageRequest.of(0, 100, Sort.by("name"))));
         model.addAttribute("selectedContextId", selectedContextId);
         model.addAttribute("canManage", canManage(authentication));
@@ -136,7 +141,7 @@ public class SiteWebController {
                     "/network/sites", "/network/sites");
             return "network/site-form";
         }
-        return "redirect:/network/sites";
+        return ReturnTo.redirect("/network/sites");
     }
 
     // ── Formulaire édition ─────────────────────────────────────────────────
@@ -209,7 +214,7 @@ public class SiteWebController {
             model.addAttribute("currentRequestPath", "/network/sites/" + id + "/edit");
             return "network/site-form";
         }
-        return "redirect:/network/sites";
+        return ReturnTo.redirect("/network/sites");
     }
 
     // ── Suppression ────────────────────────────────────────────────────────
@@ -227,7 +232,7 @@ public class SiteWebController {
         } catch (DataIntegrityViolationException e) {
             flash.addFlashAttribute("flashError", msg("flash.site.deleteConflict", locale));
         }
-        return "redirect:/network/sites";
+        return ReturnTo.redirect("/network/sites");
     }
 
     // ── Utilitaires privés ─────────────────────────────────────────────────
@@ -238,8 +243,8 @@ public class SiteWebController {
                                   String cancelUrl) {
         model.addAttribute("form", form);
         model.addAttribute("pageTitle", pageTitle);
-        model.addAttribute("formAction", formAction);
-        model.addAttribute("cancelUrl", cancelUrl);
+        model.addAttribute("formAction", ReturnTo.withReturnTo(formAction));
+        model.addAttribute("cancelUrl", ReturnTo.cancelUrl(cancelUrl));
         model.addAttribute("activeSection", "sites");
         Long activeContextId = activeContextService == null
                 ? null : activeContextService.getCurrentRequestContext();

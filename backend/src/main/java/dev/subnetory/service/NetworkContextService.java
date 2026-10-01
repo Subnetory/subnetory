@@ -1,5 +1,6 @@
 package dev.subnetory.service;
 
+import dev.subnetory.repository.ContextSpecifications;
 import dev.subnetory.domain.NetworkContext;
 import dev.subnetory.dto.NetworkContextRequest;
 import dev.subnetory.dto.NetworkContextResponse;
@@ -39,6 +40,12 @@ public class NetworkContextService {
         return contextRepository.findByIdInOrderByNameAsc(allowedIds).stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    /** Recherche textuelle paginée (nom, description), limitée aux contextes autorisés. */
+    public Page<NetworkContextResponse> search(String q, Pageable pageable) {
+        var spec = ContextSpecifications.withFilters(q, contextAccessService.allowedContextIds());
+        return contextRepository.findAll(spec, pageable).map(this::toResponse);
     }
 
     public NetworkContextResponse findById(Long id) {
