@@ -79,7 +79,7 @@
   z-index: 100;
   min-height: 82px;
   display: grid;
-  grid-template-columns: max-content minmax(560px, 1fr) max-content;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
   align-items: center;
   gap: 20px;
   padding: 12px 22px;
@@ -101,9 +101,20 @@
 .sn-appbar__center {
   min-width: 0;
   display: flex;
+  flex-wrap: wrap; /* never overflow onto the right-hand controls */
   justify-content: center;
   align-items: center;
-  gap: 14px;
+  gap: 8px 14px;
+}
+
+.sn-appbar__left,
+.sn-appbar__right {
+  flex-shrink: 0;
+}
+
+.sn-main-nav {
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .sn-brand {
@@ -275,10 +286,11 @@
    petit/plus fade que prevu. Taille et graisse fixees une seule fois
    au bon endroit desormais. */
 
-/* Une barre sur une seule ligne commence à se chevaucher avant 1440 px,
-   particulièrement avec les libellés français. Basculer un peu plus tôt
-   garantit que navigation, langue et profil restent séparés. */
-@media (max-width: 1500px) {
+/* Une barre sur une seule ligne ne tient pas sous ~1900 px (CSS px, donc
+   zoom navigateur inclus : 100 % sur un ecran 1920 px de large, 125 % sur
+   2560 px...). Basculer plus tot garantit que navigation, langue et profil
+   restent separes ; le wrap du bloc central sert de filet de securite. */
+@media (max-width: 1920px) {
   .sn-appbar { grid-template-columns: 1fr; gap: 9px; }
   .sn-appbar__left, .sn-appbar__right { position: absolute; top: 12px; }
   .sn-appbar__left { left: 18px; }
