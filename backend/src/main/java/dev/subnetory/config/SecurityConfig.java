@@ -2,6 +2,7 @@ package dev.subnetory.config;
 
 import dev.subnetory.security.ApiRateLimitingFilter;
 import dev.subnetory.security.ClientIpResolver;
+import dev.subnetory.security.OpenApiSessionGuardFilter;
 import dev.subnetory.security.LoginRateLimitingFilter;
 import dev.subnetory.security.MandatoryPasswordChangeFilter;
 import dev.subnetory.security.MfaChallengeFilter;
@@ -28,6 +29,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
@@ -56,7 +58,9 @@ import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
@@ -79,7 +83,8 @@ import java.util.Set;
  * Quatre chaines :
  * 0. Logout API (/api/v1/auth/logout) : decode manuel, idempotent.
  * 1. API REST (/api/**, /actuator/**) : stateless JWT, CSRF desactive.
- * 2. OpenAPI / Swagger UI : permitAll, CSP assouplie pour Swagger UI.
+ * 2. OpenAPI / Swagger UI : reserve au role ADMIN (JWT Bearer ou session web),
+ *    CSP assouplie pour Swagger UI.
  * 3. Web Thymeleaf : session, CSRF active, form login.
  */
 @Configuration
@@ -283,21 +288,74 @@ public class SecurityConfig {
     // Chaine 2 - OpenAPI / Swagger UI
     // -------------------------------------------------------
 
+    /**
+     * Documentation OpenAPI / Swagger UI reservee au role ADMIN.
+     *
+     * <p>Deux modes d'authentification sont acceptes :</p>
+     * <ul>
+     *   <li>JWT Bearer (ADMIN) : automatisation (scripts, Kubernetes, CI) qui
+     *       lit {@code /v3/api-docs} ou {@code /v3/api-docs.yaml} ;</li>
+     *   <li>session web existante (ADMIN) : un administrateur connecte a
+     *       l'interface ouvre Swagger UI dans son navigateur, qui ne peut pas
+     *       envoyer d'en-tete Authorization. La session n'est jamais creee
+     *       par cette chaine ({@code NEVER}).</li>
+     * </ul>
+     *
+     * <p>Sans credentials : 401 (redirection vers /login pour un navigateur).
+     * Authentifie sans etre ADMIN : 403. Aucune information sur l'API n'est
+     * exposee dans ces reponses.</p>
+     */
     @Bean
     @Order(2)
-    public SecurityFilterChain openApiFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain openApiFilterChain(
+            HttpSecurity http,
+            @Qualifier("jwtDecoder") JwtDecoder jwtDecoder,
+            ObjectProvider<MandatoryPasswordChangeService> mandatoryPasswordChangeServiceProvider,
+            ObjectProvider<MfaLoginChallengeService> mfaLoginChallengeServiceProvider) throws Exception {
+        AuthenticationEntryPoint openApiEntryPoint = (request, response, authException) -> {
+            String accept = request.getHeader(HttpHeaders.ACCEPT);
+            boolean hasAuthorization = request.getHeader(HttpHeaders.AUTHORIZATION) != null;
+            if (!hasAuthorization && accept != null && accept.contains("text/html")) {
+                response.sendRedirect(request.getContextPath() + "/login");
+                return;
+            }
+            response.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+        };
+
         return http
                 .securityMatcher(
                         "/v3/api-docs",
                         "/v3/api-docs/**",
+                        "/v3/api-docs.yaml",
                         "/swagger-ui.html",
                         "/swagger-ui/**"
                 )
                 .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.NEVER))
                 .authorizeHttpRequests(auth -> auth
-                        .anyRequest().permitAll()
+                        .anyRequest().hasRole("ADMIN")
                 )
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .jwt(jwt -> jwt
+                                .decoder(jwtDecoder)
+                                .jwtAuthenticationConverter(jwtAuthenticationConverter())
+                        )
+                        .authenticationEntryPoint(openApiEntryPoint)
+                )
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(openApiEntryPoint)
+                        .accessDeniedHandler((request, response, accessDeniedException) ->
+                                response.sendError(HttpServletResponse.SC_FORBIDDEN))
+                )
+                // Une session web "a moitie" authentifiee (MFA non verifie ou
+                // changement de mot de passe obligatoire en attente) ne doit
+                // pas ouvrir la documentation.
+                .addFilterBefore(
+                        new OpenApiSessionGuardFilter(
+                                mandatoryPasswordChangeServiceProvider.getIfAvailable(),
+                                mfaLoginChallengeServiceProvider.getIfAvailable()),
+                        AnonymousAuthenticationFilter.class)
                 .headers(headers -> {
                     headers.frameOptions(frame -> frame.deny());
                     headers.contentTypeOptions(Customizer.withDefaults());

@@ -316,7 +316,7 @@ curl -s -X POST http://localhost:8080/api/v1/admin/backup/trigger \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-Reference complete des endpoints (schemas de requete/reponse) : Swagger UI `/swagger-ui.html` ou spec `/v3/api-docs` (voir aussi `backend/docs/API_FIRST_PARITY.md`).
+Reference complete des endpoints (schemas de requete/reponse) : Swagger UI `/swagger-ui.html` ou spec `/v3/api-docs` (voir aussi `backend/docs/API_FIRST_PARITY.md`). Ces URLs sont reservees au role ADMIN : session web administrateur dans un navigateur, ou jeton `Authorization: Bearer $TOKEN` pour l'automatisation (`curl -H "Authorization: Bearer $TOKEN" .../v3/api-docs`).
 
 Deploiement Kubernetes : chart `charts/subnetory`, cle `backupApp` dans `values.yaml` (PVC dediee, ConfigMap). La combinaison `backup.enabled=true` et `backupApp.enabled=true` est rejetee au rendu du chart (`helm template` echoue volontairement).
 

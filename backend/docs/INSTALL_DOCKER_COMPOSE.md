@@ -364,6 +364,8 @@ La dernière commande est destructive et ne doit être utilisée que pour une in
 
 ## 11. Mode PostgreSQL externe
 
+> Script de préparation du serveur (aucune table à créer à la main) : [EXTERNAL_POSTGRESQL.md](EXTERNAL_POSTGRESQL.md). Mises à jour : [UPGRADE.md](UPGRADE.md).
+
 Le mode production application seule utilise `backend/docker-compose.prod.yml`.
 
 Il est documenté dans `DOCKER_COMPOSE_OPERATIONS.md`. Le fichier autonome `docker-compose.yml` reste la référence pour une installation complète sur une seule machine.

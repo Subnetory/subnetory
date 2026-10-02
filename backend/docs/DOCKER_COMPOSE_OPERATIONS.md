@@ -106,6 +106,8 @@ Le healthcheck Docker cible la readiness. L'arrêt gracieux est activé avec une
 
 ## Mise à jour de l'application
 
+> Procédure guidée et scriptée (sauvegarde vérifiée, redémarrage de l'application seule, retour arrière) : voir [UPGRADE.md](UPGRADE.md) et `scripts/upgrade-compose.sh`.
+
 1. Vérifier l'état et réaliser une sauvegarde.
 2. Mettre à jour les sources par fast-forward ou extraire une nouvelle archive dans un emplacement contrôlé.
 3. Conserver `backend/secrets/`, `.env` non sensible et les sauvegardes hors dépôt.
@@ -409,6 +411,8 @@ Ne jamais supprimer un volume dont l'identité ou la sauvegarde n'est pas confir
 
 ## Mode PostgreSQL externe
 
+> Préparation automatisée du serveur (rôle, base, droits ; les tables sont créées par Flyway) : voir [EXTERNAL_POSTGRESQL.md](EXTERNAL_POSTGRESQL.md) et `scripts/setup-external-postgres.sh`.
+
 Le fichier `docker-compose.prod.yml` lance uniquement l'application.
 
 Construire l'image :
@@ -471,7 +475,7 @@ Avant chaque mise en production :
 - conserver le rapport d'audit produit et contrôler les événements de sécurité attendus ;
 - tester une restauration réelle d'une sauvegarde récente sur une base isolée ;
 - laisser `HOST_BIND_ADDRESS=127.0.0.1` si un reverse proxy local publie l'application, et n'utiliser `0.0.0.0` qu'avec un pare-feu explicite ;
-- laisser `SWAGGER_ENABLED=false` en production, sauf besoin opérationnel validé ;
+- laisser `SWAGGER_ENABLED=false` en production, sauf besoin opérationnel validé ; si activé, Swagger UI et `/v3/api-docs` restent réservés au rôle ADMIN (jeton JWT Bearer ou session web administrateur) ;
 - terminer TLS, l'authentification et la journalisation du proxy selon la politique de l'entreprise ;
 - exporter les journaux applicatifs et PostgreSQL vers un stockage supervisé hors de l'hôte.
 
