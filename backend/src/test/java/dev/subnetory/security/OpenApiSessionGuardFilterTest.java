@@ -22,6 +22,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 
 @ExtendWith(MockitoExtension.class)
 class OpenApiSessionGuardFilterTest {
@@ -83,11 +84,38 @@ class OpenApiSessionGuardFilterTest {
     }
 
     @Test
-    void bearerRequest_isNotAffected() throws Exception {
+    void jwtAuthentication_isNotAffected() throws Exception {
+        org.springframework.security.oauth2.jwt.Jwt jwt =
+                org.springframework.security.oauth2.jwt.Jwt.withTokenValue("token")
+                        .header("alg", "none")
+                        .subject("jdoe")
+                        .build();
+        SecurityContextHolder.getContext().setAuthentication(
+                new JwtAuthenticationToken(jwt,
+                        List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/v3/api-docs");
         request.addHeader("Authorization", "Bearer token");
 
         assertThat(authenticationSeenByChain(request)).isNotNull();
+    }
+
+    @Test
+    void anyAuthorizationHeader_doesNotBypassGuard_mfaNotVerified() throws Exception {
+        lenient().when(passwordChangeService.isRequired("jdoe")).thenReturn(false);
+        when(mfaLoginChallengeService.isRequired("jdoe")).thenReturn(true);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/v3/api-docs");
+        request.addHeader("Authorization", "Basic Zm9vOmJhcg==");
+
+        assertThat(authenticationSeenByChain(request)).isNull();
+    }
+
+    @Test
+    void anyAuthorizationHeader_doesNotBypassGuard_passwordChangeRequired() throws Exception {
+        when(passwordChangeService.isRequired("jdoe")).thenReturn(true);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/v3/api-docs");
+        request.addHeader("Authorization", "Bearer not-a-real-token");
+
+        assertThat(authenticationSeenByChain(request)).isNull();
     }
 
     private Authentication authenticationSeenByChain(MockHttpServletRequest request)

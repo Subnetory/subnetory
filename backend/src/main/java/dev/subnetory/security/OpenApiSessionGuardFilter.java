@@ -7,10 +7,10 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
-import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -26,8 +26,10 @@ import java.io.IOException;
  * que ces etapes ne sont pas terminees. Le contexte est alors traite comme
  * anonyme et la requete est refusee (401 / redirection /login).</p>
  *
- * <p>Les requetes portant un en-tete Authorization (JWT Bearer) ne sont pas
- * concernees.</p>
+ * <p>Les authentifications par JWT Bearer (deja validees par le filtre
+ * resource server) ne sont pas concernees. Le choix repose sur le type
+ * d'authentification, jamais sur un en-tete de la requete, qui est controle
+ * par l'appelant.</p>
  */
 public class OpenApiSessionGuardFilter extends OncePerRequestFilter {
 
@@ -48,8 +50,12 @@ public class OpenApiSessionGuardFilter extends OncePerRequestFilter {
         Authentication authentication =
                 SecurityContextHolder.getContext().getAuthentication();
 
-        if (request.getHeader(HttpHeaders.AUTHORIZATION) == null
-                && isAuthenticated(authentication)
+        // Decision based on the authentication type, never on a request header:
+        // a header is attacker-controlled and would let a half-authenticated
+        // web session skip this guard. A validated JWT has already been
+        // processed by the resource-server filter and is left untouched.
+        if (isAuthenticated(authentication)
+                && !(authentication instanceof JwtAuthenticationToken)
                 && isLoginIncomplete(request, authentication.getName())) {
             SecurityContextHolder.clearContext();
         }
