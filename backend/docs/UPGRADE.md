@@ -25,14 +25,14 @@ It never runs `down -v`, never touches volumes, `secrets/` or `.env`, and never 
 
 ```sh
 git fetch --tags
-scripts/upgrade-compose.sh --ref v0.8.13
+scripts/upgrade-compose.sh --ref v0.9.0
 ```
 
 Omit `--ref` if you already updated the sources yourself (for example by extracting a new archive). Use `--dry-run` first to see every command without running it.
 
 ## Upgrade with a published image
 
-When your Compose files reference a published image (for example `ghcr.io/subnetory/subnetory:v0.8.13`), edit the `image:` line to the new tag (keep the `@sha256:` digest in sync if you pin one), then:
+When your Compose files reference a published image (for example `ghcr.io/subnetory/subnetory:v0.9.0`), edit the `image:` line to the new tag (keep the `@sha256:` digest in sync if you pin one), then:
 
 ```sh
 scripts/upgrade-compose.sh -f docker-compose.prod.yml --pull

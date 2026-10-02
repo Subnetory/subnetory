@@ -6,10 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-03
+
 ### Added
 
 * `scripts/upgrade-compose.sh` and `backend/docs/UPGRADE.md`: guided upgrade of a Docker Compose installation (verified pre-upgrade backup, application-only restart, health wait, rollback rules) that never removes data or secrets.
 * `scripts/setup-external-postgres.sh` and `backend/docs/EXTERNAL_POSTGRESQL.md`: prepares an external PostgreSQL server (role, database, rights, time zone, checks); Flyway still creates all tables on first start.
+
+### Changed
+
+* MFA (TOTP) enrollment is now available to LDAP accounts too: the MFA section is shown on their profile page. Disabling MFA requires a valid MFA or recovery code for every account, plus the current password for local accounts only (LDAP accounts have no local password).
+
+### Fixed
+
+* The top navigation bar no longer overlaps the settings and profile controls at 100 % browser zoom on common screen widths: the stacked layout now starts below 1920 CSS px and the central block wraps.
 
 ### Security
 
