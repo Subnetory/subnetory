@@ -21,6 +21,8 @@ Subnetory avance par petits increments, chacun documente, teste et valide par la
 | Operations de restauration | [RESTORE_OPERATIONS.md](RESTORE_OPERATIONS.md) |
 | Installation Docker Compose | [INSTALL_DOCKER_COMPOSE.md](INSTALL_DOCKER_COMPOSE.md) |
 | Operations Docker Compose | [DOCKER_COMPOSE_OPERATIONS.md](DOCKER_COMPOSE_OPERATIONS.md) |
+| Upgrade (Docker Compose) | [UPGRADE.md](UPGRADE.md) |
+| External PostgreSQL | [EXTERNAL_POSTGRESQL.md](EXTERNAL_POSTGRESQL.md) |
 | HTTPS reverse proxy (Caddy, optionnel) | [HTTPS_REVERSE_PROXY.md](HTTPS_REVERSE_PROXY.md) |
 | Installation Kubernetes | [INSTALL_KUBERNETES.md](INSTALL_KUBERNETES.md) |
 | Operations Kubernetes | [KUBERNETES_OPERATIONS.md](KUBERNETES_OPERATIONS.md) |

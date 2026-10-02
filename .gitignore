@@ -93,3 +93,6 @@ terraform.tfstate.*
 
 # Generated API audit evidence (may contain inventory data)
 /reports/
+
+# Pre-upgrade dumps written by scripts/upgrade-compose.sh
+backend/upgrade-backups/

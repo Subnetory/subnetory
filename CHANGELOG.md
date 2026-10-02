@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+* `scripts/upgrade-compose.sh` and `backend/docs/UPGRADE.md`: guided upgrade of a Docker Compose installation (verified pre-upgrade backup, application-only restart, health wait, rollback rules) that never removes data or secrets.
+* `scripts/setup-external-postgres.sh` and `backend/docs/EXTERNAL_POSTGRESQL.md`: prepares an external PostgreSQL server (role, database, rights, time zone, checks); Flyway still creates all tables on first start.
+
 ## [0.8.13] - 2026-10-01
 
 > `v0.8.12` was tagged before the release preparation was merged, so its release workflow refused to build and nothing was published. Use `v0.8.13`.
