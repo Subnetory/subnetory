@@ -285,7 +285,9 @@ server:
 # OpenAPI / Swagger UI — Sprint 2.8
 # Accessible sur /swagger-ui.html (redirige vers /swagger-ui/index.html)
 # et /v3/api-docs (JSON) / /v3/api-docs.yaml (YAML).
-# Les URLs sont en permitAll() dans SecurityConfig (chaîne @Order(2)).
+# Access is restricted to ROLE_ADMIN (JWT Bearer or web session) in
+# SecurityConfig (chain @Order(2)). SUBNETORY_SWAGGER_ENABLED=false removes the
+# endpoints entirely.
 springdoc:
   api-docs:
     enabled: ${SUBNETORY_SWAGGER_ENABLED:true}

@@ -202,7 +202,7 @@
         <!-- OpenAPI / Swagger UI — documentation REST auto-générée.
              springdoc 3.x est requis pour Spring Boot 4.x / Spring Framework 7.x.
              Accessible sur /swagger-ui.html et /v3/api-docs (voir application.yml).
-             Les URLs Swagger sont autorisées sans token dans SecurityConfig (chaîne @Order(2)). -->
+             Swagger URLs are restricted to ROLE_ADMIN in SecurityConfig (chain @Order(2)). -->
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>

@@ -22,8 +22,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *
  * <p>Objectifs :</p>
  * <ol>
- *   <li>VÃ©rifier que la spec OpenAPI est accessible sans token (permitAll).</li>
- *   <li>VÃ©rifier que Swagger UI est accessible sans token.</li>
+ *   <li>Verify the OpenAPI spec requires an admin credential.</li>
+ *   <li>Verify Swagger UI requires an admin credential.</li>
  *   <li>VÃ©rifier que les endpoints mÃ©tier restent protÃ©gÃ©s aprÃ¨s l'ajout d'OpenAPI.</li>
  *   <li>VÃ©rifier que l'authentification JWT fonctionne toujours (non-rÃ©gression Sprint 2.1).</li>
  * </ol>
@@ -52,45 +52,126 @@ class OpenApiIT {
     MockMvc mvc;
 
     // ------------------------------------------------------------------
-    // AccÃ¨s documentation â€” sans token
+    // OpenAPI documentation: ADMIN only (JWT Bearer or web session)
     // ------------------------------------------------------------------
 
+    private String adminToken() throws Exception {
+        String body = mvc.perform(post("/api/v1/auth/token")
+                        .contentType("application/json")
+                        .content("{\"username\":\"admin\",\"password\":\"admin\"}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return com.jayway.jsonpath.JsonPath.read(body, "$.accessToken");
+    }
+
     @Test
-    @DisplayName("GET /v3/api-docs â€” spec JSON accessible sans token")
-    void apiDocs_isPublic() throws Exception {
+    @DisplayName("GET /v3/api-docs - 401 without token")
+    void apiDocs_withoutToken_returns401() throws Exception {
         mvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("/api/v1/"))));
+    }
+
+    @Test
+    @DisplayName("GET /v3/api-docs.yaml and swagger-config - 401 without token")
+    void apiDocsVariants_withoutToken_return401() throws Exception {
+        mvc.perform(get("/v3/api-docs.yaml")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/v3/api-docs/swagger-config")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("GET /swagger-ui.html and index.html - 401 without credentials")
+    void swaggerUi_withoutToken_returns401() throws Exception {
+        mvc.perform(get("/swagger-ui.html")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/swagger-ui/index.html")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("GET /swagger-ui.html - browser without session is redirected to /login")
+    void swaggerUi_browserWithoutSession_redirectsToLogin() throws Exception {
+        mvc.perform(get("/swagger-ui.html").accept(org.springframework.http.MediaType.TEXT_HTML))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/login"));
+    }
+
+    @Test
+    @DisplayName("GET /v3/api-docs - invalid token returns 401")
+    void apiDocs_invalidToken_returns401() throws Exception {
+        mvc.perform(get("/v3/api-docs").header("Authorization", "Bearer not-a-valid-token"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("GET /v3/api-docs - 403 for an authenticated non-admin token")
+    void apiDocs_nonAdminToken_returns403() throws Exception {
+        mvc.perform(get("/v3/api-docs")
+                        .with(org.springframework.security.test.web.servlet.request
+                                .SecurityMockMvcRequestPostProcessors.jwt()
+                                .authorities(new org.springframework.security.core.authority
+                                        .SimpleGrantedAuthority("ROLE_USER"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("GET /v3/api-docs - 403 for an authenticated non-admin web session")
+    void apiDocs_nonAdminSession_returns403() throws Exception {
+        mvc.perform(get("/v3/api-docs")
+                        .with(org.springframework.security.test.web.servlet.request
+                                .SecurityMockMvcRequestPostProcessors
+                                .user("docs-session-user").roles("USER")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("GET /v3/api-docs - spec JSON accessible with an admin token")
+    void apiDocs_adminToken_isOk() throws Exception {
+        mvc.perform(get("/v3/api-docs").header("Authorization", "Bearer " + adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith("application/json"));
     }
 
     @Test
-    @DisplayName("GET /v3/api-docs â€” spec contient les tags attendus")
+    @DisplayName("GET /v3/api-docs.yaml - accessible with an admin token")
+    void apiDocsYaml_adminToken_isOk() throws Exception {
+        mvc.perform(get("/v3/api-docs.yaml").header("Authorization", "Bearer " + adminToken()))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /v3/api-docs - accessible with an admin web session")
+    void apiDocs_adminSession_isOk() throws Exception {
+        mvc.perform(get("/v3/api-docs")
+                        .with(org.springframework.security.test.web.servlet.request
+                                .SecurityMockMvcRequestPostProcessors
+                                .user("docs-session-admin").roles("ADMIN")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /v3/api-docs - spec contains the expected paths")
     void apiDocs_containsExpectedPaths() throws Exception {
-        mvc.perform(get("/v3/api-docs"))
+        mvc.perform(get("/v3/api-docs").header("Authorization", "Bearer " + adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paths").isNotEmpty())
                 .andExpect(jsonPath("$.paths['/api/v1/addresses']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/subnets']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/auth/token']").exists())
-                // Phase 7 (audit 31/07/2026) : non-regression pour la documentation
-                // OpenAPI des endpoints de sauvegarde/restauration.
                 .andExpect(jsonPath("$.paths['/api/v1/admin/backup']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/backup/runs']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/backup/trigger']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/backup/restore']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/backup/restores']").exists())
-                // Audit du 01/08/2026 : import de sauvegarde externe et purge manuelle de l'historique.
                 .andExpect(jsonPath("$.paths['/api/v1/admin/backup/import']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/backup/purge']").exists())
-                // Audit du 01/08/2026 : suppression fine d'une seule sauvegarde.
                 .andExpect(jsonPath("$.paths['/api/v1/admin/backup/runs/{id}'].delete").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/backup/runs/{id}/linked-restores']").exists());
     }
 
     @Test
-    @DisplayName("GET /v3/api-docs â€” schÃ©ma de sÃ©curitÃ© bearerAuth dÃ©clarÃ©")
+    @DisplayName("GET /v3/api-docs - bearerAuth security scheme declared")
     void apiDocs_hasBearerAuthSecurityScheme() throws Exception {
-        mvc.perform(get("/v3/api-docs"))
+        mvc.perform(get("/v3/api-docs").header("Authorization", "Bearer " + adminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.components.securitySchemes.bearerAuth").exists())
                 .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.type").value("http"))
@@ -98,21 +179,12 @@ class OpenApiIT {
     }
 
     @Test
-    @DisplayName("GET /swagger-ui.html â€” Swagger UI accessible sans token (redirection ou 200)")
-    void swaggerUi_isPublic() throws Exception {
-        // SpringDoc redirige /swagger-ui.html vers /swagger-ui/index.html
-        // On accepte 200 ou 302 : les deux indiquent que la chaÃ®ne de sÃ©curitÃ© laisse passer.
-        mvc.perform(get("/swagger-ui.html"))
-                .andExpect(status().is(org.hamcrest.Matchers.anyOf(
-                        org.hamcrest.Matchers.is(200),
-                        org.hamcrest.Matchers.is(302)
-                )));
-    }
-
-    @Test
-    @DisplayName("GET /swagger-ui/index.html â€” page Swagger UI accessible sans token")
-    void swaggerUiIndex_isPublic() throws Exception {
-        mvc.perform(get("/swagger-ui/index.html"))
+    @DisplayName("GET /swagger-ui/index.html - accessible with an admin web session")
+    void swaggerUiIndex_adminSession_isOk() throws Exception {
+        mvc.perform(get("/swagger-ui/index.html")
+                        .with(org.springframework.security.test.web.servlet.request
+                                .SecurityMockMvcRequestPostProcessors
+                                .user("docs-session-admin").roles("ADMIN")))
                 .andExpect(status().isOk());
     }
 
