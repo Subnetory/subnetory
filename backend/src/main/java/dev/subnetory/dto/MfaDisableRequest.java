@@ -3,6 +3,6 @@ package dev.subnetory.dto;
 import jakarta.validation.constraints.NotBlank;
 
 public record MfaDisableRequest(
-        @NotBlank String currentPassword,
+        String currentPassword,
         @NotBlank String code
 ) {}
