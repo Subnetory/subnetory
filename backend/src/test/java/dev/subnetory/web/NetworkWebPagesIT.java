@@ -133,7 +133,7 @@ class NetworkWebPagesIT {
         mvc.perform(get("/assets/css/app.css"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith("text/css"))
-                .andExpect(content().string(containsString("@media (max-width: 1500px)")));
+                .andExpect(content().string(containsString("@media (max-width: 1920px)")));
     }
 
     @Test @Order(5) @DisplayName("GET /assets/js/app.js → 200 sans auth")
