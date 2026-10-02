@@ -2,10 +2,10 @@ package dev.subnetory.web.form;
 
 import jakarta.validation.constraints.NotBlank;
 
-/** Formulaire de desactivation MFA self-service : mot de passe + code. */
+/** Formulaire de desactivation MFA self-service : mot de passe (comptes locaux) + code. */
 public class MfaDisableForm {
 
-    @NotBlank(message = "{validation.mfa.currentPasswordRequired}")
+    /** Obligatoire pour un compte local (verifie par le service) ; ignore pour un compte LDAP. */
     private String currentPassword;
 
     @NotBlank(message = "{validation.mfa.codeRequired}")

@@ -52,7 +52,7 @@
         </dl>
     </div>
 
-    <div class="sn-card sn-card--padded" th:if="${user.authType != 'LDAP'}">
+    <div class="sn-card sn-card--padded">
         <div class="sn-card__header">
             <h2 class="sn-card__title" th:text="#{profile.mfa.title}">Authentification a deux facteurs (MFA)</h2>
         </div>
@@ -85,7 +85,7 @@
             <details class="sn-mfa-disclosure">
                 <summary th:text="#{profile.mfa.disable.summary}">Desactiver le MFA</summary>
                 <form th:action="@{/profile/mfa/disable}" th:object="${mfaDisableForm}" method="post" class="sn-form">
-                    <div class="sn-form__group">
+                    <div class="sn-form__group" th:if="${user.authType != 'LDAP'}">
                         <label for="disableCurrentPassword" class="sn-form__label" th:text="#{profile.mfa.disable.currentPassword.label}">Mot de passe actuel</label>
                         <input id="disableCurrentPassword" type="password" autocomplete="current-password"
                                th:field="*{currentPassword}" class="sn-input">

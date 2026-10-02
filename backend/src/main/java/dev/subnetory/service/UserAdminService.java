@@ -550,8 +550,10 @@ public class UserAdminService {
     }
 
     /**
-     * Desactive le MFA. Exige le mot de passe courant (action qui reduit la
-     * securite du compte) et un code MFA valide (TOTP ou recuperation).
+     * Desactive le MFA. Exige le mot de passe courant pour un compte local
+     * (action qui reduit la securite du compte) et, pour tous les comptes, un
+     * code MFA valide (TOTP ou recuperation). Un compte LDAP n'a pas de mot de
+     * passe local : seul le code MFA est exige.
      */
     public void disableOwnMfa(String username,
                               String currentPassword,
@@ -560,13 +562,12 @@ public class UserAdminService {
                               String userAgent) {
         User user = findByUsername(username);
 
-        if (AUTH_TYPE_LDAP.equalsIgnoreCase(user.getAuthType())) {
-            throw new PasswordPolicyException(
-                    "Ce compte est gere par LDAP. Contactez un administrateur pour modifier le MFA.");
-        }
-        if (currentPassword == null || currentPassword.isBlank()
+        // Compte LDAP : pas de mot de passe local a verifier (il appartient a
+        // l'annuaire) ; le code MFA valide reste exige ci-dessous.
+        if (!AUTH_TYPE_LDAP.equalsIgnoreCase(user.getAuthType())
+                && (currentPassword == null || currentPassword.isBlank()
                 || user.getPassword() == null
-                || !requirePasswordEncoder().matches(currentPassword, user.getPassword())) {
+                || !requirePasswordEncoder().matches(currentPassword, user.getPassword()))) {
             throw new PasswordPolicyException("Le mot de passe actuel est incorrect.");
         }
         if (!user.isMfaEnabled()) {

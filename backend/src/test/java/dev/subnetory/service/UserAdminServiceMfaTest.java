@@ -97,12 +97,37 @@ class UserAdminServiceMfaTest {
     }
 
     @Test
-    void disableOwnMfa_ldapAccount_isRejected() {
+    void disableOwnMfa_ldapAccount_validCode_disablesWithoutPassword() {
         User user = buildLocalUser("jdoe", null, true);
         user.setAuthType("LDAP");
         when(userRepository.findByUsername("jdoe")).thenReturn(Optional.of(user));
+        when(mfaService.verifyChallenge(user, "123456")).thenReturn(true);
 
-        assertThatThrownBy(() -> service.disableOwnMfa("jdoe", "whatever", "123456", "10.0.0.1", "JUnit"))
+        service.disableOwnMfa("jdoe", null, "123456", "10.0.0.1", "JUnit");
+
+        verify(mfaService).disable(user);
+        verify(authAuditService).recordMfaDisabled("jdoe", "10.0.0.1", "JUnit");
+    }
+
+    @Test
+    void disableOwnMfa_ldapAccount_invalidCode_isRejected() {
+        User user = buildLocalUser("jdoe", null, true);
+        user.setAuthType("LDAP");
+        when(userRepository.findByUsername("jdoe")).thenReturn(Optional.of(user));
+        when(mfaService.verifyChallenge(user, "000000")).thenReturn(false);
+
+        assertThatThrownBy(() -> service.disableOwnMfa("jdoe", null, "000000", "10.0.0.1", "JUnit"))
+                .isInstanceOf(InvalidMfaCodeException.class);
+
+        verify(mfaService, never()).disable(any());
+    }
+
+    @Test
+    void disableOwnMfa_localAccount_blankPassword_isRejected() {
+        User user = buildLocalUser("jdoe", "hash", true);
+        when(userRepository.findByUsername("jdoe")).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> service.disableOwnMfa("jdoe", " ", "123456", "10.0.0.1", "JUnit"))
                 .isInstanceOf(PasswordPolicyException.class);
 
         verify(mfaService, never()).disable(any());
