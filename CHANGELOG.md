@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-10-03
+
 ### Fixed
 
 * Backup import: the uploaded file name is now stripped of CR/LF and control characters before it is written to the application log and to the history label (log injection, CodeQL alert).
