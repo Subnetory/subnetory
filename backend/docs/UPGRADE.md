@@ -58,18 +58,18 @@ cp docker-compose.image.yml docker-compose.image.yml.bak-<current-version>   # i
 
 ```sh
 git fetch --tags
-scripts/upgrade-compose.sh $COMPOSE --ref v0.9.0
+scripts/upgrade-compose.sh $COMPOSE --ref v0.9.1
 ```
 
 Omit `--ref` if you already updated the sources yourself (for example by extracting a new archive). Use `--dry-run` first to see every command without running it.
 
 ## Upgrade with a published image
 
-When your Compose files reference a published image (for example `ghcr.io/subnetory/subnetory:v0.9.0`), pull it, note its digest, and edit the `image:` line of your overlay (keep the tag and `@sha256:` digest in sync if you pin one):
+When your Compose files reference a published image (for example `ghcr.io/subnetory/subnetory:v0.9.1`), pull it, note its digest, and edit the `image:` line of your overlay (keep the tag and `@sha256:` digest in sync if you pin one):
 
 ```sh
-docker pull ghcr.io/subnetory/subnetory:v0.9.0
-docker image inspect ghcr.io/subnetory/subnetory:v0.9.0 --format '{{index .RepoDigests 0}}'
+docker pull ghcr.io/subnetory/subnetory:v0.9.1
+docker image inspect ghcr.io/subnetory/subnetory:v0.9.1 --format '{{index .RepoDigests 0}}'
 # edit the image: line of docker-compose.image.yml with that digest, then:
 scripts/upgrade-compose.sh $COMPOSE --pull --dry-run
 scripts/upgrade-compose.sh $COMPOSE --pull -y
