@@ -974,4 +974,18 @@ class BackupExecutionServiceTest {
                             .isEqualTo(BackupException.Reason.TOOL_NOT_AVAILABLE);
                 });
     }
+
+    @Test
+    void sanitizeOriginalName_stripsPathAndControlCharacters() throws Exception {
+        java.lang.reflect.Method m = BackupExecutionService.class
+                .getDeclaredMethod("sanitizeOriginalName", org.springframework.web.multipart.MultipartFile.class);
+        m.setAccessible(true);
+
+        MockMultipartFile forged = new MockMultipartFile(
+                "file", "C:\\tmp\\evil\r\nINFO forged log line.dump", "application/octet-stream", new byte[] {1});
+        String result = (String) m.invoke(null, forged);
+
+        assertThat(result).isEqualTo("evil__INFO forged log line.dump");
+        assertThat(result).doesNotContain("\r").doesNotContain("\n");
+    }
 }

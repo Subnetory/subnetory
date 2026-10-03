@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+* Backup import: the uploaded file name is now stripped of CR/LF and control characters before it is written to the application log and to the history label (log injection, CodeQL alert).
+
 ### Changed
 
 * `scripts/upgrade-compose.sh` now compares the `-f` compose file list with the one the running `app` container was created with, warns about services of the project that are not covered (for example `caddy` without `docker-compose.https.yml`), and refuses a changed list together with `--yes` unless `--allow-file-set-change` is given. `backend/docs/UPGRADE.md` is now a complete runbook: file-list rule, verification commands, and the commands to run when something goes wrong (unhealthy app, missing HTTPS overlay with its symptoms, 502 through Caddy, data-safe full restart, both rollbacks, diagnostics).
