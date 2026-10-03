@@ -516,14 +516,14 @@ public class SecurityConfig {
      * <p>Les sessions sont en memoire : apres un redemarrage (ou l'expiration de la
      * session), une page deja ouverte porte un jeton perime. Pour un navigateur sans
      * session authentifiee, renvoyer un 403 brut est incomprehensible : on renvoie
-     * vers la page de connexion avec un message. Un utilisateur authentifie, ou un
-     * appel qui n'attend pas du HTML, conserve le 403.
+     * vers la page de connexion avec un message, comme le fait deja le point
+     * d'entree d'authentification pour toute requete anonyme. Un utilisateur
+     * authentifie conserve le 403. La decision ne depend que de l'etat
+     * d'authentification, jamais d'un en-tete fourni par le client.
      */
     static void rejectCsrfFailure(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
-        String accept = request.getHeader("Accept");
-        boolean browserNavigation = accept != null && accept.contains("text/html");
-        if (browserNavigation && !isAuthenticated()) {
+        if (!isAuthenticated()) {
             String target = request.getRequestURI().endsWith("/logout") ? "/login?logout" : "/login?expired";
             response.sendRedirect(request.getContextPath() + target);
             return;

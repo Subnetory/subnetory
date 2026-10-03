@@ -90,11 +90,11 @@ class CsrfFailureRedirectWebIT {
     }
 
     @Test
-    void post_withoutCsrfToken_nonHtmlClient_stays403() throws Exception {
+    void loginPost_withoutCsrfToken_noAcceptHeader_redirectsToExpired() throws Exception {
         mvc.perform(post("/login")
-                        .accept(MediaType.APPLICATION_JSON)
                         .param("username", "u"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isFound())
+                .andExpect(redirectedUrl("/login?expired"));
     }
 
     @Test
