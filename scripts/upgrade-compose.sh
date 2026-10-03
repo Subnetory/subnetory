@@ -22,6 +22,9 @@ Options:
                             Default: backend/docker-compose.yml.
                             Examples: -f docker-compose.prod.yml (external database),
                             -f docker-compose.yml -f docker-compose.https.yml.
+                            Use the SAME list (and order) as your installation: a missing
+                            overlay silently changes the app configuration. The script
+                            warns when the list differs from the running container's.
       --ref TAG             Check out this git tag/branch before building
                             (git fetch + checkout; the working tree must be clean).
       --pull                Pull the image instead of building it from sources
@@ -32,6 +35,9 @@ Options:
                             backup of your own (mandatory for an external database
                             unless pg_dump is installed on this host and reachable).
       --timeout SECONDS     How long to wait for the app to become healthy (default 240).
+      --allow-file-set-change
+                            Accept a -f list that differs from the one the running app
+                            container was created with (required together with --yes).
       --dry-run             Print what would be done; change nothing.
   -y, --yes                 Do not ask for confirmation.
   -h, --help                Show this help.
@@ -53,6 +59,7 @@ skip_backup=0
 timeout_s=240
 dry_run=0
 assume_yes=0
+allow_file_set_change=0
 
 while (($# > 0)); do
     case "$1" in
@@ -62,6 +69,7 @@ while (($# > 0)); do
         --backup-dir) (($# >= 2)) || die "$1 needs a value"; backup_dir="$2"; shift ;;
         --skip-backup) skip_backup=1 ;;
         --timeout) (($# >= 2)) || die "$1 needs a value"; timeout_s="$2"; shift ;;
+        --allow-file-set-change) allow_file_set_change=1 ;;
         --dry-run) dry_run=1 ;;
         -y|--yes) assume_yes=1 ;;
         -h|--help) usage; exit 0 ;;
@@ -124,12 +132,62 @@ else
     warn "The app container is not running (first start after install, or stopped)."
 fi
 
+# A different -f list than the one the running containers were created with
+# silently changes the app configuration (for example a missing
+# docker-compose.https.yml drops the trusted-proxy settings: redirects in
+# http://, every client seen as the proxy IP, failing logins and logouts).
+file_set_changed=0
+warned=0
+rerun_cmd=""
+if [[ -n "$current_cid" ]]; then
+    running_files="$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project.config_files"}}' "$current_cid" 2>/dev/null || true)"
+    project_name="$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' "$current_cid" 2>/dev/null || true)"
+    if [[ -n "$running_files" ]]; then
+        running_names="$(tr ',' '\n' <<<"$running_files" | sed -e 's#.*/##' -e '/^$/d')"
+        running_sorted="$(sort <<<"$running_names" | tr '\n' ' ')"
+        selected_sorted="$(printf '%s\n' "${compose_files[@]}" | sed 's#.*/##' | sort | tr '\n' ' ')"
+        if [[ "$running_sorted" != "$selected_sorted" ]]; then
+            file_set_changed=1
+            warned=1
+            suggested=""
+            while IFS= read -r name; do suggested+="-f $name "; done <<<"$running_names"
+            rerun_cmd="$0 ${suggested}$([[ $do_pull -eq 1 ]] && printf -- '--pull ')$([[ -z "$ref" ]] || printf -- '--ref %s ' "$ref")"
+            rerun_cmd="${rerun_cmd% }"
+            warn "The selected compose files differ from the ones the running app container was created with."
+            warn "  running : $(tr '\n' ' ' <<<"$running_names")"
+            warn "  selected: ${compose_files[*]}"
+            warn "Recreating app with another file set changes its configuration."
+            warn "WHAT TO DO: answer N at the prompt below (nothing is changed), then re-run this exact command:"
+            warn "  $rerun_cmd"
+            warn "Answer y only if you really intend to change the file set (then use --allow-file-set-change with --yes)."
+        fi
+    fi
+    if [[ -n "$project_name" ]]; then
+        outside="$(docker ps -a --filter "label=com.docker.compose.project=$project_name" \
+            --format '{{.Label "com.docker.compose.service"}}' 2>/dev/null | sort -u \
+            | grep -vxF -f <(printf '%s\n' "$services") || true)"
+        if [[ -n "$outside" ]]; then
+            warned=1
+            warn "Services of this project are not covered by the selected files: $(tr '\n' ' ' <<<"$outside")"
+            warn "You probably forgot an overlay (for example -f docker-compose.https.yml)."
+            warn "WHAT TO DO: answer N at the prompt below, then re-run with the file list you normally use (see UPGRADE.md, 'Always use the same compose files')."
+        fi
+    fi
+fi
+if ((file_set_changed && assume_yes && !allow_file_set_change && !dry_run)); then
+    die "The compose file list changed and --yes was given. Re-run without --yes to confirm interactively, or add --allow-file-set-change if the change is intended. Nothing was changed."
+fi
+
 if ((has_db)) && [[ -z "$(dc ps -q db 2>/dev/null || true)" ]]; then
     die "The db service is not running. Start it first: docker compose ${dc_args[*]} up -d db"
 fi
 
 if ((!dry_run && !assume_yes)); then
-    printf '\nProceed with the upgrade? [y/N] '
+    if ((warned)); then
+        printf '\nWarnings above. Recommended answer: N (cancel, fix the command, re-run).\nProceed with the upgrade anyway? [y/N] '
+    else
+        printf '\nProceed with the upgrade? [y/N] '
+    fi
     read -r answer </dev/tty || answer=""
     [[ "$answer" =~ ^[Yy]$ ]] || die "Cancelled."
 fi
