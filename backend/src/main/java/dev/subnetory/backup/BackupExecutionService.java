@@ -792,7 +792,7 @@ public class BackupExecutionService {
             run = backupRunRepository.save(run);
 
             log.info("Backup imported: file={} originalName={} sizeBytes={} encrypted={} by={}",
-                    fileName, file.getOriginalFilename(), size, encrypted, username);
+                    fileName, sanitizeOriginalName(file), size, encrypted, username);
             authAuditService.recordBackupImported(username, fileName, encrypted);
             return run;
         } catch (IOException e) {
@@ -821,6 +821,9 @@ public class BackupExecutionService {
         if (name == null || name.isBlank()) return "fichier importé";
         // Retire tout chemin (le navigateur peut envoyer un chemin complet sur certains OS).
         String base = name.replaceAll("^.*[/\\\\]", "");
+        // Neutralise CR/LF et autres caracteres de controle : la valeur est ecrite
+        // dans les logs et dans le libelle de l'historique (log injection).
+        base = base.replaceAll("[\\r\\n\\p{Cntrl}]", "_");
         return base.isBlank() ? "fichier importé" : base;
     }
 
