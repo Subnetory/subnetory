@@ -116,6 +116,19 @@ Then, in a private browser window (one tab): sign in once with a non-admin accou
 
 First rule: **never run `docker compose down -v`** (it deletes the database volume). Everything below keeps your data.
 
+### The script prints a WARNING
+
+The script ends every warning with a `WHAT TO DO` line and, when the prompt follows a warning, recommends answering `N`.
+
+| Warning | Meaning | What to do |
+|---|---|---|
+| `The selected compose files differ from the ones the running app container was created with` | Your `-f` list is not the one used at install (an overlay is missing or extra). | Answer `N`. Re-run the exact command printed under `WHAT TO DO` (it contains the running file list). Use `--allow-file-set-change` only if you really want to change the file set. |
+| `Services of this project are not covered by the selected files` | A running service (for example `caddy`) comes from an overlay you did not pass. | Answer `N`. Re-run with the full list of files you normally use. |
+| `The app container is not running` | Stopped or first start. | Safe to continue (`y`) if you expect it. |
+| `Backup skipped on request` | You used `--skip-backup`. | Make sure you have a verified backup of your own. |
+
+With `--yes` the script cannot ask: a changed file list is refused (nothing is changed) unless `--allow-file-set-change` is also given.
+
 ### The script stops before changing anything
 
 It prints the reason: invalid Compose configuration, missing `secrets/`, `db` not running, backup failed, changed file list with `--yes`. Nothing was changed; fix the cause and run it again.

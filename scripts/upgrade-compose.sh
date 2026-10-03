@@ -137,6 +137,8 @@ fi
 # docker-compose.https.yml drops the trusted-proxy settings: redirects in
 # http://, every client seen as the proxy IP, failing logins and logouts).
 file_set_changed=0
+warned=0
+rerun_cmd=""
 if [[ -n "$current_cid" ]]; then
     running_files="$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project.config_files"}}' "$current_cid" 2>/dev/null || true)"
     project_name="$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' "$current_cid" 2>/dev/null || true)"
@@ -146,12 +148,18 @@ if [[ -n "$current_cid" ]]; then
         selected_sorted="$(printf '%s\n' "${compose_files[@]}" | sed 's#.*/##' | sort | tr '\n' ' ')"
         if [[ "$running_sorted" != "$selected_sorted" ]]; then
             file_set_changed=1
+            warned=1
             suggested=""
             while IFS= read -r name; do suggested+="-f $name "; done <<<"$running_names"
+            rerun_cmd="$0 ${suggested}$([[ $do_pull -eq 1 ]] && printf -- '--pull ')$([[ -z "$ref" ]] || printf -- '--ref %s ' "$ref")"
+            rerun_cmd="${rerun_cmd% }"
             warn "The selected compose files differ from the ones the running app container was created with."
             warn "  running : $(tr '\n' ' ' <<<"$running_names")"
             warn "  selected: ${compose_files[*]}"
-            warn "Recreating app with another file set changes its configuration. If this is not intended, cancel and re-run with: $suggested"
+            warn "Recreating app with another file set changes its configuration."
+            warn "WHAT TO DO: answer N at the prompt below (nothing is changed), then re-run this exact command:"
+            warn "  $rerun_cmd"
+            warn "Answer y only if you really intend to change the file set (then use --allow-file-set-change with --yes)."
         fi
     fi
     if [[ -n "$project_name" ]]; then
@@ -159,8 +167,10 @@ if [[ -n "$current_cid" ]]; then
             --format '{{.Label "com.docker.compose.service"}}' 2>/dev/null | sort -u \
             | grep -vxF -f <(printf '%s\n' "$services") || true)"
         if [[ -n "$outside" ]]; then
+            warned=1
             warn "Services of this project are not covered by the selected files: $(tr '\n' ' ' <<<"$outside")"
-            warn "You probably forgot an overlay (for example -f docker-compose.https.yml). Check the file list you normally use."
+            warn "You probably forgot an overlay (for example -f docker-compose.https.yml)."
+            warn "WHAT TO DO: answer N at the prompt below, then re-run with the file list you normally use (see UPGRADE.md, 'Always use the same compose files')."
         fi
     fi
 fi
@@ -173,7 +183,11 @@ if ((has_db)) && [[ -z "$(dc ps -q db 2>/dev/null || true)" ]]; then
 fi
 
 if ((!dry_run && !assume_yes)); then
-    printf '\nProceed with the upgrade? [y/N] '
+    if ((warned)); then
+        printf '\nWarnings above. Recommended answer: N (cancel, fix the command, re-run).\nProceed with the upgrade anyway? [y/N] '
+    else
+        printf '\nProceed with the upgrade? [y/N] '
+    fi
     read -r answer </dev/tty || answer=""
     [[ "$answer" =~ ^[Yy]$ ]] || die "Cancelled."
 fi
