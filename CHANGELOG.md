@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 * Backup import: the uploaded file name is now stripped of CR/LF and control characters before it is written to the application log and to the history label (log injection, CodeQL alert).
+* A browser submitting a form with a missing or stale CSRF token without an authenticated session (typically a login page left open across an application restart or a session expiry) is now redirected to `/login?expired` (or `/login?logout` for a stale logout) with an explanatory message, instead of a bare 403 page. Authenticated users still get the 403.
 
 ### Changed
 

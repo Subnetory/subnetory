@@ -17,6 +17,9 @@
     <div th:if="${param.error}" class="sn-alert sn-alert--danger" th:text="#{login.error}">
         Identifiants incorrects. Vérifiez votre nom d'utilisateur et votre mot de passe.
     </div>
+    <div th:if="${param.expired}" class="sn-alert sn-alert--info" th:text="#{login.expired}">
+        Votre session a expiré. Veuillez vous reconnecter.
+    </div>
     <div th:if="${param.logout}" class="sn-alert sn-alert--info" th:text="#{login.loggedOut}">
         Vous avez été déconnecté.
     </div>

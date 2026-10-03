@@ -31,6 +31,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.ProviderManager;
@@ -42,6 +43,8 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
@@ -62,6 +65,7 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.security.web.header.writers.XXssProtectionHeaderWriter;
@@ -451,8 +455,13 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, authException) ->
                                 response.sendRedirect(request.getContextPath() + "/login"))
-                        .accessDeniedHandler((request, response, accessDeniedException) ->
-                                response.sendError(HttpServletResponse.SC_FORBIDDEN))
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            if (accessDeniedException instanceof CsrfException) {
+                                rejectCsrfFailure(request, response);
+                            } else {
+                                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                            }
+                        })
                 )
                 .addFilterBefore(rejectUnsafeWebRequestWithoutCsrfToken(), CsrfFilter.class)
                 // Mode maintenance restauration (correctif securite MOYENNE,
@@ -501,6 +510,32 @@ public class SecurityConfig {
     // Filtre CSRF explicite
     // -------------------------------------------------------
 
+    /**
+     * Rejette une requete web dont le jeton CSRF est absent ou invalide.
+     *
+     * <p>Les sessions sont en memoire : apres un redemarrage (ou l'expiration de la
+     * session), une page deja ouverte porte un jeton perime. Pour un navigateur sans
+     * session authentifiee, renvoyer un 403 brut est incomprehensible : on renvoie
+     * vers la page de connexion avec un message, comme le fait deja le point
+     * d'entree d'authentification pour toute requete anonyme. Un utilisateur
+     * authentifie conserve le 403. La decision ne depend que de l'etat
+     * d'authentification, jamais d'un en-tete fourni par le client.
+     */
+    static void rejectCsrfFailure(HttpServletRequest request, HttpServletResponse response)
+            throws IOException {
+        if (!isAuthenticated()) {
+            String target = request.getRequestURI().endsWith("/logout") ? "/login?logout" : "/login?expired";
+            response.sendRedirect(request.getContextPath() + target);
+            return;
+        }
+        response.sendError(HttpServletResponse.SC_FORBIDDEN);
+    }
+
+    private static boolean isAuthenticated() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken);
+    }
+
     private OncePerRequestFilter rejectUnsafeWebRequestWithoutCsrfToken() {
         return new OncePerRequestFilter() {
             private static final Set<String> SAFE_METHODS =
@@ -512,7 +547,7 @@ public class SecurityConfig {
                                              FilterChain filterChain)
                     throws ServletException, IOException {
                 if (requiresCsrfToken(request) && !hasSubmittedCsrfToken(request)) {
-                    response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                    rejectCsrfFailure(request, response);
                     return;
                 }
                 filterChain.doFilter(request, response);

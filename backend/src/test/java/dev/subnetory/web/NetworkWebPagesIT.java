@@ -330,12 +330,13 @@ class NetworkWebPagesIT {
         }
     }
 
-    @Test @Order(26) @DisplayName("POST /login sans CSRF → 403")
-    void login_withoutCsrf_returns403() throws Exception {
+    @Test @Order(26) @DisplayName("POST /login sans CSRF → redirect /login?expired")
+    void login_withoutCsrf_redirectsToExpired() throws Exception {
         mvc.perform(post("/login")
                 .param("username", "admin")
                 .param("password", "admin"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isFound())
+                .andExpect(redirectedUrl("/login?expired"));
     }
 
     @Test @Order(27) @DisplayName("POST /login avec CSRF et bons identifiants → redirect")

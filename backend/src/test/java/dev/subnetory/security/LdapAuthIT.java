@@ -196,11 +196,12 @@ class LdapAuthIT {
     }
 
     @Test
-    void ldapLogin_withoutCsrf_returns403() throws Exception {
+    void ldapLogin_withoutCsrf_redirectsToExpired() throws Exception {
         mvc.perform(post("/login")
                         .param("username", "jdoe")
                         .param("password", "jdoe-secret"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isFound())
+                .andExpect(redirectedUrl("/login?expired"));
     }
 
     // â”€â”€ Auto-provisioning â€” assertions en base â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
