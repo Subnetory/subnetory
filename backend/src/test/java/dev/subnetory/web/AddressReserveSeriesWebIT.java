@@ -7,8 +7,13 @@ import dev.subnetory.dto.SeriesGroupsResponse;
 import dev.subnetory.dto.SeriesReservationResponse;
 import dev.subnetory.dto.SeriesReservationResponse.Entry;
 import dev.subnetory.dto.SeriesRowsRequest;
+import dev.subnetory.dto.SeriesTemplateDefinition;
+import dev.subnetory.dto.SeriesTemplateExpandRequest;
+import dev.subnetory.dto.SeriesTemplateExpansionResponse;
+import dev.subnetory.dto.SeriesTemplateResponse;
 import dev.subnetory.exception.ConflictException;
 import dev.subnetory.exception.InvalidSeriesException;
+import dev.subnetory.exception.ResourceNotFoundException;
 import dev.subnetory.exception.SeriesConflictException;
 import dev.subnetory.security.ApiRateLimiter;
 import dev.subnetory.security.ClientIpResolver;
@@ -20,6 +25,7 @@ import dev.subnetory.service.AddressService;
 import dev.subnetory.service.AuthAuditService;
 import dev.subnetory.service.IpAllocService;
 import dev.subnetory.service.SeriesReservationService;
+import dev.subnetory.service.SeriesTemplateService;
 import dev.subnetory.service.SubnetService;
 import dev.subnetory.util.ImportFileValidator;
 import org.junit.jupiter.api.BeforeEach;
@@ -70,6 +76,7 @@ class AddressReserveSeriesWebIT {
     @MockitoBean SubnetService subnetService;
     @MockitoBean IpAllocService ipAllocService;
     @MockitoBean SeriesReservationService seriesReservationService;
+    @MockitoBean SeriesTemplateService seriesTemplateService;
     @MockitoBean AuthAuditService authAuditService;
     @MockitoBean JwtDecoder jwtDecoder;
     @MockitoBean SubnetoryUserDetailsService userDetailsService;
@@ -519,6 +526,153 @@ class AddressReserveSeriesWebIT {
 
     private static Entry entry(String ip, String hostname, String status) {
         return new Entry(ip, hostname, status);
+    }
+
+    // ── POST /reserve/template ───────────────────────────────────────────
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void template_preview_rendersGroupRowsAndSendsParameters() throws Exception {
+        SeriesGroupsResponse preview = groupsResponse(true,
+                new SeriesGroupsResponse.Group("HOST", 1, 0,
+                        List.of(entry("10.10.10.21", "NTNX01-HOST-01", "AVAILABLE")), List.of()),
+                new SeriesGroupsResponse.Group("CVM", 1, 0,
+                        List.of(entry("10.10.10.22", "NTNX01-CVM-01", "AVAILABLE")), List.of()));
+        when(seriesTemplateService.expand(any())).thenReturn(
+                new SeriesTemplateExpansionResponse(null, preview));
+
+        String html = mvc.perform(post("/network/addresses/reserve/template").with(csrf())
+                        .param("subnetId", "30")
+                        .param("templateKey", "builtin:nutanix-hpe")
+                        .param("templateCluster", "NTNX01")
+                        .param("templateNodes", "1")
+                        .param("templateStartIp", " 10.10.10.21 ")
+                        .param("templateGap", "")
+                        .param("templateStep", "2")
+                        .param("templateOccupied", "skip")
+                        .param("seriesDescription", "Cluster prod"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("network/address-reserve"))
+                .andExpect(model().attributeDoesNotExist("formError"))
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(html)
+                .contains("name=\"rows[1].address\"")
+                .contains("value=\"NTNX01-CVM-01\"")
+                .contains("value=\"Cluster prod\"")
+                .contains("name=\"rows[0].group\"")
+                .contains("name=\"grouped\"")
+                .contains("name=\"atomic\"");
+
+        ArgumentCaptor<SeriesTemplateExpandRequest> captor =
+                ArgumentCaptor.forClass(SeriesTemplateExpandRequest.class);
+        verify(seriesTemplateService).expand(captor.capture());
+        SeriesTemplateExpandRequest sent = captor.getValue();
+        assertThat(sent.subnetId()).isEqualTo(30L);
+        assertThat(sent.key()).isEqualTo("builtin:nutanix-hpe");
+        assertThat(sent.cluster()).isEqualTo("NTNX01");
+        assertThat(sent.nodes()).isEqualTo(1);
+        assertThat(sent.startIp()).isEqualTo("10.10.10.21");
+        assertThat(sent.gap()).isNull();
+        assertThat(sent.step()).isEqualTo(2);
+        assertThat(sent.occupiedMode()).isEqualTo("skip");
+        assertThat(sent.description()).isEqualTo("Cluster prod");
+    }
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void template_picker_listsBuiltinAndCustomTemplates() throws Exception {
+        when(seriesTemplateService.list(any())).thenReturn(List.of(
+                templateResponse("builtin:nutanix-hpe", "Nutanix - HPE", true),
+                templateResponse("custom:7", "Mon cluster maison", false)));
+
+        String html = mvc.perform(post("/network/addresses/reserve/template").with(csrf())
+                        .param("subnetId", "30"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(html)
+                .contains("value=\"builtin:nutanix-hpe\"")
+                .contains("Nutanix - HPE")
+                .contains("value=\"custom:7\"")
+                .contains("Mon cluster maison")
+                .contains("/network/addresses/reserve/template");
+    }
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void template_withoutKey_showsErrorWithoutCallingService() throws Exception {
+        mvc.perform(post("/network/addresses/reserve/template").with(csrf())
+                        .param("subnetId", "30")
+                        .param("templateStartIp", "10.10.10.21"))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeExists("formError"));
+
+        verify(seriesTemplateService, never()).expand(any());
+    }
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void template_withoutSubnet_showsError() throws Exception {
+        mvc.perform(post("/network/addresses/reserve/template").with(csrf())
+                        .param("templateKey", "builtin:nutanix-hpe"))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeExists("formError"));
+
+        verify(seriesTemplateService, never()).expand(any());
+    }
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void template_badNumber_showsError() throws Exception {
+        mvc.perform(post("/network/addresses/reserve/template").with(csrf())
+                        .param("subnetId", "30")
+                        .param("templateKey", "builtin:nutanix-hpe")
+                        .param("templateNodes", "abc"))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeExists("formError"));
+
+        verify(seriesTemplateService, never()).expand(any());
+    }
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void template_invalidParametersAndUnknownTemplate_showErrors() throws Exception {
+        when(seriesTemplateService.expand(any()))
+                .thenThrow(new InvalidSeriesException("The variable cluster is required by this template."))
+                .thenThrow(new ResourceNotFoundException("SeriesTemplate", "custom:99"));
+
+        mvc.perform(post("/network/addresses/reserve/template").with(csrf())
+                        .param("subnetId", "30")
+                        .param("templateKey", "builtin:nutanix-hpe")
+                        .param("templateStartIp", "10.10.10.21"))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeExists("formError"));
+
+        mvc.perform(post("/network/addresses/reserve/template").with(csrf())
+                        .param("subnetId", "30")
+                        .param("templateKey", "custom:99")
+                        .param("templateStartIp", "10.10.10.21"))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeExists("formError"));
+    }
+
+    @Test
+    @WithMockUser(username = "viewer", roles = "NETWORK")
+    void template_withoutIpRole_isForbidden() throws Exception {
+        mvc.perform(post("/network/addresses/reserve/template").with(csrf())
+                        .param("subnetId", "30")
+                        .param("templateKey", "builtin:nutanix-hpe"))
+                .andExpect(status().isForbidden());
+
+        verify(seriesTemplateService, never()).expand(any());
+    }
+
+    private static SeriesTemplateResponse templateResponse(String key, String name, boolean builtin) {
+        SeriesTemplateDefinition definition = new SeriesTemplateDefinition(null, null, null, null, List.of(
+                new SeriesTemplateDefinition.Group("HOST", null, "{cluster}-{role}-{nn}", null, null)));
+        return new SeriesTemplateResponse(key, builtin, builtin ? null : 7L, builtin ? null : 1L,
+                name, null, definition, null);
     }
 
     private static SeriesGroupsResponse groupsResponse(boolean canCreate, SeriesGroupsResponse.Group... groups) {

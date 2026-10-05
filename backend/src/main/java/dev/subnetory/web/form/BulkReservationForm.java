@@ -61,6 +61,19 @@ public class BulkReservationForm {
     /** Vrai quand les lignes viennent de plusieurs séries : affiche la colonne « groupe ». */
     private boolean grouped;
 
+    // ── Mode template (préparation cluster / infrastructure) ──────────────
+
+    /** Clé du template choisi : {@code builtin:<clé>} ou {@code custom:<id>}. */
+    private String templateKey;
+    private String templateCluster;
+    private String templateSite;
+    private Integer templateNodes = 3;
+    private String templateStartIp;
+    /** Écart, pas et comportement sur adresse occupée : vides, ceux du template s'appliquent. */
+    private Integer templateGap;
+    private Integer templateStep;
+    private String templateOccupied;
+
     /** Vrai quand les lignes viennent d'une série : création atomique, adresse modifiable. */
     private boolean atomic;
 
@@ -105,6 +118,30 @@ public class BulkReservationForm {
 
     public List<SeriesGroupForm> getGroups()                   { return groups; }
     public void setGroups(List<SeriesGroupForm> groups)        { this.groups = groups; }
+
+    public String getTemplateKey()                     { return templateKey; }
+    public void setTemplateKey(String templateKey)     { this.templateKey = templateKey; }
+
+    public String getTemplateCluster()                         { return templateCluster; }
+    public void setTemplateCluster(String templateCluster)     { this.templateCluster = templateCluster; }
+
+    public String getTemplateSite()                    { return templateSite; }
+    public void setTemplateSite(String templateSite)   { this.templateSite = templateSite; }
+
+    public Integer getTemplateNodes()                      { return templateNodes; }
+    public void setTemplateNodes(Integer templateNodes)    { this.templateNodes = templateNodes; }
+
+    public String getTemplateStartIp()                         { return templateStartIp; }
+    public void setTemplateStartIp(String templateStartIp)     { this.templateStartIp = templateStartIp; }
+
+    public Integer getTemplateGap()                    { return templateGap; }
+    public void setTemplateGap(Integer templateGap)    { this.templateGap = templateGap; }
+
+    public Integer getTemplateStep()                   { return templateStep; }
+    public void setTemplateStep(Integer templateStep)  { this.templateStep = templateStep; }
+
+    public String getTemplateOccupied()                        { return templateOccupied; }
+    public void setTemplateOccupied(String templateOccupied)   { this.templateOccupied = templateOccupied; }
 
     public boolean isGrouped()                 { return grouped; }
     public void setGrouped(boolean grouped)    { this.grouped = grouped; }
