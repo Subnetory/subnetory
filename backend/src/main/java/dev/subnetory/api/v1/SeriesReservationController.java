@@ -1,5 +1,7 @@
 package dev.subnetory.api.v1;
 
+import dev.subnetory.dto.SeriesGroupsRequest;
+import dev.subnetory.dto.SeriesGroupsResponse;
 import dev.subnetory.dto.SeriesReservationRequest;
 import dev.subnetory.dto.SeriesReservationResponse;
 import dev.subnetory.dto.SeriesRowsRequest;
@@ -89,6 +91,37 @@ public class SeriesReservationController {
                                                 Authentication auth) {
         SeriesReservationResponse result = seriesReservationService.createRows(request, auth.getName());
         audit(auth.getName(), request.subnetId(), result);
+        return result;
+    }
+
+    @PostMapping("/groups/preview")
+    @PreAuthorize("hasAnyRole('ADMIN', 'IP')")
+    @Operation(summary = "Apercu de plusieurs series enchainees",
+            description = "Rôles requis : ADMIN ou IP. Les groupes (ex. hotes, CVM, IPMI) sont "
+                    + "places l'un apres l'autre a partir de startIp, avec gap adresses libres "
+                    + "entre deux groupes. Signale pour chaque ligne AVAILABLE, OCCUPIED, "
+                    + "RESERVED (passerelle) ou OUT_OF_RANGE, sans rien enregistrer. "
+                    + "occupiedMode : block (defaut) ou skip, pour tous les groupes.")
+    public SeriesGroupsResponse previewGroups(@Valid @RequestBody SeriesGroupsRequest request) {
+        return seriesReservationService.previewGroups(request);
+    }
+
+    @PostMapping("/groups")
+    @PreAuthorize("hasAnyRole('ADMIN', 'IP')")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Reserver plusieurs series enchainees",
+            description = "Rôles requis : ADMIN ou IP. Cree tous les groupes dans une seule "
+                    + "transaction (tout ou rien). Repond 409 avec le detail de chaque groupe "
+                    + "(propriete preview) si une adresse est deja utilisee, correspond a la "
+                    + "passerelle ou sort du sous-reseau : rien n'est cree. Une adresse "
+                    + "existante n'est jamais modifiee.")
+    public SeriesGroupsResponse createGroups(@Valid @RequestBody SeriesGroupsRequest request,
+                                             Authentication auth) {
+        SeriesGroupsResponse result = seriesReservationService.createGroups(request, auth.getName());
+        List<SeriesReservationResponse.Entry> rows = result.groups().stream()
+                .flatMap(g -> g.rows().stream()).toList();
+        authAuditService.recordAddressSeriesReserved(auth.getName(), request.subnetId(), result.network(),
+                rows.size(), rows.get(0).ip(), rows.get(rows.size() - 1).ip());
         return result;
     }
 

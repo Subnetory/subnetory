@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import dev.subnetory.domain.AuthAuditLog;
+import dev.subnetory.dto.SeriesGroupsRequest;
 import dev.subnetory.dto.SeriesReservationRequest;
 import dev.subnetory.dto.SeriesRowsRequest;
 import dev.subnetory.dto.SiteRequest;
@@ -380,6 +381,117 @@ class SeriesReservationApiIT {
     }
 
     // -------------------------------------------------------
+    // Series enchainees (/groups)
+    // -------------------------------------------------------
+
+    @Test @Order(18)
+    @DisplayName("POST /series/groups/preview - groupes enchaines avec ecart, sans rien ecrire")
+    void previewGroups_chainsGroupsWithGap() throws Exception {
+        mvc.perform(post(SERIES_URL + "/groups/preview")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(groups("172.18.0.130", 1, null,
+                                group("HOST", 2, "GH-"), group("CVM", 2, "GC-"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mode", is("block")))
+                .andExpect(jsonPath("$.canCreate", is(true)))
+                .andExpect(jsonPath("$.requested", is(4)))
+                .andExpect(jsonPath("$.groups", hasSize(2)))
+                .andExpect(jsonPath("$.groups[0].label", is("HOST")))
+                .andExpect(jsonPath("$.groups[0].rows[0].ip", is("172.18.0.130")))
+                .andExpect(jsonPath("$.groups[0].rows[1].ip", is("172.18.0.131")))
+                .andExpect(jsonPath("$.groups[1].rows[0].ip", is("172.18.0.133")))
+                .andExpect(jsonPath("$.groups[1].rows[0].hostname", is("GC-01")))
+                .andExpect(jsonPath("$.groups[1].rows[1].ip", is("172.18.0.134")));
+
+        mvc.perform(get("/api/v1/addresses")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .param("subnetId", String.valueOf(subnetId))
+                        .param("hostnameContains", "GH-"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(0)));
+    }
+
+    @Test @Order(19)
+    @DisplayName("POST /series/groups - cree tous les groupes (201) et les trace dans l'audit")
+    void createGroups_persistsAllGroupsAndAudits() throws Exception {
+        mvc.perform(post(SERIES_URL + "/groups")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(groups("172.18.0.130", 1, null,
+                                group("HOST", 2, "GH-"), group("CVM", 2, "GC-"))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.canCreate", is(true)))
+                .andExpect(jsonPath("$.groups", hasSize(2)));
+
+        for (String prefix : List.of("GH-", "GC-")) {
+            mvc.perform(get("/api/v1/addresses")
+                            .header("Authorization", "Bearer " + adminToken)
+                            .param("subnetId", String.valueOf(subnetId))
+                            .param("hostnameContains", prefix))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.content", hasSize(2)));
+        }
+
+        List<AuthAuditLog> logs = authAuditLogRepository.findByEventType(
+                AuthAuditService.ADDRESS_SERIES_RESERVED, Pageable.unpaged()).getContent();
+        assertThat(logs).anyMatch(log ->
+                "admin".equals(log.getUsername())
+                        && log.getMessage() != null
+                        && log.getMessage().contains("count=4")
+                        && log.getMessage().contains("first=172.18.0.130")
+                        && log.getMessage().contains("last=172.18.0.134"));
+    }
+
+    @Test @Order(20)
+    @DisplayName("POST /series/groups - un groupe en conflit -> 409 avec detail par groupe, rien de cree")
+    void createGroups_conflictReturns409AndCreatesNothing() throws Exception {
+        mvc.perform(post(SERIES_URL + "/groups")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(groups("172.18.0.131", 0, null,
+                                group("A", 1, "XA-"), group("B", 1, "XB-"))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.preview.canCreate", is(false)))
+                .andExpect(jsonPath("$.preview.groups[0].rows[0].status", is("OCCUPIED")))
+                .andExpect(jsonPath("$.preview.groups[1].rows[0].status", is("AVAILABLE")));
+
+        mvc.perform(get("/api/v1/addresses")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .param("subnetId", String.valueOf(subnetId))
+                        .param("hostnameContains", "XB-"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(0)));
+    }
+
+    @Test @Order(21)
+    @DisplayName("POST /series/groups - groupes absents ou nombre invalide -> 400")
+    void createGroups_invalidRequestsReturn400() throws Exception {
+        mvc.perform(post(SERIES_URL + "/groups")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(groups("172.18.0.150", 0, null)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fields.groups").exists());
+
+        mvc.perform(post(SERIES_URL + "/groups")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(groups("172.18.0.150", 0, null, group("A", 0, "A-"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fields").exists());
+    }
+
+    @Test @Order(22)
+    @DisplayName("POST /series/groups - sans authentification -> 401")
+    void createGroups_withoutTokenReturns401() throws Exception {
+        mvc.perform(post(SERIES_URL + "/groups")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(groups("172.18.0.160", 0, null, group("A", 1, "A-"))))
+                .andExpect(status().isUnauthorized());
+    }
+
+    // -------------------------------------------------------
     // helpers
     // -------------------------------------------------------
 
@@ -389,6 +501,16 @@ class SeriesReservationApiIT {
 
     private String rows(SeriesRowsRequest.Row... rows) throws Exception {
         return objectMapper.writeValueAsString(new SeriesRowsRequest(subnetId, List.of(rows)));
+    }
+
+    private static SeriesGroupsRequest.Group group(String label, int count, String prefix) {
+        return new SeriesGroupsRequest.Group(label, count, null, prefix, null, null, null);
+    }
+
+    private String groups(String startIp, int gap, String occupiedMode,
+                          SeriesGroupsRequest.Group... groups) throws Exception {
+        return objectMapper.writeValueAsString(new SeriesGroupsRequest(
+                subnetId, startIp, gap, occupiedMode, null, null, List.of(groups)));
     }
 
     private String body(String startIp, int count, String prefix, String occupiedMode) throws Exception {

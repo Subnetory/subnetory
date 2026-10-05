@@ -14,12 +14,15 @@ import dev.subnetory.domain.Address;
 import dev.subnetory.domain.NetworkContext;
 import dev.subnetory.domain.Site;
 import dev.subnetory.domain.Subnet;
+import dev.subnetory.dto.SeriesGroupsRequest;
+import dev.subnetory.dto.SeriesGroupsResponse;
 import dev.subnetory.dto.SeriesReservationRequest;
 import dev.subnetory.dto.SeriesReservationResponse;
 import dev.subnetory.dto.SeriesRowsRequest;
 import dev.subnetory.exception.ConflictException;
 import dev.subnetory.exception.InvalidSeriesException;
 import dev.subnetory.exception.SeriesConflictException;
+import dev.subnetory.exception.SeriesGroupsConflictException;
 import dev.subnetory.repository.AddressRepository;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -232,6 +235,197 @@ class SeriesReservationServiceTest {
     }
 
     // -------------------------------------------------------
+    // series enchainees (groupes)
+    // -------------------------------------------------------
+
+    @Test
+    @DisplayName("previewGroups : les groupes s'enchainent a la suite l'un de l'autre")
+    void previewGroups_chainsGroupsOneAfterTheOther() {
+        when(addressRepository.findOccupiedIpsBetween(SUBNET_ID, "10.10.10.21", "10.10.10.23"))
+                .thenReturn(List.of());
+        when(addressRepository.findOccupiedIpsBetween(SUBNET_ID, "10.10.10.24", "10.10.10.25"))
+                .thenReturn(List.of("10.10.10.25"));
+
+        SeriesGroupsResponse response = service.previewGroups(groups("10.10.10.21", 0, null,
+                group("HOST", 3, "H-"), group("CVM", 2, "C-")));
+
+        assertThat(response.network()).isEqualTo("10.10.10.0/24");
+        assertThat(response.mode()).isEqualTo("block");
+        assertThat(response.requested()).isEqualTo(5);
+        assertThat(response.canCreate()).isFalse();
+        assertThat(response.groups()).extracting(SeriesGroupsResponse.Group::label)
+                .containsExactly("HOST", "CVM");
+        assertThat(response.groups().get(0).rows()).extracting(SeriesReservationResponse.Entry::ip)
+                .containsExactly("10.10.10.21", "10.10.10.22", "10.10.10.23");
+        assertThat(response.groups().get(0).rows()).extracting(SeriesReservationResponse.Entry::hostname)
+                .containsExactly("H-01", "H-02", "H-03");
+        assertThat(response.groups().get(1).rows()).extracting(SeriesReservationResponse.Entry::ip)
+                .containsExactly("10.10.10.24", "10.10.10.25");
+        assertThat(response.groups().get(1).rows()).extracting(SeriesReservationResponse.Entry::status)
+                .containsExactly("AVAILABLE", "OCCUPIED");
+        verify(addressRepository, never()).saveAllAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("previewGroups : l'ecart laisse des adresses libres entre deux groupes")
+    void previewGroups_gapLeavesFreeAddressesBetweenGroups() {
+        when(addressRepository.findOccupiedIpsBetween(SUBNET_ID, "10.10.10.21", "10.10.10.22"))
+                .thenReturn(List.of());
+        when(addressRepository.findOccupiedIpsBetween(SUBNET_ID, "10.10.10.25", "10.10.10.26"))
+                .thenReturn(List.of());
+
+        SeriesGroupsResponse response = service.previewGroups(groups("10.10.10.21", 2, null,
+                group("A", 2, "A-"), group("B", 2, "B-")));
+
+        assertThat(response.canCreate()).isTrue();
+        assertThat(response.groups().get(1).rows()).extracting(SeriesReservationResponse.Entry::ip)
+                .containsExactly("10.10.10.25", "10.10.10.26");
+    }
+
+    @Test
+    @DisplayName("previewGroups : mode skip, chaque groupe repart apres la derniere adresse retenue")
+    void previewGroups_skipModeChainsAfterLastRetainedAddress() {
+        when(addressRepository.findOccupiedIpsBetween(SUBNET_ID, "10.10.10.21", "10.10.10.254"))
+                .thenReturn(List.of("10.10.10.22"));
+        when(addressRepository.findOccupiedIpsBetween(SUBNET_ID, "10.10.10.25", "10.10.10.254"))
+                .thenReturn(List.of());
+
+        SeriesGroupsResponse response = service.previewGroups(groups("10.10.10.21", 0, "skip",
+                group("HOST", 3, "H-"), group("CVM", 2, "C-")));
+
+        assertThat(response.mode()).isEqualTo("skip");
+        assertThat(response.canCreate()).isTrue();
+        assertThat(response.groups().get(0).rows()).extracting(SeriesReservationResponse.Entry::ip)
+                .containsExactly("10.10.10.21", "10.10.10.23", "10.10.10.24");
+        assertThat(response.groups().get(0).skipped()).extracting(SeriesReservationResponse.Entry::ip)
+                .containsExactly("10.10.10.22");
+        assertThat(response.groups().get(1).rows()).extracting(SeriesReservationResponse.Entry::ip)
+                .containsExactly("10.10.10.25", "10.10.10.26");
+    }
+
+    @Test
+    @DisplayName("previewGroups : parametres invalides refuses avant tout acces a la base")
+    void previewGroups_invalidRequestsAreRejected() {
+        assertThatThrownBy(() -> service.previewGroups(groups("10.10.10.21", 0, null)))
+                .isInstanceOf(InvalidSeriesException.class);
+
+        SeriesGroupsRequest.Group[] tooMany = new SeriesGroupsRequest.Group[11];
+        java.util.Arrays.fill(tooMany, group("G", 1, "G-"));
+        assertThatThrownBy(() -> service.previewGroups(groups("10.10.10.21", 0, null, tooMany)))
+                .isInstanceOf(InvalidSeriesException.class)
+                .hasMessageContaining("10 groups");
+
+        assertThatThrownBy(() -> service.previewGroups(groups("10.10.10.21", 0, null,
+                group("A", 200, "A-"), group("B", 100, "B-"))))
+                .isInstanceOf(InvalidSeriesException.class)
+                .hasMessageContaining("256");
+
+        assertThatThrownBy(() -> service.previewGroups(groups("10.10.10.21", 300, null, group("A", 1, "A-"))))
+                .isInstanceOf(InvalidSeriesException.class)
+                .hasMessageContaining("gap");
+
+        assertThatThrownBy(() -> service.previewGroups(groups("10.10.10.21", 0, null,
+                new SeriesGroupsRequest.Group("A", null, null, null, null, null, null))))
+                .isInstanceOf(InvalidSeriesException.class)
+                .hasMessageContaining("count");
+
+        assertThatThrownBy(() -> service.previewGroups(groups("10.10.10.21", 0, null,
+                (SeriesGroupsRequest.Group) null)))
+                .isInstanceOf(InvalidSeriesException.class);
+
+        assertThatThrownBy(() -> service.previewGroups(groups("not-an-ip", 0, null, group("A", 1, "A-"))))
+                .isInstanceOf(InvalidSeriesException.class);
+
+        verifyNoInteractions(addressRepository);
+    }
+
+    @Test
+    @DisplayName("previewGroups : des groupes qui depassent l'espace IPv4 sont refuses")
+    void previewGroups_chainBeyondIpv4SpaceIsRejected() {
+        assertThatThrownBy(() -> service.previewGroups(groups("255.255.255.250", 0, null,
+                group("A", 6, "A-"), group("B", 1, "B-"))))
+                .isInstanceOf(InvalidSeriesException.class)
+                .hasMessageContaining("IPv4");
+    }
+
+    @Test
+    @DisplayName("createGroups : tous les groupes sont enregistres en un seul lot")
+    void createGroups_savesAllGroupsInOneBatch() {
+        when(addressRepository.findOccupiedIpsBetween(SUBNET_ID, "10.10.10.21", "10.10.10.22"))
+                .thenReturn(List.of());
+        when(addressRepository.findOccupiedIpsBetween(SUBNET_ID, "10.10.10.23", "10.10.10.24"))
+                .thenReturn(List.of());
+        SeriesGroupsRequest request = new SeriesGroupsRequest(SUBNET_ID, "10.10.10.21", null, null,
+                "Nutanix cluster", true, List.of(group("HOST", 2, "H-"), group("CVM", 2, "C-")));
+
+        SeriesGroupsResponse response = service.createGroups(request, "nahim");
+
+        assertThat(response.canCreate()).isTrue();
+        verify(addressRepository).saveAllAndFlush(savedCaptor.capture());
+        List<Address> saved = savedCaptor.getValue();
+        assertThat(saved).extracting(Address::getAddress)
+                .containsExactly("10.10.10.21", "10.10.10.22", "10.10.10.23", "10.10.10.24");
+        assertThat(saved).extracting(Address::getHostname)
+                .containsExactly("H-01", "H-02", "C-01", "C-02");
+        assertThat(saved).allSatisfy(a -> {
+            assertThat(a.getSubnet()).isSameAs(subnet);
+            assertThat(a.getModifiedBy()).isEqualTo("nahim");
+            assertThat(a.getDescription()).isEqualTo("Nutanix cluster");
+            assertThat(a.isTemporary()).isTrue();
+            assertThat(a.getDiscoverySource()).isEqualTo("manual");
+        });
+    }
+
+    @Test
+    @DisplayName("createGroups : un groupe en conflit -> SeriesGroupsConflictException, rien n'est cree")
+    void createGroups_conflictCreatesNothing() {
+        when(addressRepository.findOccupiedIpsBetween(SUBNET_ID, "10.10.10.21", "10.10.10.22"))
+                .thenReturn(List.of());
+        when(addressRepository.findOccupiedIpsBetween(SUBNET_ID, "10.10.10.23", "10.10.10.24"))
+                .thenReturn(List.of("10.10.10.24"));
+
+        assertThatThrownBy(() -> service.createGroups(groups("10.10.10.21", 0, null,
+                group("HOST", 2, "H-"), group("CVM", 2, "C-")), "nahim"))
+                .isInstanceOfSatisfying(SeriesGroupsConflictException.class, e -> {
+                    assertThat(e.getMessage()).contains("1 address(es)").contains("no address was created");
+                    assertThat(e.getPreview().canCreate()).isFalse();
+                    assertThat(e.getPreview().groups().get(1).rows())
+                            .extracting(SeriesReservationResponse.Entry::status)
+                            .containsExactly("AVAILABLE", "OCCUPIED");
+                });
+
+        verify(addressRepository, never()).saveAllAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("createGroups : mode skip + plage epuisee -> conflit avec le nombre d'adresses manquantes")
+    void createGroups_skipModeRangeExhausted() {
+        when(addressRepository.findOccupiedIpsBetween(SUBNET_ID, "10.10.10.253", "10.10.10.254"))
+                .thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.createGroups(groups("10.10.10.253", 0, "skip",
+                group("A", 4, "A-")), "nahim"))
+                .isInstanceOfSatisfying(SeriesGroupsConflictException.class,
+                        e -> assertThat(e.getMessage()).contains("2 address(es) missing"));
+
+        verify(addressRepository, never()).saveAllAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("createGroups : violation d'unicite concurrente -> ConflictException (transaction annulee)")
+    void createGroups_concurrentInsertIsReportedAsConflict() {
+        when(addressRepository.findOccupiedIpsBetween(SUBNET_ID, "10.10.10.21", "10.10.10.21"))
+                .thenReturn(List.of());
+        doThrow(new DataIntegrityViolationException("uq_addresses_address_subnet"))
+                .when(addressRepository).saveAllAndFlush(any());
+
+        assertThatThrownBy(() -> service.createGroups(groups("10.10.10.21", 0, null, group("A", 1, "A-")), "nahim"))
+                .isInstanceOf(ConflictException.class)
+                .isNotInstanceOf(SeriesGroupsConflictException.class)
+                .hasMessageContaining("concurrently");
+    }
+
+    // -------------------------------------------------------
     // lignes explicites
     // -------------------------------------------------------
 
@@ -365,6 +559,16 @@ class SeriesReservationServiceTest {
     private static SeriesReservationRequest request(String startIp, int count, String occupiedMode) {
         return new SeriesReservationRequest(
                 SUBNET_ID, startIp, count, null, "NTNX-HOST-", null, null, null, occupiedMode, null, null);
+    }
+
+    private static SeriesGroupsRequest.Group group(String label, int count, String prefix) {
+        return new SeriesGroupsRequest.Group(label, count, null, prefix, null, null, null);
+    }
+
+    private static SeriesGroupsRequest groups(String startIp, int gap, String occupiedMode,
+                                              SeriesGroupsRequest.Group... groups) {
+        return new SeriesGroupsRequest(SUBNET_ID, startIp, gap, occupiedMode, null, null,
+                java.util.Arrays.asList(groups));
     }
 
     private static SeriesRowsRequest.Row row(String ip, String hostname) {

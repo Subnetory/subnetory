@@ -215,6 +215,8 @@ Sur la page **Réservation multiple** (`/network/addresses/reserve`, rôles `ADM
 
 La création est « tout ou rien » : si une adresse est occupée, est la passerelle ou sort du sous-réseau, rien n'est créé et les lignes en cause sont signalées. L'option **Sauter les adresses occupées** les ignore à la place, en gardant le compteur consécutif. Une adresse existante n'est jamais modifiée.
 
+Pour plusieurs séries à la suite (par exemple les adresses d'un cluster), le bloc **Plusieurs séries enchaînées** place les groupes l'un après l'autre à partir d'une même IP de départ : tous les hôtes, puis toutes les CVM, puis tous les IPMI. Chaque ligne du tableau de groupes a son libellé, son nombre d'adresses, son préfixe de nom, son compteur et son suffixe ; les lignes sans nombre sont ignorées, et **Adresses libres entre deux groupes** laisse un écart optionnel. L'aperçu affiche la colonne **Groupe**, et le reste du parcours (modification des IP et des noms, vérification, création tout ou rien) est identique.
+
 ---
 
 ## Searching lists
@@ -386,6 +388,8 @@ La même requête sur `POST /api/v1/addresses/series` crée les adresses `10.10.
 - `skip` : les adresses occupées ou réservées sont sautées, le compteur reste consécutif ; `409` si la plage du sous-réseau ne permet pas d'obtenir `count` adresses.
 
 Pour une liste ajustée ligne par ligne, `POST /api/v1/addresses/series/rows/preview` et `POST /api/v1/addresses/series/rows` acceptent `{"subnetId":1,"rows":[{"ip":"10.10.10.21","hostname":"NTNX-HOST-01"}]}` (champs optionnels : `description`, `mac`, `temporary`) avec les mêmes garanties ; chaque ligne reçoit un statut `AVAILABLE`, `OCCUPIED`, `RESERVED`, `OUT_OF_RANGE`, `INVALID` ou `DUPLICATE`.
+
+Pour plusieurs séries à la suite, `POST /api/v1/addresses/series/groups/preview` et `POST /api/v1/addresses/series/groups` acceptent `{"subnetId":1,"startIp":"10.10.10.21","gap":0,"groups":[{"label":"HOST","count":3,"prefix":"NTNX-HOST-"},{"label":"CVM","count":3,"prefix":"NTNX-CVM-"}]}` : chaque groupe démarre après le dernier du précédent (plus `gap` adresses libres) et la réponse détaille chaque groupe. En cas de conflit, la réponse `409` contient `preview.groups` et rien n'est créé. 10 groupes au plus, 256 adresses au total.
 
 Une adresse existante n'est jamais modifiée. Limites : 256 adresses par série, hostname de 100 caractères maximum. Chaque création est tracée dans le journal d'audit (`ADDRESS_SERIES_RESERVED`).
 
