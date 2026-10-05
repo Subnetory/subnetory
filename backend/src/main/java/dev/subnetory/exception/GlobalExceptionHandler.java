@@ -220,6 +220,36 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Reservation en serie : parametres incorrects (nom d'hote trop long,
+     * serie hors espace IPv4, sous-reseau non IPv4...). Les erreurs de format
+     * simples sont deja couvertes par Bean Validation (400 "validation-error").
+     */
+    @ExceptionHandler(InvalidSeriesException.class)
+    public ProblemDetail handleInvalidSeries(InvalidSeriesException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        pd.setType(URI.create(ERROR_BASE + "invalid-series"));
+        pd.setTitle("Invalid Series");
+        pd.setProperty("timestamp", Instant.now());
+        return pd;
+    }
+
+    /**
+     * Reservation en serie impossible telle quelle (adresse deja utilisee,
+     * passerelle, hors plage, plage epuisee) : aucune adresse n'a ete creee.
+     * La propriete {@code preview} detaille chaque ligne et son statut. Plus
+     * specifique que {@link ConflictException}, donc choisie en priorite.
+     */
+    @ExceptionHandler(SeriesConflictException.class)
+    public ProblemDetail handleSeriesConflict(SeriesConflictException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        pd.setType(URI.create(ERROR_BASE + "conflict"));
+        pd.setTitle("Conflict");
+        pd.setProperty("preview", ex.getPreview());
+        pd.setProperty("timestamp", Instant.now());
+        return pd;
+    }
+
+    /**
      * Violation d'une règle anti-lockout côté administration des comptes
      * (correctif 03/08/2026, à l'occasion de l'ajout de la suppression de
      * compte) : jusqu'ici {@link dev.subnetory.service.AdminLockoutException}

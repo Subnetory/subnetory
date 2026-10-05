@@ -359,6 +359,21 @@ curl -s http://localhost:8080/api/v1/addresses \
   -H "Authorization: Bearer <token>"
 ```
 
+Réserver une série d'adresses avec noms incrémentés (rôles `ADMIN` ou `IP`) :
+```bash
+# Aperçu : rien n'est enregistré
+curl -s -X POST http://localhost:8080/api/v1/addresses/series/preview \
+  -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+  -d '{"subnetId":1,"startIp":"10.10.10.21","count":3,"prefix":"NTNX-HOST-","startCounter":1,"counterWidth":2}'
+```
+
+La même requête sur `POST /api/v1/addresses/series` crée les adresses `10.10.10.21` à `10.10.10.23` nommées `NTNX-HOST-01` à `NTNX-HOST-03`, en une seule transaction. Paramètres : `step` (pas entre adresses, 1 par défaut), `suffix`, `description`, `temporary`, `occupiedMode`.
+
+- `block` (défaut) : si une adresse est déjà utilisée, est la passerelle ou sort du sous-réseau, la réponse est `409` avec le détail de chaque ligne (`preview`) et rien n'est créé.
+- `skip` : les adresses occupées ou réservées sont sautées, le compteur reste consécutif ; `409` si la plage du sous-réseau ne permet pas d'obtenir `count` adresses.
+
+Une adresse existante n'est jamais modifiée. Limites : 256 adresses par série, hostname de 100 caractères maximum. Chaque création est tracée dans le journal d'audit (`ADDRESS_SERIES_RESERVED`).
+
 ---
 
 ## Sauvegarde
