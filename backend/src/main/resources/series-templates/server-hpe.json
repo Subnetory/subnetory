@@ -1,0 +1,21 @@
+{
+  "key": "server-hpe",
+  "name": "Servers - HPE (hosts, iLO)",
+  "description": "Physical HPE servers: all hosts, then all iLO.",
+  "definition": {
+    "allocation": "groups-sequential",
+    "groupGap": 0,
+    "ipStep": 1,
+    "onOccupied": "block",
+    "groups": [
+      {
+        "role": "HOST",
+        "format": "{cluster}-{role}-{nn}"
+      },
+      {
+        "role": "ILO",
+        "format": "{cluster}-{role}-{nn}"
+      }
+    ]
+  }
+}

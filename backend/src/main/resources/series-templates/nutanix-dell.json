@@ -1,0 +1,25 @@
+{
+  "key": "nutanix-dell",
+  "name": "Nutanix - Dell (hosts, CVM, iDRAC)",
+  "description": "Nutanix cluster on Dell nodes: all hosts, then all CVMs, then all iDRAC.",
+  "definition": {
+    "allocation": "groups-sequential",
+    "groupGap": 0,
+    "ipStep": 1,
+    "onOccupied": "block",
+    "groups": [
+      {
+        "role": "HOST",
+        "format": "{cluster}-{role}-{nn}"
+      },
+      {
+        "role": "CVM",
+        "format": "{cluster}-{role}-{nn}"
+      },
+      {
+        "role": "IDRAC",
+        "format": "{cluster}-{role}-{nn}"
+      }
+    ]
+  }
+}

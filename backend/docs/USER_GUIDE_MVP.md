@@ -393,6 +393,20 @@ Pour plusieurs séries à la suite, `POST /api/v1/addresses/series/groups/previe
 
 Une adresse existante n'est jamais modifiée. Limites : 256 adresses par série, hostname de 100 caractères maximum. Chaque création est tracée dans le journal d'audit (`ADDRESS_SERIES_RESERVED`).
 
+### Templates de préparation (cluster, infrastructure)
+
+Un template décrit une infrastructure type sous forme de données : des groupes (rôle, format de nom) et le comportement de l'allocation. `GET /api/v1/series-templates` liste les presets livrés (Nutanix sur HPE, Dell, Lenovo ou Supermicro, serveurs physiques, Proxmox VE, VMware ESXi ; globaux et en lecture seule) puis les templates personnalisés du contexte (`?contextId=`).
+
+Un format de nom contient exactement un compteur (`{n}`, `{nn}`, `{nnn}`... : le nombre de `n` donne le nombre de chiffres) et peut utiliser `{cluster}`, `{site}` et `{role}` : `{cluster}-{role}-{nn}` donne `NTNX01-HOST-01`. Paramètres du template (tous modifiables à chaque utilisation) : `allocation` (`groups-sequential` : tous les hôtes, puis toutes les CVM, puis tous les IPMI ; `interleaved` : hôte, CVM et IPMI du nœud 1, puis du nœud 2...), `groupGap`, `ipStep`, `onOccupied` (`block` ou `skip`, `skip` n'étant pas disponible en mode `interleaved`).
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/series-templates/expand \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"subnetId":1,"key":"builtin:nutanix-hpe","nodes":4,"cluster":"NTNX01","startIp":"10.10.10.21"}'
+```
+
+La réponse contient `preview` (adresses, noms et statuts, rien n'est écrit) et `request`, la demande calculée, à envoyer telle quelle à `POST /api/v1/addresses/series/groups` pour créer toutes les adresses en une transaction. `POST /api/v1/series-templates/builtin:nutanix-hpe/duplicate` (`{"contextId":1,"name":"Mon Nutanix"}`) copie un preset en template personnalisé ; `POST`, `PUT /{id}` et `DELETE /{id}` gèrent les templates personnalisés (rôles `ADMIN` ou `IP`, nom unique par contexte, journalisés `SERIES_TEMPLATE_CREATED`, `_UPDATED` et `_DELETED`).
+
 ---
 
 ## Sauvegarde

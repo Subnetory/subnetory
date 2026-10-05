@@ -1,0 +1,25 @@
+{
+  "key": "nutanix-lenovo",
+  "name": "Nutanix - Lenovo (hosts, CVM, XCC)",
+  "description": "Nutanix cluster on Lenovo nodes: all hosts, then all CVMs, then all XCC.",
+  "definition": {
+    "allocation": "groups-sequential",
+    "groupGap": 0,
+    "ipStep": 1,
+    "onOccupied": "block",
+    "groups": [
+      {
+        "role": "HOST",
+        "format": "{cluster}-{role}-{nn}"
+      },
+      {
+        "role": "CVM",
+        "format": "{cluster}-{role}-{nn}"
+      },
+      {
+        "role": "XCC",
+        "format": "{cluster}-{role}-{nn}"
+      }
+    ]
+  }
+}

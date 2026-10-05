@@ -304,6 +304,51 @@ class SeriesReservationServiceTest {
     }
 
     @Test
+    @DisplayName("previewGroups : l'IP de depart propre a un groupe remplace l'enchainement")
+    void previewGroups_groupStartIpOverridesChaining() {
+        SeriesGroupsResponse response = service.previewGroups(groups("10.10.10.21", 0, null,
+                group("A", 2, "A-"),
+                new SeriesGroupsRequest.Group("B", 2, null, "B-", null, null, null, "10.10.10.50"),
+                group("C", 1, "C-")));
+
+        assertThat(response.canCreate()).isTrue();
+        assertThat(response.groups().get(1).rows()).extracting(SeriesReservationResponse.Entry::ip)
+                .containsExactly("10.10.10.50", "10.10.10.51");
+        // le groupe suivant repart apres la fin du groupe qui avait sa propre IP de depart
+        assertThat(response.groups().get(2).rows()).extracting(SeriesReservationResponse.Entry::ip)
+                .containsExactly("10.10.10.52");
+    }
+
+    @Test
+    @DisplayName("previewGroups : une adresse deja prise par un groupe precedent est DUPLICATE")
+    void previewGroups_overlapBetweenGroupsIsFlaggedDuplicate() {
+        SeriesGroupsResponse response = service.previewGroups(groups("10.10.10.21", 0, null,
+                group("A", 3, "A-"),
+                new SeriesGroupsRequest.Group("B", 2, null, "B-", null, null, null, "10.10.10.22")));
+
+        assertThat(response.canCreate()).isFalse();
+        assertThat(response.groups().get(0).rows()).extracting(SeriesReservationResponse.Entry::status)
+                .containsOnly("AVAILABLE");
+        assertThat(response.groups().get(1).rows()).extracting(SeriesReservationResponse.Entry::status)
+                .containsExactly("DUPLICATE", "DUPLICATE");
+    }
+
+    @Test
+    @DisplayName("createGroups : groupes qui se chevauchent -> conflit, rien n'est cree")
+    void createGroups_overlapCreatesNothing() {
+        assertThatThrownBy(() -> service.createGroups(groups("10.10.10.21", 0, null,
+                group("A", 3, "A-"),
+                new SeriesGroupsRequest.Group("B", 2, null, "B-", null, null, null, "10.10.10.22")),
+                "nahim"))
+                .isInstanceOfSatisfying(SeriesGroupsConflictException.class, e -> {
+                    assertThat(e.getMessage()).contains("2 address(es)").contains("duplicated");
+                    assertThat(e.getPreview().canCreate()).isFalse();
+                });
+
+        verify(addressRepository, never()).saveAllAndFlush(any());
+    }
+
+    @Test
     @DisplayName("previewGroups : parametres invalides refuses avant tout acces a la base")
     void previewGroups_invalidRequestsAreRejected() {
         assertThatThrownBy(() -> service.previewGroups(groups("10.10.10.21", 0, null)))
