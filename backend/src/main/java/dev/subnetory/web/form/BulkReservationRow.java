@@ -7,8 +7,9 @@ import jakarta.validation.constraints.Size;
  * Une ligne du tableau de réservation multiple d'adresses IP.
  *
  * <p>L'adresse est pré-remplie côté serveur (suggestion IP libre) et affichée en
- * lecture seule dans le formulaire — elle n'est jamais ressaisie par l'utilisateur,
- * ce qui évite d'avoir à revalider un format IPv4/CIDR côté ligne.</p>
+ * lecture seule dans le formulaire. En mode série ({@link BulkReservationForm#isAtomic()})
+ * elle devient modifiable ligne par ligne : le format est alors contrôlé par
+ * {@code SeriesReservationService}.</p>
  */
 public class BulkReservationRow {
 
@@ -30,6 +31,13 @@ public class BulkReservationRow {
 
     /** Décoché = ligne ignorée à la soumission finale, sans être supprimée du tableau. */
     private boolean included = true;
+
+    /**
+     * Résultat du dernier contrôle de la ligne en mode série (AVAILABLE, OCCUPIED,
+     * RESERVED, OUT_OF_RANGE, INVALID, DUPLICATE) ; {@code null} tant que la ligne n'a
+     * pas été contrôlée. Affichage seul : jamais relu comme une décision.
+     */
+    private String status;
 
     public BulkReservationRow() {}
 
@@ -54,4 +62,7 @@ public class BulkReservationRow {
 
     public boolean isIncluded()                { return included; }
     public void setIncluded(boolean included)  { this.included = included; }
+
+    public String getStatus()              { return status; }
+    public void setStatus(String status)   { this.status = status; }
 }

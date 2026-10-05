@@ -4,6 +4,7 @@ import dev.subnetory.domain.Address;
 import dev.subnetory.domain.Subnet;
 import dev.subnetory.dto.SeriesReservationRequest;
 import dev.subnetory.dto.SeriesReservationResponse;
+import dev.subnetory.dto.SeriesRowsRequest;
 import dev.subnetory.exception.ConflictException;
 import dev.subnetory.exception.InvalidSeriesException;
 import dev.subnetory.exception.SeriesConflictException;
@@ -14,6 +15,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -42,6 +44,10 @@ import java.util.Set;
 public class SeriesReservationService {
 
     private static final String SOURCE = "manual";
+    private static final String MODE_ROWS = "rows";
+    private static final String STATUS_AVAILABLE = SeriesPlanner.Status.AVAILABLE.name();
+    private static final String STATUS_INVALID = "INVALID";
+    private static final String STATUS_DUPLICATE = "DUPLICATE";
 
     private final SubnetService subnetService;
     private final AddressRepository addressRepository;
@@ -91,6 +97,145 @@ public class SeriesReservationService {
     }
 
     // -------------------------------------------------------
+    // Lignes explicites (serie ajustee ligne par ligne)
+    // -------------------------------------------------------
+
+    /**
+     * Controle une liste explicite de lignes sans rien enregistrer. Statuts :
+     * {@code AVAILABLE}, {@code OCCUPIED}, {@code RESERVED} (passerelle),
+     * {@code OUT_OF_RANGE}, {@code INVALID} (IPv4 mal formee) et {@code DUPLICATE}
+     * (adresse deja presente plus haut dans la liste).
+     */
+    public SeriesReservationResponse previewRows(SeriesRowsRequest request) {
+        Subnet subnet = subnetService.getEntityById(request.subnetId());
+        return toRowsResponse(subnet, request, checkRows(subnet, request));
+    }
+
+    /**
+     * Cree toutes les lignes dans une seule transaction (tout ou rien). Une adresse
+     * existante n'est jamais modifiee.
+     *
+     * @throws SeriesConflictException si une ligne n'est pas {@code AVAILABLE} (rien n'est cree)
+     * @throws InvalidSeriesException  si la liste est invalide (vide, trop longue, nom trop long)
+     * @throws ConflictException       si une adresse a ete reservee en parallele (rien n'est cree)
+     */
+    @Transactional
+    public SeriesReservationResponse createRows(SeriesRowsRequest request, String currentUser) {
+        Subnet subnet = subnetService.getEntityById(request.subnetId());
+        List<String> statuses = checkRows(subnet, request);
+        SeriesReservationResponse view = toRowsResponse(subnet, request, statuses);
+
+        if (!view.canCreate()) {
+            long conflicts = statuses.stream().filter(st -> !STATUS_AVAILABLE.equals(st)).count();
+            throw new SeriesConflictException("The reservation cannot be created: " + conflicts
+                    + " address(es) are occupied, reserved, duplicated, invalid or out of range;"
+                    + " no address was created.", view);
+        }
+
+        List<Address> addresses = new ArrayList<>();
+        for (SeriesRowsRequest.Row row : request.rows()) {
+            addresses.add(newAddress(subnet, normalizedIp(row.ip()), row.hostname(),
+                    row.description(), row.mac(), Boolean.TRUE.equals(row.temporary()), currentUser));
+        }
+        try {
+            addressRepository.saveAllAndFlush(addresses);
+        } catch (DataIntegrityViolationException e) {
+            throw new ConflictException(
+                    "An address of the series was reserved concurrently; no address was created.");
+        }
+        return view;
+    }
+
+    private List<String> checkRows(Subnet subnet, SeriesRowsRequest request) {
+        List<SeriesRowsRequest.Row> rows = request.rows();
+        if (rows == null || rows.isEmpty()) {
+            throw new InvalidSeriesException("At least one row is required.");
+        }
+        if (rows.size() > SeriesPlanner.MAX_COUNT) {
+            throw new InvalidSeriesException(
+                    "At most " + SeriesPlanner.MAX_COUNT + " rows are allowed.");
+        }
+        for (SeriesRowsRequest.Row row : rows) {
+            if (row == null) {
+                throw new InvalidSeriesException("A row must not be empty.");
+            }
+            if (row.hostname() != null && row.hostname().length() > SeriesPlanner.MAX_HOSTNAME_LENGTH) {
+                throw new InvalidSeriesException("Hostname must be at most "
+                        + SeriesPlanner.MAX_HOSTNAME_LENGTH + " characters.");
+            }
+        }
+
+        Bounds bounds = bounds(subnet);
+
+        // Une seule requete de conflits pour toute la liste (bornes = min/max des lignes valides).
+        long min = Long.MAX_VALUE;
+        long max = Long.MIN_VALUE;
+        for (SeriesRowsRequest.Row row : rows) {
+            String ip = normalizedIp(row.ip());
+            if (!IpUtils.isValidIpv4(ip)) {
+                continue;
+            }
+            long value = IpUtils.ipv4ToLong(ip);
+            if (value >= bounds.firstUsable() && value <= bounds.lastUsable()) {
+                min = Math.min(min, value);
+                max = Math.max(max, value);
+            }
+        }
+        Set<Long> occupied = new HashSet<>();
+        if (min <= max) {
+            for (String ip : addressRepository.findOccupiedIpsBetween(
+                    subnet.getId(), IpUtils.longToIpv4(min), IpUtils.longToIpv4(max))) {
+                occupied.add(IpUtils.ipv4ToLong(ip));
+            }
+        }
+
+        List<String> statuses = new ArrayList<>(rows.size());
+        Set<Long> seen = new HashSet<>();
+        for (SeriesRowsRequest.Row row : rows) {
+            String ip = normalizedIp(row.ip());
+            if (!IpUtils.isValidIpv4(ip)) {
+                statuses.add(STATUS_INVALID);
+                continue;
+            }
+            long value = IpUtils.ipv4ToLong(ip);
+            if (!seen.add(value)) {
+                statuses.add(STATUS_DUPLICATE);
+            } else if (value < bounds.firstUsable() || value > bounds.lastUsable()) {
+                statuses.add(SeriesPlanner.Status.OUT_OF_RANGE.name());
+            } else if (bounds.gateway() != null && bounds.gateway() == value) {
+                statuses.add(SeriesPlanner.Status.RESERVED.name());
+            } else if (occupied.contains(value)) {
+                statuses.add(SeriesPlanner.Status.OCCUPIED.name());
+            } else {
+                statuses.add(STATUS_AVAILABLE);
+            }
+        }
+        return statuses;
+    }
+
+    private SeriesReservationResponse toRowsResponse(Subnet subnet, SeriesRowsRequest request,
+                                                     List<String> statuses) {
+        List<SeriesReservationResponse.Entry> entries = new ArrayList<>(statuses.size());
+        for (int i = 0; i < statuses.size(); i++) {
+            SeriesRowsRequest.Row row = request.rows().get(i);
+            entries.add(new SeriesReservationResponse.Entry(
+                    normalizedIp(row.ip()), row.hostname(), statuses.get(i)));
+        }
+        return new SeriesReservationResponse(
+                subnet.getNetwork(), MODE_ROWS,
+                statuses.stream().allMatch(STATUS_AVAILABLE::equals),
+                request.rows().size(), 0, entries, List.of());
+    }
+
+    /** IP rognee ; une IPv4 valide est ramenee a sa forme canonique ("010.0.0.1" -> "10.0.0.1"). */
+    private static String normalizedIp(String ip) {
+        String trimmed = ip == null ? "" : ip.trim();
+        return IpUtils.isValidIpv4(trimmed)
+                ? IpUtils.longToIpv4(IpUtils.ipv4ToLong(trimmed))
+                : trimmed;
+    }
+
+    // -------------------------------------------------------
     // Calcul
     // -------------------------------------------------------
 
@@ -98,17 +243,9 @@ public class SeriesReservationService {
         SeriesPlanner.Spec spec = request.toSpec();
         SeriesPlanner.validate(spec);
 
-        String cidr = subnet.getNetwork();
-        if (!IpUtils.isValidCidr(cidr)) {
-            throw new InvalidSeriesException("Series reservation supports IPv4 subnets only.");
-        }
-        int prefixLength = IpUtils.cidrPrefixLength(cidr);
-        long networkValue = IpUtils.ipv4ToLong(IpUtils.networkAddress(cidr));
-        long broadcastValue = IpUtils.ipv4ToLong(IpUtils.broadcastAddress(cidr));
-        // Meme regle que AddressRepository#findAvailableIps : network et broadcast
-        // exclus jusqu'au /30 ; /31 et /32 gardent toutes leurs adresses.
-        long firstUsable = prefixLength <= 30 ? networkValue + 1 : networkValue;
-        long lastUsable = prefixLength <= 30 ? broadcastValue - 1 : broadcastValue;
+        Bounds bounds = bounds(subnet);
+        long firstUsable = bounds.firstUsable();
+        long lastUsable = bounds.lastUsable();
 
         long start = IpUtils.ipv4ToLong(spec.startIp());
         long windowEnd = spec.mode() == SeriesPlanner.OccupiedMode.SKIP
@@ -124,8 +261,26 @@ public class SeriesReservationService {
         }
 
         SeriesPlanner.Window window = new SeriesPlanner.Window(
-                firstUsable, lastUsable, gatewayValue(subnet, networkValue, broadcastValue), occupied);
+                firstUsable, lastUsable, bounds.gateway(), occupied);
         return SeriesPlanner.plan(spec, window);
+    }
+
+    /** Plage attribuable d'un sous-reseau IPv4 et passerelle eventuelle. */
+    private record Bounds(long firstUsable, long lastUsable, Long gateway) {}
+
+    private Bounds bounds(Subnet subnet) {
+        String cidr = subnet.getNetwork();
+        if (!IpUtils.isValidCidr(cidr)) {
+            throw new InvalidSeriesException("Series reservation supports IPv4 subnets only.");
+        }
+        int prefixLength = IpUtils.cidrPrefixLength(cidr);
+        long networkValue = IpUtils.ipv4ToLong(IpUtils.networkAddress(cidr));
+        long broadcastValue = IpUtils.ipv4ToLong(IpUtils.broadcastAddress(cidr));
+        // Meme regle que AddressRepository#findAvailableIps : network et broadcast
+        // exclus jusqu'au /30 ; /31 et /32 gardent toutes leurs adresses.
+        long firstUsable = prefixLength <= 30 ? networkValue + 1 : networkValue;
+        long lastUsable = prefixLength <= 30 ? broadcastValue - 1 : broadcastValue;
+        return new Bounds(firstUsable, lastUsable, gatewayValue(subnet, networkValue, broadcastValue));
     }
 
     private Long gatewayValue(Subnet subnet, long networkValue, long broadcastValue) {
@@ -148,16 +303,22 @@ public class SeriesReservationService {
 
     private Address toEntity(Subnet subnet, SeriesReservationRequest request,
                              SeriesPlanner.Row row, String currentUser) {
+        return newAddress(subnet, row.ip(), row.hostname(), request.description(), null,
+                Boolean.TRUE.equals(request.temporary()), currentUser);
+    }
+
+    private Address newAddress(Subnet subnet, String ip, String hostname, String description,
+                               String mac, boolean temporary, String currentUser) {
         Address address = new Address();
-        address.setAddress(row.ip());
-        address.setHostname(row.hostname());
-        String description = request.description();
+        address.setAddress(ip);
+        address.setHostname(hostname == null || hostname.isBlank() ? null : hostname);
         address.setDescription(description == null || description.isBlank() ? null : description);
+        address.setMac(mac == null || mac.isBlank() ? null : mac.trim().toLowerCase(Locale.ROOT));
         address.setContext(subnet.getContext());
         address.setSite(subnet.getSite());
         address.setSubnet(subnet);
         address.setModifiedBy(currentUser);
-        address.setTemporary(Boolean.TRUE.equals(request.temporary()));
+        address.setTemporary(temporary);
         address.setDiscoverySource(SOURCE);
         return address;
     }

@@ -21,6 +21,11 @@ import java.util.List;
  *   <li>La soumission finale ne transmet que les lignes {@code included=true} à
  *       {@code AddressService.bulkUpsert()}.</li>
  * </ol>
+ *
+ * <p>Mode série : les champs {@code series*} décrivent une série d'adresses contiguës
+ * à noms incrémentés ; leur génération remplit {@code rows} et passe {@code atomic} à
+ * vrai. Les lignes sont alors créées <b>toutes ensemble ou pas du tout</b> par
+ * {@code SeriesReservationService}, et l'adresse de chaque ligne reste modifiable.</p>
  */
 public class BulkReservationForm {
 
@@ -33,6 +38,21 @@ public class BulkReservationForm {
 
     private List<@Valid BulkReservationRow> rows = new ArrayList<>();
 
+    // ── Mode série ─────────────────────────────────────────────────────────
+
+    private String seriesStartIp;
+    private Integer seriesCount = 3;
+    private Integer seriesStep = 1;
+    private String seriesPrefix = "";
+    private Long seriesStartCounter = 1L;
+    private Integer seriesCounterWidth = 2;
+    private String seriesSuffix = "";
+    private String seriesDescription;
+    private boolean seriesSkipOccupied;
+
+    /** Vrai quand les lignes viennent d'une série : création atomique, adresse modifiable. */
+    private boolean atomic;
+
     public Long getSubnetId()              { return subnetId; }
     public void setSubnetId(Long subnetId) { this.subnetId = subnetId; }
 
@@ -41,4 +61,34 @@ public class BulkReservationForm {
 
     public List<BulkReservationRow> getRows()               { return rows; }
     public void setRows(List<BulkReservationRow> rows)      { this.rows = rows; }
+
+    public String getSeriesStartIp()                   { return seriesStartIp; }
+    public void setSeriesStartIp(String seriesStartIp) { this.seriesStartIp = seriesStartIp; }
+
+    public Integer getSeriesCount()                    { return seriesCount; }
+    public void setSeriesCount(Integer seriesCount)    { this.seriesCount = seriesCount; }
+
+    public Integer getSeriesStep()                     { return seriesStep; }
+    public void setSeriesStep(Integer seriesStep)      { this.seriesStep = seriesStep; }
+
+    public String getSeriesPrefix()                    { return seriesPrefix; }
+    public void setSeriesPrefix(String seriesPrefix)   { this.seriesPrefix = seriesPrefix; }
+
+    public Long getSeriesStartCounter()                        { return seriesStartCounter; }
+    public void setSeriesStartCounter(Long seriesStartCounter) { this.seriesStartCounter = seriesStartCounter; }
+
+    public Integer getSeriesCounterWidth()                         { return seriesCounterWidth; }
+    public void setSeriesCounterWidth(Integer seriesCounterWidth)  { this.seriesCounterWidth = seriesCounterWidth; }
+
+    public String getSeriesSuffix()                    { return seriesSuffix; }
+    public void setSeriesSuffix(String seriesSuffix)   { this.seriesSuffix = seriesSuffix; }
+
+    public String getSeriesDescription()                       { return seriesDescription; }
+    public void setSeriesDescription(String seriesDescription) { this.seriesDescription = seriesDescription; }
+
+    public boolean isSeriesSkipOccupied()                          { return seriesSkipOccupied; }
+    public void setSeriesSkipOccupied(boolean seriesSkipOccupied)  { this.seriesSkipOccupied = seriesSkipOccupied; }
+
+    public boolean isAtomic()              { return atomic; }
+    public void setAtomic(boolean atomic)  { this.atomic = atomic; }
 }

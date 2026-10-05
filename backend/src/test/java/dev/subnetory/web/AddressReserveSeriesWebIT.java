@@ -1,0 +1,355 @@
+package dev.subnetory.web;
+
+import dev.subnetory.backup.RestoreMaintenanceGate;
+import dev.subnetory.config.SecurityConfig;
+import dev.subnetory.dto.SeriesReservationResponse;
+import dev.subnetory.dto.SeriesReservationResponse.Entry;
+import dev.subnetory.dto.SeriesRowsRequest;
+import dev.subnetory.exception.ConflictException;
+import dev.subnetory.exception.InvalidSeriesException;
+import dev.subnetory.exception.SeriesConflictException;
+import dev.subnetory.security.ApiRateLimiter;
+import dev.subnetory.security.ClientIpResolver;
+import dev.subnetory.security.LoginRateLimiter;
+import dev.subnetory.security.RateLimitingAuthenticationFailureHandler;
+import dev.subnetory.security.RateLimitingAuthenticationSuccessHandler;
+import dev.subnetory.security.SubnetoryUserDetailsService;
+import dev.subnetory.service.AddressService;
+import dev.subnetory.service.AuthAuditService;
+import dev.subnetory.service.IpAllocService;
+import dev.subnetory.service.SeriesReservationService;
+import dev.subnetory.service.SubnetService;
+import dev.subnetory.util.ImportFileValidator;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
+
+/**
+ * Mode serie de la page de reservation multiple : generation du tableau,
+ * controle des lignes et creation atomique (service de reservation simule).
+ * Le rendu Thymeleaf complet de la page est exerce.
+ */
+@WebMvcTest(AddressWebController.class)
+@ActiveProfiles("test")
+@Import({SecurityConfig.class, ImportFileValidator.class})
+class AddressReserveSeriesWebIT {
+
+    @Autowired
+    MockMvc mvc;
+
+    @MockitoBean AddressService addressService;
+    @MockitoBean SubnetService subnetService;
+    @MockitoBean IpAllocService ipAllocService;
+    @MockitoBean SeriesReservationService seriesReservationService;
+    @MockitoBean AuthAuditService authAuditService;
+    @MockitoBean JwtDecoder jwtDecoder;
+    @MockitoBean SubnetoryUserDetailsService userDetailsService;
+    @MockitoBean LoginRateLimiter loginRateLimiter;
+    @MockitoBean ApiRateLimiter apiRateLimiter;
+    @MockitoBean ClientIpResolver clientIpResolver;
+    @MockitoBean RateLimitingAuthenticationFailureHandler failureHandler;
+    @MockitoBean RateLimitingAuthenticationSuccessHandler successHandler;
+    @MockitoBean RestoreMaintenanceGate restoreMaintenanceGate;
+
+    @BeforeEach
+    void setUp() {
+        when(restoreMaintenanceGate.tryAdmitMutation()).thenReturn(true);
+        when(subnetService.findAll(any(Pageable.class))).thenReturn(Page.empty());
+    }
+
+    // ── POST /reserve/series ─────────────────────────────────────────────
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void series_preview_rendersEditableRowsWithStatus() throws Exception {
+        when(seriesReservationService.preview(any())).thenReturn(response(true,
+                entry("10.10.10.21", "NTNX-HOST-01", "AVAILABLE"),
+                entry("10.10.10.22", "NTNX-HOST-02", "AVAILABLE")));
+
+        String html = mvc.perform(post("/network/addresses/reserve/series").with(csrf())
+                        .param("subnetId", "30")
+                        .param("seriesStartIp", "10.10.10.21")
+                        .param("seriesCount", "2")
+                        .param("seriesPrefix", "NTNX-HOST-")
+                        .param("seriesDescription", "Nutanix cluster"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("network/address-reserve"))
+                .andExpect(model().attributeDoesNotExist("formError"))
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(html)
+                .contains("name=\"rows[0].address\"")
+                .contains("value=\"10.10.10.21\"")
+                .contains("name=\"rows[1].hostname\"")
+                .contains("value=\"NTNX-HOST-02\"")
+                .contains("value=\"Nutanix cluster\"")
+                .contains("name=\"atomic\"")
+                .contains("sn-badge--green")
+                .contains("/network/addresses/reserve/check");
+
+        ArgumentCaptor<dev.subnetory.dto.SeriesReservationRequest> captor =
+                ArgumentCaptor.forClass(dev.subnetory.dto.SeriesReservationRequest.class);
+        verify(seriesReservationService).preview(captor.capture());
+        assertThat(captor.getValue().subnetId()).isEqualTo(30L);
+        assertThat(captor.getValue().startIp()).isEqualTo("10.10.10.21");
+        assertThat(captor.getValue().count()).isEqualTo(2);
+        assertThat(captor.getValue().occupiedMode()).isEqualTo("block");
+    }
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void series_skipOption_isSentAsSkipMode() throws Exception {
+        when(seriesReservationService.preview(any())).thenReturn(new SeriesReservationResponse(
+                "10.10.10.0/24", "skip", true, 2, 0,
+                List.of(entry("10.10.10.21", "H-01", "AVAILABLE"), entry("10.10.10.23", "H-02", "AVAILABLE")),
+                List.of(entry("10.10.10.22", null, "OCCUPIED"))));
+
+        String html = mvc.perform(post("/network/addresses/reserve/series").with(csrf())
+                        .param("subnetId", "30")
+                        .param("seriesStartIp", "10.10.10.21")
+                        .param("seriesCount", "2")
+                        .param("seriesSkipOccupied", "true"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        ArgumentCaptor<dev.subnetory.dto.SeriesReservationRequest> captor =
+                ArgumentCaptor.forClass(dev.subnetory.dto.SeriesReservationRequest.class);
+        verify(seriesReservationService).preview(captor.capture());
+        assertThat(captor.getValue().occupiedMode()).isEqualTo("skip");
+        assertThat(html).contains("10.10.10.22");
+    }
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void series_conflict_showsErrorAndStatusBadges() throws Exception {
+        when(seriesReservationService.preview(any())).thenReturn(response(false,
+                entry("10.10.10.21", "NTNX-HOST-01", "AVAILABLE"),
+                entry("10.10.10.22", "NTNX-HOST-02", "OCCUPIED")));
+
+        String html = mvc.perform(post("/network/addresses/reserve/series").with(csrf())
+                        .param("subnetId", "30")
+                        .param("seriesStartIp", "10.10.10.21")
+                        .param("seriesCount", "2"))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeExists("formError"))
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(html).contains("sn-alert--error").contains("sn-badge--danger");
+    }
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void series_invalidParameters_showsErrorWithoutRows() throws Exception {
+        when(seriesReservationService.preview(any()))
+                .thenThrow(new InvalidSeriesException("The count must be between 1 and 256."));
+
+        mvc.perform(post("/network/addresses/reserve/series").with(csrf())
+                        .param("subnetId", "30")
+                        .param("seriesStartIp", "10.10.10.21")
+                        .param("seriesCount", "0"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("network/address-reserve"))
+                .andExpect(model().attributeExists("formError"));
+    }
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void series_notANumber_showsErrorWithoutCallingService() throws Exception {
+        mvc.perform(post("/network/addresses/reserve/series").with(csrf())
+                        .param("subnetId", "30")
+                        .param("seriesStartIp", "10.10.10.21")
+                        .param("seriesCount", "abc"))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeExists("formError"));
+
+        verify(seriesReservationService, never()).preview(any());
+    }
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void series_withoutSubnet_showsErrorWithoutCallingService() throws Exception {
+        mvc.perform(post("/network/addresses/reserve/series").with(csrf())
+                        .param("seriesStartIp", "10.10.10.21"))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeExists("formError"));
+
+        verify(seriesReservationService, never()).preview(any());
+    }
+
+    @Test
+    @WithMockUser(username = "viewer", roles = "NETWORK")
+    void series_withoutIpRole_isForbidden() throws Exception {
+        mvc.perform(post("/network/addresses/reserve/series").with(csrf())
+                        .param("subnetId", "30"))
+                .andExpect(status().isForbidden());
+
+        verify(seriesReservationService, never()).preview(any());
+    }
+
+    // ── POST /reserve/check ──────────────────────────────────────────────
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void check_allAvailable_showsSuccessMessage() throws Exception {
+        when(seriesReservationService.previewRows(any())).thenReturn(response(true,
+                entry("10.10.10.31", "NTNX-HOST-01", "AVAILABLE")));
+
+        String html = mvc.perform(atomicPost("/network/addresses/reserve/check", "10.10.10.31"))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeExists("formInfo"))
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(html).contains("sn-alert--success");
+    }
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void check_editedAddressOccupied_showsConflict() throws Exception {
+        when(seriesReservationService.previewRows(any())).thenReturn(response(false,
+                entry("10.10.10.31", "NTNX-HOST-01", "OCCUPIED")));
+
+        mvc.perform(atomicPost("/network/addresses/reserve/check", "10.10.10.31"))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeExists("formError"))
+                .andExpect(model().attributeDoesNotExist("formInfo"));
+
+        ArgumentCaptor<SeriesRowsRequest> captor = ArgumentCaptor.forClass(SeriesRowsRequest.class);
+        verify(seriesReservationService).previewRows(captor.capture());
+        assertThat(captor.getValue().rows()).singleElement()
+                .satisfies(r -> assertThat(r.ip()).isEqualTo("10.10.10.31"));
+    }
+
+    // ── POST /reserve (soumission finale en mode serie) ──────────────────
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void submit_atomic_createsRowsAndRecordsAudit() throws Exception {
+        when(seriesReservationService.createRows(any(), eq("operator"))).thenReturn(response(true,
+                entry("10.10.10.31", "NTNX-HOST-01", "AVAILABLE"),
+                entry("10.10.10.32", "NTNX-HOST-02", "AVAILABLE")));
+
+        mvc.perform(post("/network/addresses/reserve").with(csrf())
+                        .param("subnetId", "30")
+                        .param("atomic", "true")
+                        .param("rows[0].address", "10.10.10.31")
+                        .param("rows[0].hostname", "NTNX-HOST-01")
+                        .param("rows[0].included", "true")
+                        .param("rows[1].address", "10.10.10.32")
+                        .param("rows[1].hostname", "NTNX-HOST-02")
+                        .param("rows[1].included", "true"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("network/address-reserve-result"));
+
+        verify(seriesReservationService).createRows(any(), eq("operator"));
+        verify(authAuditService).recordAddressSeriesReserved(
+                "operator", 30L, "10.10.10.0/24", 2, "10.10.10.31", "10.10.10.32");
+        verify(addressService, never()).bulkUpsert(any(), any());
+    }
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void submit_atomic_conflict_redisplaysRowsWithStatusAndNoAudit() throws Exception {
+        SeriesReservationResponse preview = response(false,
+                entry("10.10.10.31", "NTNX-HOST-01", "OCCUPIED"));
+        when(seriesReservationService.createRows(any(), anyString()))
+                .thenThrow(new SeriesConflictException("cannot be created", preview));
+
+        String html = mvc.perform(atomicPost("/network/addresses/reserve", "10.10.10.31"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("network/address-reserve"))
+                .andExpect(model().attributeExists("formError"))
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(html).contains("sn-badge--danger").contains("value=\"10.10.10.31\"");
+        verify(authAuditService, never()).recordAddressSeriesReserved(
+                anyString(), anyLong(), anyString(), anyInt(), anyString(), anyString());
+    }
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void submit_atomic_concurrentReservation_showsErrorAndNoAudit() throws Exception {
+        when(seriesReservationService.createRows(any(), anyString()))
+                .thenThrow(new ConflictException("An address of the series was reserved concurrently"));
+
+        mvc.perform(atomicPost("/network/addresses/reserve", "10.10.10.31"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("network/address-reserve"))
+                .andExpect(model().attributeExists("formError"));
+
+        verify(authAuditService, never()).recordAddressSeriesReserved(
+                anyString(), anyLong(), anyString(), anyInt(), anyString(), anyString());
+    }
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void submit_atomic_invalidRows_showsError() throws Exception {
+        when(seriesReservationService.createRows(any(), anyString()))
+                .thenThrow(new InvalidSeriesException("Hostname must be at most 100 characters."));
+
+        mvc.perform(atomicPost("/network/addresses/reserve", "10.10.10.31"))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeExists("formError"));
+    }
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void submit_atomic_noRowIncluded_showsErrorWithoutCallingService() throws Exception {
+        mvc.perform(post("/network/addresses/reserve").with(csrf())
+                        .param("subnetId", "30")
+                        .param("atomic", "true")
+                        .param("rows[0].address", "10.10.10.31")
+                        .param("rows[0].included", "false"))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeExists("formError"));
+
+        verify(seriesReservationService, never()).createRows(any(), anyString());
+    }
+
+    // ── helpers ──────────────────────────────────────────────────────────
+
+    private static org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder atomicPost(
+            String url, String ip) {
+        return post(url).with(csrf())
+                .param("subnetId", "30")
+                .param("atomic", "true")
+                .param("rows[0].address", ip)
+                .param("rows[0].hostname", "NTNX-HOST-01")
+                .param("rows[0].included", "true");
+    }
+
+    private static Entry entry(String ip, String hostname, String status) {
+        return new Entry(ip, hostname, status);
+    }
+
+    private static SeriesReservationResponse response(boolean canCreate, Entry... rows) {
+        return new SeriesReservationResponse(
+                "10.10.10.0/24", "block", canCreate, rows.length, 0, List.of(rows), List.of());
+    }
+}

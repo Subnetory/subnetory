@@ -2,6 +2,7 @@ package dev.subnetory.api.v1;
 
 import dev.subnetory.dto.SeriesReservationRequest;
 import dev.subnetory.dto.SeriesReservationResponse;
+import dev.subnetory.dto.SeriesRowsRequest;
 import dev.subnetory.service.AuthAuditService;
 import dev.subnetory.service.SeriesReservationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -62,9 +63,38 @@ public class SeriesReservationController {
     public SeriesReservationResponse create(@Valid @RequestBody SeriesReservationRequest request,
                                             Authentication auth) {
         SeriesReservationResponse result = seriesReservationService.create(request, auth.getName());
-        List<SeriesReservationResponse.Entry> rows = result.rows();
-        authAuditService.recordAddressSeriesReserved(auth.getName(), request.subnetId(), result.network(),
-                rows.size(), rows.get(0).ip(), rows.get(rows.size() - 1).ip());
+        audit(auth.getName(), request.subnetId(), result);
         return result;
+    }
+
+    @PostMapping("/rows/preview")
+    @PreAuthorize("hasAnyRole('ADMIN', 'IP')")
+    @Operation(summary = "Controle d'une liste explicite d'adresses",
+            description = "Rôles requis : ADMIN ou IP. Pour une série ajustée ligne par ligne : "
+                    + "signale pour chaque ligne AVAILABLE, OCCUPIED, RESERVED (passerelle), "
+                    + "OUT_OF_RANGE, INVALID (IPv4 mal formée) ou DUPLICATE, sans rien enregistrer.")
+    public SeriesReservationResponse previewRows(@Valid @RequestBody SeriesRowsRequest request) {
+        return seriesReservationService.previewRows(request);
+    }
+
+    @PostMapping("/rows")
+    @PreAuthorize("hasAnyRole('ADMIN', 'IP')")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Reserver une liste explicite d'adresses IP",
+            description = "Rôles requis : ADMIN ou IP. Cree toutes les lignes dans une seule "
+                    + "transaction (tout ou rien). Repond 409 avec le detail de chaque ligne "
+                    + "(propriete preview) si une ligne n'est pas libre : rien n'est cree. "
+                    + "Une adresse existante n'est jamais modifiee.")
+    public SeriesReservationResponse createRows(@Valid @RequestBody SeriesRowsRequest request,
+                                                Authentication auth) {
+        SeriesReservationResponse result = seriesReservationService.createRows(request, auth.getName());
+        audit(auth.getName(), request.subnetId(), result);
+        return result;
+    }
+
+    private void audit(String username, Long subnetId, SeriesReservationResponse result) {
+        List<SeriesReservationResponse.Entry> rows = result.rows();
+        authAuditService.recordAddressSeriesReserved(username, subnetId, result.network(),
+                rows.size(), rows.get(0).ip(), rows.get(rows.size() - 1).ip());
     }
 }
