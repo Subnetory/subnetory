@@ -168,6 +168,8 @@
         <div class="sn-card sn-card--padded sn-mt-5">
             <div class="sn-card__header">
                 <h2 class="sn-card__title" th:text="#{reserve.template.title}">Ou : préparer un cluster / une infrastructure</h2>
+                <a th:href="@{/network/series-templates}" class="sn-btn sn-btn--ghost sn-btn--sm"
+                   th:text="#{reserve.template.manage}">Gérer les templates</a>
             </div>
             <p class="sn-text-muted" th:text="#{reserve.template.help}">
                 Choisissez un template (Nutanix, serveurs, Proxmox, VMware… ou le vôtre), le nombre de nœuds et

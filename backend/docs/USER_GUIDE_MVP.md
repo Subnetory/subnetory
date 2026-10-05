@@ -407,6 +407,8 @@ curl -s -X POST http://localhost:8080/api/v1/series-templates/expand \
 
 La réponse contient `preview` (adresses, noms et statuts, rien n'est écrit) et `request`, la demande calculée, à envoyer telle quelle à `POST /api/v1/addresses/series/groups` pour créer toutes les adresses en une transaction. `POST /api/v1/series-templates/builtin:nutanix-hpe/duplicate` (`{"contextId":1,"name":"Mon Nutanix"}`) copie un preset en template personnalisé ; `POST`, `PUT /{id}` et `DELETE /{id}` gèrent les templates personnalisés (rôles `ADMIN` ou `IP`, nom unique par contexte, journalisés `SERIES_TEMPLATE_CREATED`, `_UPDATED` et `_DELETED`).
 
+Dans l'interface, la page **Réservation multiple** propose le bloc « préparer un cluster / une infrastructure » (template, nombre de nœuds, nom du cluster, IP de départ) : le résultat remplit le tableau modifiable, avec le statut de chaque ligne, avant la réservation en tout ou rien. La page **Templates de préparation** (`/network/series-templates`, lien « Gérer les templates ») liste les presets et les templates du contexte ; « Dupliquer » ouvre une copie modifiable d'un preset ou d'un template, et les rôles `ADMIN` et `IP` peuvent créer, modifier et supprimer les templates du contexte.
+
 ---
 
 ## Sauvegarde
