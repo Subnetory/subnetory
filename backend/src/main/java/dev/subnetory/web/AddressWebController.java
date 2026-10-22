@@ -648,7 +648,8 @@ public class AddressWebController {
                     form.getTemplateNodes(),
                     form.getTemplateCluster(),
                     form.getTemplateSite(),
-                    form.getTemplateStartIp() == null ? null : form.getTemplateStartIp().trim(),
+                    form.getTemplateStartIp() == null || form.getTemplateStartIp().isBlank()
+                            ? null : form.getTemplateStartIp().trim(),
                     form.getTemplateGap(),
                     form.getTemplateStep(),
                     occupied,
