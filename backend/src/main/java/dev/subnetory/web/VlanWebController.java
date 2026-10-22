@@ -12,7 +12,9 @@ import dev.subnetory.web.form.VlanForm;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.MessageSource;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -92,6 +94,7 @@ public class VlanWebController {
                 : siteService.findByContext(activeContextId, PageRequest.of(0, 200, Sort.by("code"))));
         model.addAttribute("selectedSiteId", siteId);
         model.addAttribute("canManage", canManage(authentication));
+        model.addAttribute("canBulkDelete", BulkDelete.hasAnyRole(authentication, "ROLE_ADMIN"));
         model.addAttribute("activeSection", "vlans");
         model.addAttribute("pageTitle", msg("pageTitle.vlans", locale));
         return "network/vlans";
@@ -214,6 +217,30 @@ public class VlanWebController {
         } catch (DataIntegrityViolationException e) {
             flash.addFlashAttribute("flashError", msg("flash.vlan.deleteConflict", locale));
         }
+        return ReturnTo.redirect("/network/vlans");
+    }
+
+    // ── Suppression en masse ───────────────────────────────────────────────
+
+    @PostMapping("/bulk-delete")
+    @PreAuthorize("hasRole('ADMIN')")
+    public String bulkDelete(@RequestParam(name = "ids", required = false) List<Long> ids,
+                             Authentication auth, RedirectAttributes flash, Locale locale) {
+        Set<Long> selected = BulkDelete.select(ids, flash, messageSource, locale);
+        if (selected == null) return ReturnTo.redirect("/network/vlans");
+        int deleted = 0;
+        for (Long id : selected) {
+            try {
+                VlanResponse item = vlanService.findById(id);
+                vlanService.delete(id);
+                authAuditService.recordVlanDeleted(auth.getName(), id,
+                        "VLAN " + item.vid() + " (" + item.name() + ")");
+                deleted++;
+            } catch (ResourceNotFoundException | DataIntegrityViolationException e) {
+                // Introuvable, hors contexte accessible ou encore reference : compte comme non supprime.
+            }
+        }
+        BulkDelete.flashResult(deleted, selected.size() - deleted, flash, messageSource, locale);
         return ReturnTo.redirect("/network/vlans");
     }
 

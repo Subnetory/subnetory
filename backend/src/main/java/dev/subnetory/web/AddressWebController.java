@@ -128,6 +128,8 @@ public class AddressWebController {
             hasAvailableSubnets = availableSubnets != null && !availableSubnets.isEmpty();
         }
         model.addAttribute("canManage", manageable);
+        // Meme restriction que la suppression unitaire (ADMIN ou IP).
+        model.addAttribute("canBulkDelete", BulkDelete.hasAnyRole(auth, "ROLE_ADMIN", "ROLE_IP"));
         model.addAttribute("hasAvailableSubnets", hasAvailableSubnets);
         model.addAttribute("activeSection", "addresses");
         model.addAttribute("pageTitle", msg("nav.addresses", locale));
@@ -659,6 +661,20 @@ public class AddressWebController {
         } catch (ResourceNotFoundException e) {
             flash.addFlashAttribute("flashError", msg("flash.address.notFound", locale));
         }
+        return ReturnTo.redirect("/network/addresses");
+    }
+
+    // ── Suppression en masse ───────────────────────────────────────────────
+
+    @PostMapping("/bulk-delete")
+    @PreAuthorize("hasAnyRole('ADMIN', 'IP')")
+    public String bulkDelete(@RequestParam(name = "ids", required = false) List<Long> ids,
+                             Authentication auth, RedirectAttributes flash, Locale locale) {
+        Set<Long> selected = BulkDelete.select(ids, flash, messageSource, locale);
+        if (selected == null) return ReturnTo.redirect("/network/addresses");
+        List<AddressResponse> deleted = addressService.deleteAll(selected);
+        deleted.forEach(a -> authAuditService.recordAddressDeleted(auth.getName(), a.id(), a.address()));
+        BulkDelete.flashResult(deleted.size(), selected.size() - deleted.size(), flash, messageSource, locale);
         return ReturnTo.redirect("/network/addresses");
     }
 

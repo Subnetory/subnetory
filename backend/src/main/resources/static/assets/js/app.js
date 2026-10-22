@@ -42,7 +42,7 @@
     // avec les actions existantes.
     document.querySelectorAll('tr[data-href]').forEach(function (row) {
       row.addEventListener('click', function (e) {
-        if (e.target.closest('a, button, input, select, textarea, label')) return;
+        if (e.target.closest('a, button, input, select, textarea, label, [data-no-row-nav]')) return;
         window.location.href = row.getAttribute('data-href');
       });
     });
@@ -89,6 +89,58 @@
         var form = el.closest('form');
         if (form) form.submit();
       });
+    });
+
+    // Selection multiple dans une liste (suppression en masse) : une case maitre
+    // [data-bulk-select-all="<id formulaire>"] coche/decoche toutes les cases
+    // [data-bulk-item="<id formulaire>"] ; la barre [data-bulk-bar] n'apparait que
+    // si au moins une ligne est cochee et affiche le compteur. La confirmation
+    // porte sur le nombre exact de lignes ; la verification des droits reste cote serveur.
+    document.querySelectorAll('[data-bulk-select-all]').forEach(function (master) {
+      var formId = master.getAttribute('data-bulk-select-all');
+      var form = document.getElementById(formId);
+      var bar = document.querySelector('[data-bulk-bar="' + formId + '"]');
+      var counter = bar ? bar.querySelector('[data-bulk-count]') : null;
+      var clearButton = bar ? bar.querySelector('[data-bulk-clear]') : null;
+      var items = function () {
+        return Array.prototype.slice.call(
+          document.querySelectorAll('input[data-bulk-item="' + formId + '"]'));
+      };
+
+      function refresh() {
+        var all = items();
+        var checked = all.filter(function (box) { return box.checked; }).length;
+        master.checked = all.length > 0 && checked === all.length;
+        master.indeterminate = checked > 0 && checked < all.length;
+        all.forEach(function (box) {
+          var row = box.closest('tr');
+          if (row) row.classList.toggle('is-selected', box.checked);
+        });
+        if (bar) bar.hidden = checked === 0;
+        if (counter) counter.textContent = fmt(i18n('bulk-count', '{0}'), [checked]);
+      }
+
+      master.addEventListener('change', function () {
+        items().forEach(function (box) { box.checked = master.checked; });
+        refresh();
+      });
+      items().forEach(function (box) { box.addEventListener('change', refresh); });
+      if (clearButton) {
+        clearButton.addEventListener('click', function () {
+          items().forEach(function (box) { box.checked = false; });
+          refresh();
+        });
+      }
+      if (form) {
+        form.addEventListener('submit', function (e) {
+          var checked = items().filter(function (box) { return box.checked; }).length;
+          if (checked === 0 || !window.confirm(fmt(i18n('bulk-confirm', '{0}'), [checked]))) {
+            e.preventDefault();
+          }
+        });
+      }
+      // Cases deja cochees au retour arriere du navigateur.
+      refresh();
     });
 
     document.querySelectorAll('[data-check-all], [data-uncheck-all]').forEach(function (button) {

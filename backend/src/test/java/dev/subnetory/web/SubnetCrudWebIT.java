@@ -213,6 +213,56 @@ class SubnetCrudWebIT {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN", username = "testadmin")
+    void postBulkDelete_success_auditsEachDeleted() throws Exception {
+        when(subnetService.findById(1L)).thenReturn(sampleSubnet);
+
+        mvc.perform(post("/network/subnets/bulk-delete").with(csrf()).param("ids", "1"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/network/subnets"))
+                .andExpect(flash().attributeExists("flashSuccess"));
+
+        verify(subnetService).delete(1L);
+        verify(authAuditService).recordSubnetDeleted(
+                eq("testadmin"), eq(1L), eq(sampleSubnet.network()));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void postBulkDelete_unknownOrInUse_reportedAsNotDeleted() throws Exception {
+        doThrow(new ResourceNotFoundException("Subnet", 999L)).when(subnetService).findById(999L);
+        when(subnetService.findById(3L)).thenReturn(sampleSubnet);
+        doThrow(new org.springframework.dao.DataIntegrityViolationException("fk"))
+                .when(subnetService).delete(3L);
+
+        mvc.perform(post("/network/subnets/bulk-delete").with(csrf())
+                        .param("ids", "999").param("ids", "3"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(flash().attributeExists("flashError"));
+
+        verify(authAuditService, never()).recordSubnetDeleted(any(), any(), any());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void postBulkDelete_noSelection_doesNotDelete() throws Exception {
+        mvc.perform(post("/network/subnets/bulk-delete").with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(flash().attributeExists("flashError"));
+
+        verify(subnetService, never()).delete(any());
+    }
+
+    @Test
+    @WithMockUser(roles = "IP")
+    void postBulkDelete_nonAdmin_returns403() throws Exception {
+        mvc.perform(post("/network/subnets/bulk-delete").with(csrf()).param("ids", "1"))
+                .andExpect(status().isForbidden());
+
+        verify(subnetService, never()).delete(any());
+    }
+
+    @Test
     @WithMockUser(roles = "ADMIN")
     void postDelete_withoutCsrf_returns403() throws Exception {
         mvc.perform(post("/network/subnets/1/delete"))

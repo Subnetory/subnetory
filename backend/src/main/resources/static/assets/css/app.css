@@ -1218,6 +1218,34 @@ textarea.sn-form-control {
     white-space: nowrap;
 }
 
+.sn-table-col-select {
+    width: 1%;
+    white-space: nowrap;
+    text-align: center !important;
+}
+
+.sn-table tr.is-selected {
+    background: #eff6ff;
+}
+
+.sn-bulk-bar {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .625rem 1rem;
+    background: #eff6ff;
+    border-bottom: 1px solid #dbeafe;
+}
+
+.sn-bulk-bar[hidden] {
+    display: none;
+}
+
+.sn-bulk-bar__count {
+    font-weight: 600;
+    margin-right: auto;
+}
+
 .sn-table-col-actions--subnets {
     text-align: left !important;
     padding-left: 30px !important;

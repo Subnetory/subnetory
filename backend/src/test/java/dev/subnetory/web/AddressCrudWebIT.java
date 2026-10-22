@@ -422,6 +422,63 @@ class AddressCrudWebIT {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN", username = "testadmin")
+    void postBulkDelete_success_auditsEachAddress() throws Exception {
+        when(addressService.deleteAll(any())).thenReturn(java.util.List.of(sampleAddress));
+
+        mvc.perform(post("/network/addresses/bulk-delete").with(csrf()).param("ids", "1"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/network/addresses"))
+                .andExpect(flash().attributeExists("flashSuccess"));
+
+        verify(authAuditService).recordAddressDeleted(
+                eq("testadmin"), eq(sampleAddress.id()), eq(sampleAddress.address()));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void postBulkDelete_someSkipped_flashesError() throws Exception {
+        when(addressService.deleteAll(any())).thenReturn(java.util.List.of(sampleAddress));
+
+        mvc.perform(post("/network/addresses/bulk-delete").with(csrf())
+                        .param("ids", "1").param("ids", "999"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(flash().attributeExists("flashError"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void postBulkDelete_noSelection_doesNotDelete() throws Exception {
+        mvc.perform(post("/network/addresses/bulk-delete").with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(flash().attributeExists("flashError"));
+
+        verify(addressService, never()).deleteAll(any());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void postBulkDelete_tooMany_doesNotDelete() throws Exception {
+        var req = post("/network/addresses/bulk-delete").with(csrf());
+        for (int i = 1; i <= BulkDelete.MAX + 1; i++) req.param("ids", String.valueOf(i));
+
+        mvc.perform(req)
+                .andExpect(status().is3xxRedirection())
+                .andExpect(flash().attributeExists("flashError"));
+
+        verify(addressService, never()).deleteAll(any());
+    }
+
+    @Test
+    @WithMockUser(roles = "NETWORK")
+    void postBulkDelete_roleNetworkOnly_returns403() throws Exception {
+        mvc.perform(post("/network/addresses/bulk-delete").with(csrf()).param("ids", "1"))
+                .andExpect(status().isForbidden());
+
+        verify(addressService, never()).deleteAll(any());
+    }
+
+    @Test
     @WithMockUser(roles = "NETWORK")
     void postDelete_roleNetworkOnly_returns403() throws Exception {
         mvc.perform(post("/network/addresses/1/delete").with(csrf()))

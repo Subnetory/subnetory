@@ -244,6 +244,32 @@ public class AddressService {
         addressRepository.delete(address);
     }
 
+    /**
+     * Supprime plusieurs adresses en une seule transaction (suppression en
+     * masse depuis la liste Web).
+     *
+     * <p>Les identifiants en double sont ignorés. Une adresse introuvable ou
+     * hors des contextes accessibles à l'utilisateur est ignorée (sans révéler
+     * si elle existe) : elle n'apparaît pas dans le résultat. Le résultat liste
+     * les adresses réellement supprimées, pour l'audit.</p>
+     */
+    @Transactional
+    public List<AddressResponse> deleteAll(java.util.Collection<Long> ids) {
+        List<AddressResponse> deleted = new java.util.ArrayList<>();
+        for (Long id : new java.util.LinkedHashSet<>(ids)) {
+            Address address;
+            try {
+                address = getAccessibleAddress(id);
+            } catch (ResourceNotFoundException e) {
+                continue;
+            }
+            AddressResponse response = toResponse(address);
+            addressRepository.delete(address);
+            deleted.add(response);
+        }
+        return deleted;
+    }
+
     // -------------------------------------------------------
     // Upsert par IP — PUT /by-ip/{ip}
     // -------------------------------------------------------

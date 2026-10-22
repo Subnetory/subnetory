@@ -45,10 +45,16 @@
     </form>
 
     <div class="sn-card">
+        <th:block th:if="${canBulkDelete}"><th:block th:replace="~{layout/bulk :: bar(@{/network/sites/bulk-delete})}"></th:block></th:block>
+
         <div class="sn-table-wrapper">
             <table class="sn-table">
                 <thead>
                     <tr>
+                        <th th:if="${canBulkDelete}" class="sn-table-col-select">
+                            <input type="checkbox" data-bulk-select-all="bulk-delete-form"
+                                   th:aria-label="#{bulk.selectAll}" th:title="#{bulk.selectAll}">
+                        </th>
                         <th th:text="#{common.code}">Code</th>
                         <th th:text="#{common.name}">Nom</th>
                         <th th:text="#{common.context}">Contexte</th>
@@ -59,6 +65,11 @@
                 <tbody>
                     <tr th:each="site : ${sites}" class="clickable"
                         th:attr="data-href=@{/network/vlans(siteId=${site.id})}">
+                        <td th:if="${canBulkDelete}" class="sn-table-col-select" data-no-row-nav>
+                            <input type="checkbox" name="ids" th:value="${site.id}" form="bulk-delete-form"
+                                   data-bulk-item="bulk-delete-form"
+                                   th:aria-label="#{bulk.selectRow(${site.name})}">
+                        </td>
                         <td><span class="sn-badge sn-badge--neutral" th:text="${site.code}">SITE</span></td>
                         <td><strong th:text="${site.name}">Site</strong></td>
                         <td class="sn-text-secondary" th:text="${site.contextName}">Default</td>
@@ -77,7 +88,7 @@
                         </td>
                     </tr>
                     <tr th:if="${sites.empty}" class="sn-table--empty">
-                        <td th:colspan="${canManage ? 5 : 4}" th:text="#{site.empty}">Aucun site enregistré.</td>
+                        <td th:colspan="${canManage ? 5 : 4 + (canBulkDelete ? 1 : 0)}" th:text="#{site.empty}">Aucun site enregistré.</td>
                     </tr>
                 </tbody>
             </table>
