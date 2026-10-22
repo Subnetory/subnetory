@@ -14,7 +14,8 @@ import java.util.List;
  *
  * <p>Utilisee quand l'utilisateur a ajuste les lignes d'une serie calculee
  * (adresse ou nom modifie ligne par ligne) : chaque ligne porte son adresse, son
- * nom et ses attributs. Toutes les lignes sont creees ensemble ou aucune.</p>
+ * nom et ses attributs, et eventuellement son propre sous-reseau (meme contexte que
+ * celui de la demande). Toutes les lignes sont creees ensemble ou aucune.</p>
  */
 public record SeriesRowsRequest(
         @NotNull(message = "Subnet ID is required")
@@ -33,6 +34,7 @@ public record SeriesRowsRequest(
      * @param description description (optionnelle)
      * @param mac         adresse MAC (optionnelle)
      * @param temporary   marque l'adresse comme temporaire (faux par defaut)
+     * @param subnetId    sous-reseau de la ligne ; absent, celui de la demande
      */
     public record Row(
             @NotBlank(message = "IP address is required")
@@ -50,6 +52,13 @@ public record SeriesRowsRequest(
             )
             String mac,
 
-            Boolean temporary
-    ) {}
+            Boolean temporary,
+
+            Long subnetId
+    ) {
+        /** Ligne dans le sous-reseau de la demande. */
+        public Row(String ip, String hostname, String description, String mac, Boolean temporary) {
+            this(ip, hostname, description, mac, temporary, null);
+        }
+    }
 }

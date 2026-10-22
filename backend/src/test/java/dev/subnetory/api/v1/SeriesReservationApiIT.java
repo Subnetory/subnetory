@@ -491,6 +491,53 @@ class SeriesReservationApiIT {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test @Order(23)
+    @DisplayName("POST /series/groups - groupes dans deux sous-reseaux, depart automatique (201)")
+    void createGroups_acrossSubnetsWithAutoStart() throws Exception {
+        MvcResult sr = mvc.perform(post("/api/v1/sites")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new SiteRequest("Site Series Multi", "SER-MULTI", SEED_CONTEXT_ID))))
+                .andExpect(status().isCreated()).andReturn();
+        Long siteId = objectMapper.readTree(sr.getResponse().getContentAsString()).get("id").asLong();
+        MvcResult snr = mvc.perform(post("/api/v1/subnets")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new SubnetRequest("172.19.0.0/24", "Subnet management test",
+                                        "172.19.0.1", SEED_CONTEXT_ID, siteId, null, null))))
+                .andExpect(status().isCreated()).andReturn();
+        Long mgmtId = objectMapper.readTree(snr.getResponse().getContentAsString()).get("id").asLong();
+
+        SeriesGroupsRequest.Group ipmi = new SeriesGroupsRequest.Group(
+                "IPMI", 2, null, "MS-IPMI-", null, null, null, null, mgmtId);
+        mvc.perform(post(SERIES_URL + "/groups")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(groups("172.18.0.200", 0, null, group("HOST", 2, "MS-H-"), ipmi)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.groups[0].subnetId", is(subnetId.intValue())))
+                .andExpect(jsonPath("$.groups[1].subnetId", is(mgmtId.intValue())))
+                .andExpect(jsonPath("$.groups[1].network", is("172.19.0.0/24")))
+                // .1 est la passerelle : le premier bloc libre commence a .2
+                .andExpect(jsonPath("$.groups[1].rows[0].ip", is("172.19.0.2")))
+                .andExpect(jsonPath("$.groups[1].rows[1].ip", is("172.19.0.3")));
+
+        mvc.perform(get("/api/v1/addresses")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .param("subnetId", String.valueOf(mgmtId))
+                        .param("hostnameContains", "MS-IPMI-"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)));
+        mvc.perform(get("/api/v1/addresses")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .param("subnetId", String.valueOf(subnetId))
+                        .param("hostnameContains", "MS-H-"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)));
+    }
+
     // -------------------------------------------------------
     // helpers
     // -------------------------------------------------------

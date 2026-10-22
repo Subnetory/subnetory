@@ -3,7 +3,6 @@ package dev.subnetory.dto;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -17,7 +16,11 @@ import java.util.List;
  *
  * <p>Les groupes sont places l'un apres l'autre a partir de {@code startIp} : chaque
  * groupe demarre juste apres la derniere adresse du precedent, plus {@code gap}
- * adresses laissees libres. {@code occupiedMode} ({@code block} par defaut ou
+ * adresses laissees libres. Un groupe peut viser son propre sous-reseau
+ * ({@code subnetId}, par defaut celui de la demande) et son propre depart ; sans IP de
+ * depart, il suit le groupe precedent s'il est dans le meme sous-reseau, sinon il
+ * prend le premier bloc libre du sous-reseau. {@code startIp} de la demande est
+ * facultatif. {@code occupiedMode} ({@code block} par defaut ou
  * {@code skip}) s'applique a tous les groupes. Tout est cree dans une seule
  * transaction.</p>
  */
@@ -25,9 +28,8 @@ public record SeriesGroupsRequest(
         @NotNull(message = "Subnet ID is required")
         Long subnetId,
 
-        @NotBlank(message = "Start IP address is required")
         @Pattern(
-            regexp = "^((25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)$",
+            regexp = "^$|^((25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)$",
             message = "Start address must be a valid IPv4 address (without prefix)"
         )
         String startIp,
@@ -50,6 +52,7 @@ public record SeriesGroupsRequest(
 ) {
 
     public SeriesGroupsRequest {
+        if (startIp != null && startIp.isBlank()) startIp = null;
         if (gap == null) gap = 0;
         if (occupiedMode == null) occupiedMode = "block";
         if (temporary == null) temporary = Boolean.FALSE;
@@ -66,7 +69,8 @@ public record SeriesGroupsRequest(
      * @param counterWidth nombre de chiffres du compteur (2 par defaut)
      * @param suffix       fin du nom
      * @param startIp      IP de depart propre au groupe ; absente, le groupe demarre apres
-     *                     la fin du groupe precedent (ou a l'IP de depart de la demande)
+     *                     la fin du groupe precedent (meme sous-reseau) ou au premier bloc libre
+     * @param subnetId     sous-reseau propre au groupe ; absent, celui de la demande
      */
     public record Group(
             @Size(max = 50, message = "Label must be at most 50 characters")
@@ -99,12 +103,20 @@ public record SeriesGroupsRequest(
                 regexp = "^$|^((25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)$",
                 message = "Group start address must be a valid IPv4 address (without prefix)"
             )
-            String startIp
+            String startIp,
+
+            Long subnetId
     ) {
-        /** Groupe sans IP de depart propre : il suit le groupe precedent. */
+        /** Groupe sans IP de depart ni sous-reseau propres. */
         public Group(String label, Integer count, Integer step, String prefix,
                      Long startCounter, Integer counterWidth, String suffix) {
-            this(label, count, step, prefix, startCounter, counterWidth, suffix, null);
+            this(label, count, step, prefix, startCounter, counterWidth, suffix, null, null);
+        }
+
+        /** Groupe avec IP de depart propre, dans le sous-reseau de la demande. */
+        public Group(String label, Integer count, Integer step, String prefix,
+                     Long startCounter, Integer counterWidth, String suffix, String startIp) {
+            this(label, count, step, prefix, startCounter, counterWidth, suffix, startIp, null);
         }
 
         public Group {

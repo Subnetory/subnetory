@@ -598,6 +598,210 @@ class SeriesReservationServiceTest {
     }
 
     // -------------------------------------------------------
+    // sous-reseau par groupe / par ligne, IP de depart automatique
+    // -------------------------------------------------------
+
+    private static final Long MGMT_ID = 6L;
+
+    private Subnet addSubnet(Long id, String network, Long contextId) {
+        Subnet other = buildSubnet(network, null);
+        other.setId(id);
+        other.getContext().setId(contextId);
+        lenient().when(subnetService.getEntityById(id)).thenReturn(other);
+        return other;
+    }
+
+    private static SeriesGroupsRequest.Group groupIn(Long subnetId, String startIp, int count, String prefix) {
+        return new SeriesGroupsRequest.Group("G", count, null, prefix, null, null, null, startIp, subnetId);
+    }
+
+    @Test
+    @DisplayName("previewGroups : chaque groupe est calcule dans son propre sous-reseau")
+    void previewGroups_eachGroupInItsOwnSubnet() {
+        addSubnet(MGMT_ID, "10.10.20.0/24", 1L);
+        when(addressRepository.findOccupiedIpsBetween(SUBNET_ID, "10.10.10.21", "10.10.10.22"))
+                .thenReturn(List.of());
+        when(addressRepository.findOccupiedIpsBetween(MGMT_ID, "10.10.20.11", "10.10.20.12"))
+                .thenReturn(List.of("10.10.20.12"));
+
+        SeriesGroupsResponse response = service.previewGroups(groups("10.10.10.21", 0, null,
+                group("HOST", 2, "H-"), groupIn(MGMT_ID, "10.10.20.11", 2, "IPMI-")));
+
+        assertThat(response.network()).isEqualTo("10.10.10.0/24");
+        assertThat(response.canCreate()).isFalse();
+        assertThat(response.groups().get(0).subnetId()).isEqualTo(SUBNET_ID);
+        assertThat(response.groups().get(0).network()).isEqualTo("10.10.10.0/24");
+        assertThat(response.groups().get(1).subnetId()).isEqualTo(MGMT_ID);
+        assertThat(response.groups().get(1).network()).isEqualTo("10.10.20.0/24");
+        assertThat(response.groups().get(1).rows()).extracting(SeriesReservationResponse.Entry::ip)
+                .containsExactly("10.10.20.11", "10.10.20.12");
+        assertThat(response.groups().get(1).rows()).extracting(SeriesReservationResponse.Entry::status)
+                .containsExactly("AVAILABLE", "OCCUPIED");
+    }
+
+    @Test
+    @DisplayName("createGroups : chaque adresse est enregistree dans le sous-reseau de son groupe")
+    void createGroups_savesEachRowInItsSubnet() {
+        Subnet mgmt = addSubnet(MGMT_ID, "10.10.20.0/24", 1L);
+
+        SeriesGroupsResponse response = service.createGroups(groups("10.10.10.21", 0, null,
+                group("HOST", 2, "H-"), groupIn(MGMT_ID, "10.10.20.11", 2, "IPMI-")), "nahim");
+
+        assertThat(response.canCreate()).isTrue();
+        verify(addressRepository).saveAllAndFlush(savedCaptor.capture());
+        List<Address> saved = savedCaptor.getValue();
+        assertThat(saved).extracting(Address::getAddress)
+                .containsExactly("10.10.10.21", "10.10.10.22", "10.10.20.11", "10.10.20.12");
+        assertThat(saved).extracting(Address::getSubnet)
+                .containsExactly(subnet, subnet, mgmt, mgmt);
+    }
+
+    @Test
+    @DisplayName("previewGroups : sans IP de depart, le groupe prend le premier bloc libre du sous-reseau")
+    void previewGroups_autoStartPicksFirstFreeBlock() {
+        addSubnet(MGMT_ID, "10.10.20.0/24", 1L);
+        when(addressRepository.findOccupiedIpsBetween(MGMT_ID, "10.10.20.1", "10.10.20.254"))
+                .thenReturn(List.of("10.10.20.1", "10.10.20.2", "10.10.20.4"));
+        when(addressRepository.findOccupiedIpsBetween(MGMT_ID, "10.10.20.5", "10.10.20.7"))
+                .thenReturn(List.of());
+
+        SeriesGroupsResponse response = service.previewGroups(groups(null, 0, null,
+                groupIn(MGMT_ID, null, 3, "IPMI-")));
+
+        assertThat(response.canCreate()).isTrue();
+        assertThat(response.groups().get(0).rows()).extracting(SeriesReservationResponse.Entry::ip)
+                .containsExactly("10.10.20.5", "10.10.20.6", "10.10.20.7");
+    }
+
+    @Test
+    @DisplayName("previewGroups : sans IP de depart en mode skip, la premiere adresse libre est retenue")
+    void previewGroups_autoStartInSkipModeUsesFirstFreeAddress() {
+        addSubnet(MGMT_ID, "10.10.20.0/24", 1L);
+        when(addressRepository.findOccupiedIpsBetween(MGMT_ID, "10.10.20.1", "10.10.20.254"))
+                .thenReturn(List.of("10.10.20.1", "10.10.20.2"));
+        when(addressRepository.findOccupiedIpsBetween(MGMT_ID, "10.10.20.3", "10.10.20.254"))
+                .thenReturn(List.of());
+
+        SeriesGroupsResponse response = service.previewGroups(groups(null, 0, "skip",
+                groupIn(MGMT_ID, null, 2, "IPMI-")));
+
+        assertThat(response.groups().get(0).rows()).extracting(SeriesReservationResponse.Entry::ip)
+                .containsExactly("10.10.20.3", "10.10.20.4");
+    }
+
+    @Test
+    @DisplayName("previewGroups : sans IP de depart ni demande, le premier groupe prend le premier bloc libre")
+    void previewGroups_autoStartWithoutRequestStartIp() {
+        when(addressRepository.findOccupiedIpsBetween(SUBNET_ID, "10.10.10.1", "10.10.10.254"))
+                .thenReturn(List.of());
+        when(addressRepository.findOccupiedIpsBetween(SUBNET_ID, "10.10.10.1", "10.10.10.2"))
+                .thenReturn(List.of());
+
+        SeriesGroupsResponse response = service.previewGroups(groups(null, 0, null,
+                group("HOST", 2, "H-")));
+
+        assertThat(response.canCreate()).isTrue();
+        assertThat(response.groups().get(0).rows()).extracting(SeriesReservationResponse.Entry::ip)
+                .containsExactly("10.10.10.1", "10.10.10.2");
+    }
+
+    @Test
+    @DisplayName("previewGroups : le choix automatique evite les adresses deja prevues par un groupe precedent")
+    void previewGroups_autoStartAvoidsAddressesPlannedEarlier() {
+        Long otherId = 7L;
+        addSubnet(otherId, "10.10.30.0/24", 1L);
+        // groupe 1 : 10.10.10.1-2 (explicite) ; groupe 2 : autre sous-reseau (auto) ;
+        // groupe 3 : retour dans le sous-reseau 5, sans depart -> auto, apres .1 et .2
+        when(addressRepository.findOccupiedIpsBetween(SUBNET_ID, "10.10.10.1", "10.10.10.2"))
+                .thenReturn(List.of());
+        when(addressRepository.findOccupiedIpsBetween(otherId, "10.10.30.1", "10.10.30.254"))
+                .thenReturn(List.of());
+        when(addressRepository.findOccupiedIpsBetween(otherId, "10.10.30.1", "10.10.30.1"))
+                .thenReturn(List.of());
+        when(addressRepository.findOccupiedIpsBetween(SUBNET_ID, "10.10.10.1", "10.10.10.254"))
+                .thenReturn(List.of());
+        when(addressRepository.findOccupiedIpsBetween(SUBNET_ID, "10.10.10.3", "10.10.10.3"))
+                .thenReturn(List.of());
+
+        SeriesGroupsResponse response = service.previewGroups(groups("10.10.10.1", 0, null,
+                group("HOST", 2, "H-"),
+                groupIn(otherId, null, 1, "X-"),
+                groupIn(null, null, 1, "Y-")));
+
+        assertThat(response.groups().get(2).rows()).extracting(SeriesReservationResponse.Entry::ip)
+                .containsExactly("10.10.10.3");
+        assertThat(response.canCreate()).isTrue();
+    }
+
+    @Test
+    @DisplayName("previewGroups : aucun bloc libre assez grand -> InvalidSeriesException")
+    void previewGroups_noFreeBlockIsRejected() {
+        addSubnet(MGMT_ID, "10.10.20.0/30", 1L);
+
+        assertThatThrownBy(() -> service.previewGroups(groups(null, 0, null,
+                groupIn(MGMT_ID, null, 3, "IPMI-"))))
+                .isInstanceOf(InvalidSeriesException.class)
+                .hasMessageContaining("No free block");
+    }
+
+    @Test
+    @DisplayName("previewGroups : un sous-reseau d'un autre contexte est refuse")
+    void previewGroups_subnetOfAnotherContextIsRejected() {
+        addSubnet(MGMT_ID, "10.10.20.0/24", 99L);
+
+        assertThatThrownBy(() -> service.previewGroups(groups("10.10.10.21", 0, null,
+                group("HOST", 1, "H-"), groupIn(MGMT_ID, "10.10.20.11", 1, "IPMI-"))))
+                .isInstanceOf(InvalidSeriesException.class)
+                .hasMessageContaining("same context");
+        verify(addressRepository, never()).saveAllAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("previewRows : chaque ligne est controlee dans son sous-reseau")
+    void previewRows_eachRowInItsSubnet() {
+        addSubnet(MGMT_ID, "10.10.20.0/24", 1L);
+        when(addressRepository.findOccupiedIpsBetween(SUBNET_ID, "10.10.10.30", "10.10.10.30"))
+                .thenReturn(List.of());
+        when(addressRepository.findOccupiedIpsBetween(MGMT_ID, "10.10.20.30", "10.10.20.30"))
+                .thenReturn(List.of("10.10.20.30"));
+
+        SeriesReservationResponse response = service.previewRows(rows(
+                row("10.10.10.30", "H-01"),
+                new SeriesRowsRequest.Row("10.10.20.30", "IPMI-01", null, null, null, MGMT_ID),
+                new SeriesRowsRequest.Row("10.10.10.31", "IPMI-02", null, null, null, MGMT_ID)));
+
+        assertThat(response.rows()).extracting(SeriesReservationResponse.Entry::status)
+                .containsExactly("AVAILABLE", "OCCUPIED", "OUT_OF_RANGE");
+        assertThat(response.canCreate()).isFalse();
+    }
+
+    @Test
+    @DisplayName("createRows : chaque ligne est enregistree dans son sous-reseau")
+    void createRows_savesEachRowInItsSubnet() {
+        Subnet mgmt = addSubnet(MGMT_ID, "10.10.20.0/24", 1L);
+
+        service.createRows(rows(
+                row("10.10.10.30", "H-01"),
+                new SeriesRowsRequest.Row("10.10.20.30", "IPMI-01", null, null, null, MGMT_ID)), "nahim");
+
+        verify(addressRepository).saveAllAndFlush(savedCaptor.capture());
+        assertThat(savedCaptor.getValue()).extracting(Address::getSubnet).containsExactly(subnet, mgmt);
+        assertThat(savedCaptor.getValue()).extracting(Address::getAddress)
+                .containsExactly("10.10.10.30", "10.10.20.30");
+    }
+
+    @Test
+    @DisplayName("previewRows : une ligne d'un autre contexte est refusee")
+    void previewRows_subnetOfAnotherContextIsRejected() {
+        addSubnet(MGMT_ID, "10.10.20.0/24", 99L);
+
+        assertThatThrownBy(() -> service.previewRows(rows(
+                new SeriesRowsRequest.Row("10.10.20.30", "IPMI-01", null, null, null, MGMT_ID))))
+                .isInstanceOf(InvalidSeriesException.class)
+                .hasMessageContaining("same context");
+    }
+
+    // -------------------------------------------------------
     // helpers
     // -------------------------------------------------------
 

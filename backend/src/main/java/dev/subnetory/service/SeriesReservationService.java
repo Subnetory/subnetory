@@ -19,9 +19,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -115,8 +118,9 @@ public class SeriesReservationService {
     }
 
     /**
-     * Cree tous les groupes dans une seule transaction (tout ou rien). Une adresse
-     * existante n'est jamais modifiee.
+     * Cree tous les groupes dans une seule transaction (tout ou rien), eventuellement
+     * dans plusieurs sous-reseaux d'un meme contexte. Une adresse existante n'est jamais
+     * modifiee.
      *
      * @throws SeriesGroupsConflictException si un groupe ne peut pas etre cree tel quel
      *                                       (rien n'est cree)
@@ -148,7 +152,7 @@ public class SeriesReservationService {
         List<Address> addresses = new ArrayList<>();
         for (GroupPlan gp : plans) {
             for (SeriesPlanner.Row row : gp.plan().rows()) {
-                addresses.add(toEntity(subnet, gp.request(), row, currentUser));
+                addresses.add(toEntity(gp.subnet(), gp.request(), row, currentUser));
             }
         }
         try {
@@ -160,11 +164,14 @@ public class SeriesReservationService {
         return view;
     }
 
-    /** Un groupe et son calcul ; {@code request} est la serie equivalente a partir de son IP de depart. */
-    private record GroupPlan(SeriesGroupsRequest.Group group, SeriesReservationRequest request,
-                             SeriesPlanner.Plan plan) {}
+    /**
+     * Un groupe et son calcul ; {@code request} est la serie equivalente a partir de son IP
+     * de depart, {@code subnet} son sous-reseau.
+     */
+    private record GroupPlan(SeriesGroupsRequest.Group group, Subnet subnet,
+                             SeriesReservationRequest request, SeriesPlanner.Plan plan) {}
 
-    private List<GroupPlan> planGroups(Subnet subnet, SeriesGroupsRequest request) {
+    private List<GroupPlan> planGroups(Subnet defaultSubnet, SeriesGroupsRequest request) {
         List<SeriesGroupsRequest.Group> groups = request.groups();
         if (groups == null || groups.isEmpty()) {
             throw new InvalidSeriesException("At least one group is required.");
@@ -189,37 +196,127 @@ public class SeriesReservationService {
                     "The gap must be between 0 and " + SeriesPlanner.MAX_STEP + ".");
         }
 
+        Map<Long, Subnet> subnets = new HashMap<>();
+        subnets.put(defaultSubnet.getId(), defaultSubnet);
+        // Adresses deja prevues par les groupes precedents, par sous-reseau (choix automatique).
+        Map<Long, Set<Long>> planned = new HashMap<>();
+
         List<GroupPlan> plans = new ArrayList<>(groups.size());
         String cursor = request.startIp() == null ? null : request.startIp().trim();
+        Long cursorSubnetId = defaultSubnet.getId();
         for (int i = 0; i < groups.size(); i++) {
             SeriesGroupsRequest.Group group = groups.get(i);
+            Subnet subnet = resolveSubnet(group.subnetId(), defaultSubnet, subnets);
+
+            String start;
             if (group.startIp() != null) {
-                cursor = group.startIp().trim();
+                start = group.startIp().trim();
+            } else if (cursor != null && subnet.getId().equals(cursorSubnetId)) {
+                start = cursor;
+            } else {
+                start = firstFreeStart(subnet, group, request.occupiedMode(),
+                        planned.getOrDefault(subnet.getId(), Set.of()));
             }
             SeriesReservationRequest single = new SeriesReservationRequest(
-                    subnet.getId(), cursor, group.count(), group.step(), group.prefix(),
+                    subnet.getId(), start, group.count(), group.step(), group.prefix(),
                     group.startCounter(), group.counterWidth(), group.suffix(),
                     request.occupiedMode(), request.description(), request.temporary());
             SeriesPlanner.Plan plan = buildPlan(subnet, single);
-            plans.add(new GroupPlan(group, single, plan));
+            plans.add(new GroupPlan(group, subnet, single, plan));
 
-            if (!plan.rows().isEmpty() && i < groups.size() - 1) {
+            Set<Long> subnetPlanned = planned.computeIfAbsent(subnet.getId(), k -> new HashSet<>());
+            for (SeriesPlanner.Row row : plan.rows()) {
+                subnetPlanned.add(IpUtils.ipv4ToLong(row.ip()));
+            }
+
+            if (!plan.rows().isEmpty()) {
                 String last = plan.rows().get(plan.rows().size() - 1).ip();
                 long next = IpUtils.ipv4ToLong(last) + 1L + gap;
                 if (next > IPV4_MAX) {
-                    throw new InvalidSeriesException(
-                            "The chained series go beyond the IPv4 address space.");
+                    if (i < groups.size() - 1) {
+                        throw new InvalidSeriesException(
+                                "The chained series go beyond the IPv4 address space.");
+                    }
+                } else {
+                    cursor = IpUtils.longToIpv4(next);
+                    cursorSubnetId = subnet.getId();
                 }
-                cursor = IpUtils.longToIpv4(next);
+            } else {
+                cursor = start;
+                cursorSubnetId = subnet.getId();
             }
         }
         return plans;
     }
 
-    private SeriesGroupsResponse toGroupsResponse(Subnet subnet, SeriesGroupsRequest request,
+    /**
+     * Sous-reseau d'un groupe ou d'une ligne : le sien s'il en a un (controle d'acces habituel,
+     * meme contexte que le sous-reseau de la demande), sinon celui de la demande.
+     */
+    private Subnet resolveSubnet(Long subnetId, Subnet defaultSubnet, Map<Long, Subnet> cache) {
+        if (subnetId == null) {
+            return defaultSubnet;
+        }
+        Subnet cached = cache.get(subnetId);
+        if (cached != null) {
+            return cached;
+        }
+        Subnet subnet = subnetService.getEntityById(subnetId);
+        if (!Objects.equals(contextId(subnet), contextId(defaultSubnet))) {
+            throw new InvalidSeriesException("All subnets of a reservation must belong to the same context.");
+        }
+        cache.put(subnet.getId(), subnet);
+        return subnet;
+    }
+
+    private static Long contextId(Subnet subnet) {
+        return subnet.getContext() == null ? null : subnet.getContext().getId();
+    }
+
+    /**
+     * Premiere adresse de depart libre du sous-reseau pour un groupe : en mode {@code block}, le
+     * premier bloc de {@code count} adresses (espacees de {@code step}) toutes libres ; en mode
+     * {@code skip}, la premiere adresse libre. Passerelle, adresses existantes et adresses deja
+     * prevues par les groupes precedents sont exclues.
+     */
+    private String firstFreeStart(Subnet subnet, SeriesGroupsRequest.Group group, String mode,
+                                  Set<Long> planned) {
+        Bounds bounds = bounds(subnet);
+        Set<Long> blocked = new HashSet<>(planned);
+        for (String ip : addressRepository.findOccupiedIpsBetween(
+                subnet.getId(), IpUtils.longToIpv4(bounds.firstUsable()),
+                IpUtils.longToIpv4(bounds.lastUsable()))) {
+            blocked.add(IpUtils.ipv4ToLong(ip));
+        }
+        if (bounds.gateway() != null) {
+            blocked.add(bounds.gateway());
+        }
+
+        boolean skip = "skip".equals(mode);
+        int count = skip ? 1 : group.count();
+        long step = group.step() == null ? 1 : group.step();
+        long start = bounds.firstUsable();
+        while (start + (count - 1) * step <= bounds.lastUsable()) {
+            int blockedAt = -1;
+            for (int k = 0; k < count; k++) {
+                if (blocked.contains(start + k * step)) {
+                    blockedAt = k;
+                    break;
+                }
+            }
+            if (blockedAt < 0) {
+                return IpUtils.longToIpv4(start);
+            }
+            start = step == 1 ? start + blockedAt + 1 : start + 1;
+        }
+        throw new InvalidSeriesException("No free block of " + group.count()
+                + " address(es) in subnet " + subnet.getNetwork() + ".");
+    }
+
+    private SeriesGroupsResponse toGroupsResponse(Subnet defaultSubnet, SeriesGroupsRequest request,
                                                   List<GroupPlan> plans) {
         // Chevauchement entre groupes : une adresse deja prise par un groupe precedent
-        // est signalee DUPLICATE dans le groupe suivant.
+        // (meme sous-reseau) est signalee DUPLICATE dans le groupe suivant.
         Set<String> seen = new HashSet<>();
         boolean overlap = false;
         List<SeriesGroupsResponse.Group> groups = new ArrayList<>(plans.size());
@@ -227,7 +324,7 @@ public class SeriesReservationService {
             List<SeriesReservationResponse.Entry> rows = new ArrayList<>(gp.plan().rows().size());
             for (SeriesPlanner.Row row : gp.plan().rows()) {
                 String status = row.status().name();
-                if (!seen.add(row.ip())) {
+                if (!seen.add(gp.subnet().getId() + "|" + row.ip())) {
                     status = STATUS_DUPLICATE;
                     overlap = true;
                 }
@@ -238,10 +335,12 @@ public class SeriesReservationService {
                     gp.group().count(),
                     gp.plan().shortfall(),
                     rows,
-                    gp.plan().skipped().stream().map(SeriesReservationService::toEntry).toList()));
+                    gp.plan().skipped().stream().map(SeriesReservationService::toEntry).toList(),
+                    gp.subnet().getId(),
+                    gp.subnet().getNetwork()));
         }
         return new SeriesGroupsResponse(
-                subnet.getNetwork(),
+                defaultSubnet.getNetwork(),
                 request.occupiedMode(),
                 !overlap && plans.stream().allMatch(gp -> gp.plan().canCreate()),
                 plans.stream().mapToInt(gp -> gp.group().count()).sum(),
@@ -260,12 +359,14 @@ public class SeriesReservationService {
      */
     public SeriesReservationResponse previewRows(SeriesRowsRequest request) {
         Subnet subnet = subnetService.getEntityById(request.subnetId());
-        return toRowsResponse(subnet, request, checkRows(subnet, request));
+        Map<Long, Subnet> subnets = new HashMap<>();
+        return toRowsResponse(subnet, request, checkRows(subnet, request, subnets));
     }
 
     /**
      * Cree toutes les lignes dans une seule transaction (tout ou rien). Une adresse
-     * existante n'est jamais modifiee.
+     * existante n'est jamais modifiee. Une ligne peut viser un autre sous-reseau du meme
+     * contexte.
      *
      * @throws SeriesConflictException si une ligne n'est pas {@code AVAILABLE} (rien n'est cree)
      * @throws InvalidSeriesException  si la liste est invalide (vide, trop longue, nom trop long)
@@ -274,7 +375,8 @@ public class SeriesReservationService {
     @Transactional
     public SeriesReservationResponse createRows(SeriesRowsRequest request, String currentUser) {
         Subnet subnet = subnetService.getEntityById(request.subnetId());
-        List<String> statuses = checkRows(subnet, request);
+        Map<Long, Subnet> subnets = new HashMap<>();
+        List<String> statuses = checkRows(subnet, request, subnets);
         SeriesReservationResponse view = toRowsResponse(subnet, request, statuses);
 
         if (!view.canCreate()) {
@@ -286,7 +388,8 @@ public class SeriesReservationService {
 
         List<Address> addresses = new ArrayList<>();
         for (SeriesRowsRequest.Row row : request.rows()) {
-            addresses.add(newAddress(subnet, normalizedIp(row.ip()), row.hostname(),
+            addresses.add(newAddress(resolveSubnet(row.subnetId(), subnet, subnets),
+                    normalizedIp(row.ip()), row.hostname(),
                     row.description(), row.mac(), Boolean.TRUE.equals(row.temporary()), currentUser));
         }
         try {
@@ -298,7 +401,8 @@ public class SeriesReservationService {
         return view;
     }
 
-    private List<String> checkRows(Subnet subnet, SeriesRowsRequest request) {
+    private List<String> checkRows(Subnet defaultSubnet, SeriesRowsRequest request,
+                                   Map<Long, Subnet> subnets) {
         List<SeriesRowsRequest.Row> rows = request.rows();
         if (rows == null || rows.isEmpty()) {
             throw new InvalidSeriesException("At least one row is required.");
@@ -317,46 +421,61 @@ public class SeriesReservationService {
             }
         }
 
-        Bounds bounds = bounds(subnet);
-
-        // Une seule requete de conflits pour toute la liste (bornes = min/max des lignes valides).
-        long min = Long.MAX_VALUE;
-        long max = Long.MIN_VALUE;
+        subnets.put(defaultSubnet.getId(), defaultSubnet);
+        List<Subnet> rowSubnets = new ArrayList<>(rows.size());
+        Map<Long, Bounds> boundsBySubnet = new HashMap<>();
         for (SeriesRowsRequest.Row row : rows) {
-            String ip = normalizedIp(row.ip());
+            Subnet subnet = resolveSubnet(row.subnetId(), defaultSubnet, subnets);
+            rowSubnets.add(subnet);
+            boundsBySubnet.computeIfAbsent(subnet.getId(), k -> bounds(subnet));
+        }
+
+        // Une seule requete de conflits par sous-reseau (bornes = min/max des lignes valides).
+        Map<Long, long[]> minMax = new HashMap<>();
+        for (int i = 0; i < rows.size(); i++) {
+            String ip = normalizedIp(rows.get(i).ip());
             if (!IpUtils.isValidIpv4(ip)) {
                 continue;
             }
+            Long subnetId = rowSubnets.get(i).getId();
+            Bounds bounds = boundsBySubnet.get(subnetId);
             long value = IpUtils.ipv4ToLong(ip);
             if (value >= bounds.firstUsable() && value <= bounds.lastUsable()) {
-                min = Math.min(min, value);
-                max = Math.max(max, value);
+                long[] range = minMax.computeIfAbsent(subnetId,
+                        k -> new long[] {Long.MAX_VALUE, Long.MIN_VALUE});
+                range[0] = Math.min(range[0], value);
+                range[1] = Math.max(range[1], value);
             }
         }
-        Set<Long> occupied = new HashSet<>();
-        if (min <= max) {
+        Map<Long, Set<Long>> occupiedBySubnet = new HashMap<>();
+        for (Map.Entry<Long, long[]> entry : minMax.entrySet()) {
+            Set<Long> occupied = new HashSet<>();
             for (String ip : addressRepository.findOccupiedIpsBetween(
-                    subnet.getId(), IpUtils.longToIpv4(min), IpUtils.longToIpv4(max))) {
+                    entry.getKey(), IpUtils.longToIpv4(entry.getValue()[0]),
+                    IpUtils.longToIpv4(entry.getValue()[1]))) {
                 occupied.add(IpUtils.ipv4ToLong(ip));
             }
+            occupiedBySubnet.put(entry.getKey(), occupied);
         }
 
         List<String> statuses = new ArrayList<>(rows.size());
-        Set<Long> seen = new HashSet<>();
-        for (SeriesRowsRequest.Row row : rows) {
-            String ip = normalizedIp(row.ip());
+        Set<String> seen = new HashSet<>();
+        for (int i = 0; i < rows.size(); i++) {
+            String ip = normalizedIp(rows.get(i).ip());
             if (!IpUtils.isValidIpv4(ip)) {
                 statuses.add(STATUS_INVALID);
                 continue;
             }
+            Long subnetId = rowSubnets.get(i).getId();
+            Bounds bounds = boundsBySubnet.get(subnetId);
             long value = IpUtils.ipv4ToLong(ip);
-            if (!seen.add(value)) {
+            if (!seen.add(subnetId + "|" + value)) {
                 statuses.add(STATUS_DUPLICATE);
             } else if (value < bounds.firstUsable() || value > bounds.lastUsable()) {
                 statuses.add(SeriesPlanner.Status.OUT_OF_RANGE.name());
             } else if (bounds.gateway() != null && bounds.gateway() == value) {
                 statuses.add(SeriesPlanner.Status.RESERVED.name());
-            } else if (occupied.contains(value)) {
+            } else if (occupiedBySubnet.getOrDefault(subnetId, Set.of()).contains(value)) {
                 statuses.add(SeriesPlanner.Status.OCCUPIED.name());
             } else {
                 statuses.add(STATUS_AVAILABLE);
