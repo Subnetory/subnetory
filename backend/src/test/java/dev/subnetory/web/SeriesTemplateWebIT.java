@@ -153,7 +153,8 @@ class SeriesTemplateWebIT {
         assertThat(html)
                 .contains("name=\"groups[0].role\"")
                 .contains("name=\"groups[9].format\"")
-                .contains("name=\"allocation\"");
+                .contains("name=\"allocation\"")
+                .contains("value=\"per-group\"");
     }
 
     @Test

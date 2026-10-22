@@ -27,6 +27,38 @@
   window.snI18n = { t: i18n, fmt: fmt };
 
   document.addEventListener('DOMContentLoaded', function () {
+    // Réservation par template « un sous-réseau par rôle » : n'affiche le tableau des rôles
+    // (sous-réseau + IP de départ) que pour un template per-group, avec un rôle par ligne.
+    // Les champs des lignes masquées sont désactivés : ils ne sont pas envoyés.
+    (function () {
+      var select = document.getElementById('templateKey');
+      var box = document.getElementById('templateRolesBox');
+      if (!select || !box) {
+        return;
+      }
+      var rows = box.querySelectorAll('[data-role-row]');
+      function apply() {
+        var option = select.options[select.selectedIndex];
+        var perGroup = option && option.getAttribute('data-allocation') === 'per-group';
+        var roles = perGroup && option.getAttribute('data-roles')
+          ? option.getAttribute('data-roles').split(',') : [];
+        box.hidden = roles.length === 0;
+        rows.forEach(function (row, i) {
+          var active = i < roles.length;
+          row.hidden = !active;
+          row.querySelectorAll('input, select').forEach(function (field) {
+            field.disabled = !active;
+          });
+          if (active) {
+            row.querySelector('[data-role-label]').textContent = roles[i];
+            row.querySelector('input[type="hidden"]').value = roles[i];
+          }
+        });
+      }
+      select.addEventListener('change', apply);
+      apply();
+    })();
+
     document.querySelectorAll('[data-confirm]').forEach(function (el) {
       el.addEventListener('click', function (e) {
         if (!window.confirm(el.getAttribute('data-confirm'))) {

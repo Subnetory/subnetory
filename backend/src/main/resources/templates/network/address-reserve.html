@@ -89,6 +89,7 @@
                         <tr>
                             <th scope="col" th:text="#{table.include}">Inclure</th>
                             <th scope="col" th:if="${form.grouped}" th:text="#{reserve.group}">Groupe</th>
+                            <th scope="col" th:if="${form.multiSubnet}" th:text="#{reserve.subnet}">Sous-réseau</th>
                             <th scope="col" th:text="#{table.ip}">Adresse IP</th>
                             <th scope="col" th:if="${form.atomic}" th:text="#{reserve.status}">Statut</th>
                             <th scope="col" th:text="#{table.hostname}">Nom d'hôte</th>
@@ -106,6 +107,11 @@
                             <td th:if="${form.grouped}">
                                 <span th:text="${row.group}">HOST</span>
                                 <input type="hidden" th:field="*{rows[__${rowStat.index}__].group}">
+                            </td>
+                            <td th:if="${form.multiSubnet}">
+                                <span class="sn-text-mono" th:text="${row.subnetLabel}">10.10.20.0/24</span>
+                                <input type="hidden" th:field="*{rows[__${rowStat.index}__].subnetId}">
+                                <input type="hidden" th:field="*{rows[__${rowStat.index}__].subnetLabel}">
                             </td>
                             <td class="sn-text-mono" th:unless="${form.atomic}">
                                 <span th:text="${row.address}">10.0.0.10</span>
@@ -152,6 +158,7 @@
             </p>
             <input type="hidden" th:field="*{atomic}">
             <input type="hidden" th:field="*{grouped}">
+            <input type="hidden" th:field="*{multiSubnet}">
 
             <div class="sn-form__actions sn-mt-4">
                 <button type="submit" th:formaction="@{/network/addresses/reserve}"
@@ -193,11 +200,15 @@
                         <option value="" th:text="#{reserve.template.placeholder}">— Choisir un template —</option>
                         <optgroup th:label="#{reserve.template.builtin}">
                             <option th:each="t : ${seriesTemplates}" th:if="${t.builtin}"
-                                    th:value="${t.key}" th:text="${t.name}">Nutanix</option>
+                                    th:value="${t.key}" th:text="${t.name}"
+                                    th:data-allocation="${t.definition.allocation}"
+                                    th:data-roles="${#strings.listJoin(t.definition.groups.![role], ',')}">Nutanix</option>
                         </optgroup>
                         <optgroup th:if="${hasCustomSeriesTemplates}" th:label="#{reserve.template.custom}">
                             <option th:each="t : ${seriesTemplates}" th:unless="${t.builtin}"
-                                    th:value="${t.key}" th:text="${t.name}">Mon template</option>
+                                    th:value="${t.key}" th:text="${t.name}"
+                                    th:data-allocation="${t.definition.allocation}"
+                                    th:data-roles="${#strings.listJoin(t.definition.groups.![role], ',')}">Mon template</option>
                         </optgroup>
                     </select>
                 </div>
@@ -224,6 +235,46 @@
                     <label for="templateStartIp" class="sn-form__label" th:text="#{reserve.series.startIp}">IP de départ</label>
                     <input type="text" id="templateStartIp" th:field="*{templateStartIp}"
                            class="sn-input sn-text-mono" maxlength="15" placeholder="10.10.10.21" autocomplete="off">
+                </div>
+
+                <div class="sn-form__group" id="templateRolesBox" hidden>
+                    <span class="sn-form__label" th:text="#{reserve.template.roles.title}">Sous-réseau et IP de départ par rôle</span>
+                    <p class="sn-text-muted" th:text="#{reserve.template.roles.help}">
+                        Pour chaque rôle, choisissez son sous-réseau (par défaut celui ci-dessus) et, si vous le souhaitez, son IP de départ.
+                    </p>
+                    <div class="sn-table-wrapper">
+                        <table class="sn-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col" th:text="#{reserve.template.roles.role}">Rôle</th>
+                                    <th scope="col" th:text="#{reserve.subnet}">Sous-réseau</th>
+                                    <th scope="col" th:text="#{reserve.template.roles.startIp}">IP de départ (facultative)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="r, rStat : *{templateRoles}" data-role-row hidden>
+                                    <td>
+                                        <span class="sn-text-mono" data-role-label th:text="${r.role}"></span>
+                                        <input type="hidden" th:field="*{templateRoles[__${rStat.index}__].role}">
+                                    </td>
+                                    <td>
+                                        <select th:field="*{templateRoles[__${rStat.index}__].subnetId}" class="sn-input"
+                                                th:attr="aria-label=#{reserve.template.roles.subnet.aria(${rStat.count})}">
+                                            <option value="" th:text="#{reserve.template.roles.subnet.default}">— Sous-réseau ci-dessus —</option>
+                                            <option th:each="s : ${allSubnets}"
+                                                    th:value="${s.id}"
+                                                    th:text="|${s.network} — ${s.siteName}|">Sous-réseau</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="text" th:field="*{templateRoles[__${rStat.index}__].startIp}"
+                                               class="sn-input sn-text-mono" maxlength="15" autocomplete="off"
+                                               th:attr="aria-label=#{reserve.template.roles.startIp.aria(${rStat.count})}">
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 <div class="sn-form__group">

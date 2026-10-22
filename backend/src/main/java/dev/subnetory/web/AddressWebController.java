@@ -61,9 +61,13 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import java.io.IOException;
 import java.io.ByteArrayInputStream;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.IntStream;
 
@@ -562,6 +566,7 @@ public class AddressWebController {
         form.getRows().clear();
         form.setAtomic(false);
         form.setGrouped(false);
+        form.setMultiSubnet(false);
         if (form.getSubnetId() == null) {
             model.addAttribute("formError", msg("flash.reserve.selectSubnet", locale));
             return reserveView(model, form, locale);
@@ -617,6 +622,7 @@ public class AddressWebController {
         form.getRows().clear();
         form.setAtomic(false);
         form.setGrouped(false);
+        form.setMultiSubnet(false);
         if (form.getSubnetId() == null) {
             model.addAttribute("formError", msg("flash.reserve.selectSubnet", locale));
             return reserveView(model, form, locale);
@@ -647,7 +653,8 @@ public class AddressWebController {
                     form.getTemplateStep(),
                     occupied,
                     description,
-                    false));
+                    false,
+                    templateRoleTargets(form)));
         } catch (InvalidSeriesException e) {
             model.addAttribute("formError", msg("flash.reserve.series.invalid", locale, e.getMessage()));
             return reserveView(model, form, locale);
@@ -751,8 +758,19 @@ public class AddressWebController {
             SeriesReservationResponse result =
                     seriesReservationService.createRows(rowsRequest(form, selected), auth.getName());
             List<SeriesReservationResponse.Entry> rows = result.rows();
-            authAuditService.recordAddressSeriesReserved(auth.getName(), form.getSubnetId(),
-                    result.network(), rows.size(), rows.get(0).ip(), rows.get(rows.size() - 1).ip());
+            // Une entrée d'audit par sous-réseau touché (les lignes peuvent en viser plusieurs).
+            Map<Long, List<String>> ipsBySubnet = new LinkedHashMap<>();
+            Map<Long, String> networks = new HashMap<>();
+            for (int i = 0; i < selected.size(); i++) {
+                Long subnetId = selected.get(i).getSubnetId() != null
+                        ? selected.get(i).getSubnetId() : form.getSubnetId();
+                ipsBySubnet.computeIfAbsent(subnetId, k -> new ArrayList<>()).add(rows.get(i).ip());
+                networks.putIfAbsent(subnetId, subnetId.equals(form.getSubnetId())
+                        ? result.network() : selected.get(i).getSubnetLabel());
+            }
+            ipsBySubnet.forEach((subnetId, ips) -> authAuditService.recordAddressSeriesReserved(
+                    auth.getName(), subnetId, networks.get(subnetId),
+                    ips.size(), ips.get(0), ips.get(ips.size() - 1)));
             model.addAttribute("result", new BulkUpsertResponse(rows.size(), 0, 0, List.of()));
             model.addAttribute("activeSection", "addresses");
             model.addAttribute("pageTitle", msg("pageTitle.reservationResult", locale));
@@ -779,7 +797,8 @@ public class AddressWebController {
         return new SeriesRowsRequest(form.getSubnetId(), selected.stream()
                 .map(r -> new SeriesRowsRequest.Row(
                         r.getAddress() == null ? "" : r.getAddress(),
-                        r.getHostname(), r.getDescription(), r.getMac(), r.isTemporary()))
+                        r.getHostname(), r.getDescription(), r.getMac(), r.isTemporary(),
+                        r.getSubnetId()))
                 .toList());
     }
 
@@ -790,6 +809,16 @@ public class AddressWebController {
         for (int i = 0; i < selected.size() && i < result.rows().size(); i++) {
             selected.get(i).setStatus(result.rows().get(i).status());
         }
+    }
+
+    /** Destinations par rôle saisies pour un template « un sous-réseau par rôle » (vide si aucune). */
+    private static List<SeriesTemplateExpandRequest.RoleTarget> templateRoleTargets(BulkReservationForm form) {
+        return form.getTemplateRoles().stream()
+                .filter(r -> r != null && r.isFilled())
+                .map(r -> new SeriesTemplateExpandRequest.RoleTarget(
+                        r.getRole().trim(), r.getSubnetId(),
+                        r.getStartIp() == null ? null : r.getStartIp().trim()))
+                .toList();
     }
 
     private static SeriesGroupsRequest.Group toGroup(SeriesGroupForm g) {
@@ -808,6 +837,10 @@ public class AddressWebController {
                 ? null : form.getSeriesDescription();
         List<String> skipped = new java.util.ArrayList<>();
         int shortfall = 0;
+        // Plusieurs sous-réseaux : chaque ligne garde le sien (colonne « sous-réseau » affichée).
+        boolean multiSubnet = preview.groups().stream()
+                .anyMatch(g -> g.subnetId() != null && !g.subnetId().equals(form.getSubnetId()));
+        form.setMultiSubnet(multiSubnet);
         for (SeriesGroupsResponse.Group group : preview.groups()) {
             for (SeriesReservationResponse.Entry entry : group.rows()) {
                 BulkReservationRow row = new BulkReservationRow(entry.ip());
@@ -815,6 +848,10 @@ public class AddressWebController {
                 row.setDescription(description);
                 row.setStatus(entry.status());
                 row.setGroup(group.label());
+                if (multiSubnet) {
+                    row.setSubnetId(group.subnetId() != null ? group.subnetId() : form.getSubnetId());
+                    row.setSubnetLabel(group.network() != null ? group.network() : preview.network());
+                }
                 form.getRows().add(row);
             }
             group.skipped().forEach(e -> skipped.add(e.ip()));
