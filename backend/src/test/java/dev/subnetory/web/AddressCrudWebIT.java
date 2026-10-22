@@ -180,6 +180,18 @@ class AddressCrudWebIT {
 
     @Test
     @WithMockUser(roles = "READ_ONLY")
+    void list_exposesInPageConfirmationLabels() throws Exception {
+        mvc.perform(get("/network/addresses"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+                        .string(org.hamcrest.Matchers.allOf(
+                                org.hamcrest.Matchers.containsString("data-i18n-confirm-ok=\""),
+                                org.hamcrest.Matchers.containsString("data-i18n-confirm-cancel=\""),
+                                org.hamcrest.Matchers.containsString("data-i18n-confirm-title=\""))));
+    }
+
+    @Test
+    @WithMockUser(roles = "READ_ONLY")
     void getNewForm_roleReadOnly_returns403() throws Exception {
         mvc.perform(get("/network/addresses/new"))
                 .andExpect(status().isForbidden());

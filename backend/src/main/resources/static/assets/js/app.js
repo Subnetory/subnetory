@@ -24,14 +24,78 @@
     });
   }
 
+  // Confirmation integree a la page (balise <dialog>) : window.confirm() est bloque
+  // ou ignore par certains navigateurs (navigateur integre d'une application,
+  // dialogues desactives par l'utilisateur) et renvoie alors "non" sans rien
+  // afficher, ce qui rendait les boutons de suppression inoperants.
+  function confirmDialog(message, onConfirm) {
+    if (typeof HTMLDialogElement === 'undefined') {
+      if (window.confirm(message)) onConfirm();
+      return;
+    }
+    var dialog = document.createElement('dialog');
+    dialog.className = 'sn-confirm';
+    dialog.setAttribute('aria-label', i18n('confirm-title', 'Confirmation'));
+    var text = document.createElement('p');
+    text.className = 'sn-confirm__message';
+    text.textContent = message;
+    var actions = document.createElement('div');
+    actions.className = 'sn-confirm__actions';
+    var cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'sn-btn sn-btn--secondary';
+    cancel.textContent = i18n('confirm-cancel', 'Annuler');
+    var ok = document.createElement('button');
+    ok.type = 'button';
+    ok.className = 'sn-btn sn-btn--danger';
+    ok.textContent = i18n('confirm-ok', 'Confirmer');
+    actions.appendChild(cancel);
+    actions.appendChild(ok);
+    dialog.appendChild(text);
+    dialog.appendChild(actions);
+    var confirmed = false;
+    cancel.addEventListener('click', function () { dialog.close(); });
+    ok.addEventListener('click', function () { confirmed = true; dialog.close(); });
+    dialog.addEventListener('close', function () {
+      dialog.remove();
+      if (confirmed) onConfirm();
+    });
+    document.body.appendChild(dialog);
+    dialog.showModal();
+    cancel.focus();
+  }
+
+  function submitForm(form, submitter) {
+    if (typeof form.requestSubmit === 'function') {
+      form.requestSubmit(submitter || undefined);
+    } else {
+      form.submit();
+    }
+  }
+
   window.snI18n = { t: i18n, fmt: fmt };
 
   document.addEventListener('DOMContentLoaded', function () {
+    // data-confirm="message" sur un formulaire (confirme a l'envoi) ou sur un
+    // bouton / lien (confirme au clic).
     document.querySelectorAll('[data-confirm]').forEach(function (el) {
-      el.addEventListener('click', function (e) {
-        if (!window.confirm(el.getAttribute('data-confirm'))) {
-          e.preventDefault();
+      var isForm = el.tagName === 'FORM';
+      var confirmed = false;
+      el.addEventListener(isForm ? 'submit' : 'click', function (e) {
+        if (confirmed) {
+          confirmed = false;
+          return;
         }
+        e.preventDefault();
+        var submitter = isForm ? e.submitter : null;
+        confirmDialog(el.getAttribute('data-confirm'), function () {
+          confirmed = true;
+          if (isForm) {
+            submitForm(el, submitter);
+          } else {
+            el.click();
+          }
+        });
       });
     });
 
@@ -133,10 +197,17 @@
       }
       if (form) {
         form.addEventListener('submit', function (e) {
-          var checked = items().filter(function (box) { return box.checked; }).length;
-          if (checked === 0 || !window.confirm(fmt(i18n('bulk-confirm', '{0}'), [checked]))) {
-            e.preventDefault();
+          if (form.getAttribute('data-bulk-confirmed') === '1') {
+            form.removeAttribute('data-bulk-confirmed');
+            return;
           }
+          e.preventDefault();
+          var checked = items().filter(function (box) { return box.checked; }).length;
+          if (checked === 0) return;
+          confirmDialog(fmt(i18n('bulk-confirm', '{0}'), [checked]), function () {
+            form.setAttribute('data-bulk-confirmed', '1');
+            submitForm(form);
+          });
         });
       }
       // Cases deja cochees au retour arriere du navigateur.
