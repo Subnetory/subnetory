@@ -1,6 +1,7 @@
 package dev.subnetory.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -87,7 +88,7 @@ class AddressServiceDeleteAllTest {
     @Test
     void deleteAll_withNoId_deletesNothing() {
         assertThat(service.deleteAll(List.of())).isEmpty();
-        verify(addressRepository, never()).delete(org.mockito.ArgumentMatchers.any());
+        verify(addressRepository, never()).delete(any(Address.class));
     }
 
     private static Address address(Long id, String inet, Long contextId) {
