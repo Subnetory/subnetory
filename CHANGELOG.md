@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+* Address list: new **Description** column. Subnet choices in the address form and on the multiple reservation page now show the VLAN name (`network — VLAN — site`) when the subnet has one.
+
 ## [0.9.1] - 2026-10-03
 
 ### Fixed
