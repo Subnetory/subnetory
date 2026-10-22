@@ -1,0 +1,25 @@
+{
+  "key": "nutanix-per-network",
+  "name": "Nutanix - one subnet per role (IPMI, hosts, CVM)",
+  "description": "Nutanix cluster with the BMC/IPMI addresses, the hypervisor hosts and the CVMs in separate subnets (for example management, servers, storage). Pick a subnet and an optional start IP for each role; an empty start IP takes the first free block.",
+  "definition": {
+    "allocation": "per-group",
+    "groupGap": 0,
+    "ipStep": 1,
+    "onOccupied": "block",
+    "groups": [
+      {
+        "role": "IPMI",
+        "format": "{cluster}-{role}-{nn}"
+      },
+      {
+        "role": "HOST",
+        "format": "{cluster}-{role}-{nn}"
+      },
+      {
+        "role": "CVM",
+        "format": "{cluster}-{role}-{nn}"
+      }
+    ]
+  }
+}

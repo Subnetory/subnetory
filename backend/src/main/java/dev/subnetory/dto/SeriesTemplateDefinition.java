@@ -19,7 +19,9 @@ import java.util.List;
  * <ul>
  *   <li>{@code allocation} : {@code groups-sequential} (defaut : tous les hotes, puis toutes
  *       les CVM, puis tous les IPMI) ou {@code interleaved} (noeud 1 = hote + CVM + IPMI,
- *       puis noeud 2...) ;</li>
+ *       puis noeud 2...) ou {@code per-group} (un bloc d'adresses par role, chacun dans son
+ *       propre sous-reseau et a sa propre IP de depart, choisis a l'utilisation : par exemple
+ *       IPMI en gestion, hotes en serveurs, CVM dans un troisieme sous-reseau) ;</li>
  *   <li>{@code groupGap} : adresses libres entre deux groupes (0 par defaut, mode
  *       sequentiel) ;</li>
  *   <li>{@code ipStep} : pas entre deux adresses (1 par defaut) ;</li>
@@ -30,8 +32,8 @@ import java.util.List;
  * {@code SeriesTemplateExpander#validate}.</p>
  */
 public record SeriesTemplateDefinition(
-        @Pattern(regexp = "^(groups-sequential|interleaved)$",
-                message = "allocation must be one of: groups-sequential, interleaved")
+        @Pattern(regexp = "^(groups-sequential|interleaved|per-group)$",
+                message = "allocation must be one of: groups-sequential, interleaved, per-group")
         String allocation,
 
         @Min(value = 0, message = "groupGap must be at least 0")
@@ -52,6 +54,7 @@ public record SeriesTemplateDefinition(
 
     public static final String SEQUENTIAL = "groups-sequential";
     public static final String INTERLEAVED = "interleaved";
+    public static final String PER_GROUP = "per-group";
 
     public SeriesTemplateDefinition {
         if (allocation == null) allocation = SEQUENTIAL;
