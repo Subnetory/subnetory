@@ -88,7 +88,7 @@
                         </td>
                     </tr>
                     <tr th:if="${sites.empty}" class="sn-table--empty">
-                        <td th:colspan="${canManage ? 5 : 4 + (canBulkDelete ? 1 : 0)}" th:text="#{site.empty}">Aucun site enregistré.</td>
+                        <td th:colspan="${(canManage ? 5 : 4) + (canBulkDelete ? 1 : 0)}" th:text="#{site.empty}">Aucun site enregistré.</td>
                     </tr>
                 </tbody>
             </table>

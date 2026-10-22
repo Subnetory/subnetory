@@ -88,7 +88,7 @@
                         </td>
                     </tr>
                     <tr th:if="${vlans.empty}" class="sn-table--empty">
-                        <td th:colspan="${canManage ? 5 : 4 + (canBulkDelete ? 1 : 0)}" th:text="#{vlan.empty}">Aucun VLAN enregistré.</td>
+                        <td th:colspan="${(canManage ? 5 : 4) + (canBulkDelete ? 1 : 0)}" th:text="#{vlan.empty}">Aucun VLAN enregistré.</td>
                     </tr>
                 </tbody>
             </table>

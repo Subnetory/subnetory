@@ -14,6 +14,7 @@ Subnetory is API-first: every business operation available from the web interfac
 | Available IPs | `/network/subnets/{id}/available-ips` | `GET /api/v1/subnets/{id}/available-ips` |
 | Subnet scan | `/network/subnets/{id}/scan` | `POST /api/v1/subnets/{id}/scan` |
 | Addresses | `/network/addresses` | `/api/v1/addresses` |
+| Bulk delete from lists (addresses: `ROLE_ADMIN`/`ROLE_IP`; sites, subnets, VLANs: `ROLE_ADMIN`) | `POST /network/{addresses,sites,subnets,vlans}/bulk-delete` (checkbox column, "Supprimer la sélection") | Repeated `DELETE /api/v1/{addresses,sites,subnets,vlans}/{id}` — no batch endpoint |
 | Address import/export | `/network/addresses/import`, exports | `/api/v1/addresses/import`, `/import/csv`, `/import/xlsx`, exports |
 | Authentication | `/login` | `POST /api/v1/auth/token`, `/logout`, `/logout-all` |
 | Mandatory first password change | `/profile/change-password-required` | `POST /api/v1/auth/change-password-required` |

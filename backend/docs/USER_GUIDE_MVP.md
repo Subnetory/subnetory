@@ -241,6 +241,24 @@ La liste est paginée (25 adresses par page).
 
 ---
 
+## Suppression en masse
+
+Les listes **Adresses IP**, **Sites**, **Sous-réseaux** et **VLAN** affichent une
+colonne de cases à cocher. Cocher une ou plusieurs lignes (ou la case de l'en-tête
+pour toute la page) fait apparaître une barre avec le nombre de lignes
+sélectionnées et le bouton **Supprimer la sélection**. Une confirmation
+indique le nombre exact d'éléments avant suppression définitive.
+
+- Adresses IP : rôle `ROLE_ADMIN` ou `ROLE_IP`. Sites, sous-réseaux et VLAN : `ROLE_ADMIN`.
+  Sans le rôle requis, la colonne n'apparaît pas.
+- Maximum 500 éléments par opération.
+- Les éléments introuvables, hors de vos contextes ou encore utilisés (par exemple
+  un site qui contient des sous-réseaux) ne sont pas supprimés ; le message de
+  résultat indique leur nombre.
+- Chaque suppression est inscrite dans le journal d'audit, comme une suppression unitaire.
+
+---
+
 ## Export
 
 Boutons **↓ CSV** et **↓ Excel** disponibles sur les pages

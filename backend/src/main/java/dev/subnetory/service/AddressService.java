@@ -21,6 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -254,9 +256,9 @@ public class AddressService {
      * les adresses réellement supprimées, pour l'audit.</p>
      */
     @Transactional
-    public List<AddressResponse> deleteAll(java.util.Collection<Long> ids) {
-        List<AddressResponse> deleted = new java.util.ArrayList<>();
-        for (Long id : new java.util.LinkedHashSet<>(ids)) {
+    public List<AddressResponse> deleteAll(Collection<Long> ids) {
+        List<AddressResponse> deleted = new ArrayList<>();
+        for (Long id : new LinkedHashSet<>(ids)) {
             Address address;
             try {
                 address = getAccessibleAddress(id);
