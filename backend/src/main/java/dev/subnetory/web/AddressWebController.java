@@ -7,13 +7,19 @@ import dev.subnetory.dto.AvailableIpResponse;
 import dev.subnetory.dto.BulkUpsertRequest;
 import dev.subnetory.dto.BulkUpsertResponse;
 import dev.subnetory.dto.CsvImportResponse;
+import dev.subnetory.dto.SeriesReservationRequest;
+import dev.subnetory.dto.SeriesReservationResponse;
+import dev.subnetory.dto.SeriesRowsRequest;
 import dev.subnetory.csv.CsvParseException;
 import dev.subnetory.exception.ConflictException;
+import dev.subnetory.exception.InvalidSeriesException;
 import dev.subnetory.exception.ResourceNotFoundException;
+import dev.subnetory.exception.SeriesConflictException;
 import dev.subnetory.service.ActiveContextService;
 import dev.subnetory.service.AddressService;
 import dev.subnetory.service.AuthAuditService;
 import dev.subnetory.service.IpAllocService;
+import dev.subnetory.service.SeriesReservationService;
 import dev.subnetory.service.SubnetService;
 import dev.subnetory.util.ImportFileValidator;
 import dev.subnetory.util.CsvSafeValue;
@@ -73,6 +79,7 @@ public class AddressWebController {
     private final ImportFileValidator importFileValidator;
     private final AuthAuditService authAuditService;
     private final MessageSource messageSource;
+    private final SeriesReservationService seriesReservationService;
 
     public AddressWebController(AddressService addressService,
                                 SubnetService subnetService,
@@ -80,7 +87,8 @@ public class AddressWebController {
                                 ObjectProvider<ActiveContextService> activeContextServiceProvider,
                                 ImportFileValidator importFileValidator,
                                 AuthAuditService authAuditService,
-                                MessageSource messageSource) {
+                                MessageSource messageSource,
+                                SeriesReservationService seriesReservationService) {
         this.addressService = addressService;
         this.subnetService  = subnetService;
         this.ipAllocService = ipAllocService;
@@ -88,6 +96,7 @@ public class AddressWebController {
         this.importFileValidator = importFileValidator;
         this.authAuditService = authAuditService;
         this.messageSource = messageSource;
+        this.seriesReservationService = seriesReservationService;
     }
 
     private String msg(String key, Locale locale, Object... args) {
@@ -459,6 +468,107 @@ public class AddressWebController {
         return "network/address-reserve";
     }
 
+    /**
+     * Calcule une série (adresses contiguës, noms incrémentés) et la charge dans le
+     * tableau, sans rien enregistrer. Les lignes en conflit sont affichées avec leur
+     * statut : l'adresse de chaque ligne peut être corrigée avant la création.
+     */
+    @PostMapping("/reserve/series")
+    @PreAuthorize("hasAnyRole('ADMIN', 'IP')")
+    public String reserveSeries(@ModelAttribute("form") BulkReservationForm form,
+                                BindingResult errors,
+                                Model model,
+                                Locale locale) {
+        form.getRows().clear();
+        form.setAtomic(false);
+        if (form.getSubnetId() == null) {
+            model.addAttribute("formError", msg("flash.reserve.selectSubnet", locale));
+            return reserveView(model, form, locale);
+        }
+        if (errors.hasErrors()) {
+            model.addAttribute("formError", msg("flash.reserve.series.badNumber", locale));
+            return reserveView(model, form, locale);
+        }
+
+        SeriesReservationRequest request = new SeriesReservationRequest(
+                form.getSubnetId(),
+                form.getSeriesStartIp() == null ? null : form.getSeriesStartIp().trim(),
+                form.getSeriesCount(),
+                form.getSeriesStep(),
+                form.getSeriesPrefix(),
+                form.getSeriesStartCounter(),
+                form.getSeriesCounterWidth(),
+                form.getSeriesSuffix(),
+                form.isSeriesSkipOccupied() ? "skip" : "block",
+                null,
+                false);
+        SeriesReservationResponse preview;
+        try {
+            preview = seriesReservationService.preview(request);
+        } catch (InvalidSeriesException e) {
+            model.addAttribute("formError", msg("flash.reserve.series.invalid", locale, e.getMessage()));
+            return reserveView(model, form, locale);
+        } catch (ResourceNotFoundException e) {
+            model.addAttribute("formError", msg("flash.reserve.subnetNotFound", locale));
+            return reserveView(model, form, locale);
+        }
+
+        String description = form.getSeriesDescription() == null || form.getSeriesDescription().isBlank()
+                ? null : form.getSeriesDescription();
+        for (SeriesReservationResponse.Entry entry : preview.rows()) {
+            BulkReservationRow row = new BulkReservationRow(entry.ip());
+            row.setHostname(entry.hostname());
+            row.setDescription(description);
+            row.setStatus(entry.status());
+            form.getRows().add(row);
+        }
+        form.setAtomic(true);
+        if (!preview.skipped().isEmpty()) {
+            model.addAttribute("seriesSkipped", preview.skipped().stream()
+                    .map(SeriesReservationResponse.Entry::ip)
+                    .collect(java.util.stream.Collectors.joining(", ")));
+        }
+        if (preview.shortfall() > 0) {
+            model.addAttribute("formError",
+                    msg("flash.reserve.series.shortfall", locale, preview.shortfall()));
+        } else if (!preview.canCreate()) {
+            model.addAttribute("formError", msg("flash.reserve.atomic.conflict", locale));
+        }
+        return reserveView(model, form, locale);
+    }
+
+    /** Contrôle les lignes du tableau (mode série) sans rien enregistrer. */
+    @PostMapping("/reserve/check")
+    @PreAuthorize("hasAnyRole('ADMIN', 'IP')")
+    public String reserveCheck(@Valid @ModelAttribute("form") BulkReservationForm form,
+                               BindingResult errors,
+                               Model model,
+                               Locale locale) {
+        if (errors.hasErrors() || form.getSubnetId() == null || form.getRows().isEmpty()) {
+            return reserveView(model, form, locale);
+        }
+        form.setAtomic(true);
+        List<BulkReservationRow> selected = selectedRows(form);
+        if (selected.isEmpty()) {
+            model.addAttribute("formError", msg("flash.reserve.selectAtLeastOne", locale));
+            return reserveView(model, form, locale);
+        }
+        try {
+            SeriesReservationResponse result = seriesReservationService.previewRows(rowsRequest(form, selected));
+            applyStatuses(form, selected, result);
+            if (result.canCreate()) {
+                model.addAttribute("formInfo", msg("flash.reserve.atomic.checkOk", locale, selected.size()));
+            } else {
+                model.addAttribute("formError", msg("flash.reserve.atomic.conflict", locale));
+            }
+        } catch (InvalidSeriesException e) {
+            model.addAttribute("formError", msg("flash.reserve.series.invalid", locale, e.getMessage()));
+        } catch (ResourceNotFoundException e) {
+            model.addAttribute("formError", msg("flash.reserve.subnetNotFound", locale));
+        }
+        return reserveView(model, form, locale);
+    }
+
     /** Soumission finale : seules les lignes cochées (`included`) sont réservées. */
     @PostMapping("/reserve")
     @PreAuthorize("hasAnyRole('ADMIN', 'IP')")
@@ -470,6 +580,10 @@ public class AddressWebController {
         if (errors.hasErrors()) {
             prepareReserveModel(model, form, locale);
             return "network/address-reserve";
+        }
+
+        if (form.isAtomic()) {
+            return reserveSubmitAtomic(form, model, auth, locale);
         }
 
         List<BulkReservationRow> selected = form.getRows().stream()
@@ -498,6 +612,68 @@ public class AddressWebController {
         model.addAttribute("activeSection", "addresses");
         model.addAttribute("pageTitle", msg("pageTitle.reservationResult", locale));
         return "network/address-reserve-result";
+    }
+
+    /**
+     * Soumission finale d'une série : toutes les lignes cochées sont créées ensemble ou
+     * pas du tout. En cas de conflit, le tableau est réaffiché avec le statut de chaque
+     * ligne et rien n'est créé.
+     */
+    private String reserveSubmitAtomic(BulkReservationForm form, Model model,
+                                       Authentication auth, Locale locale) {
+        List<BulkReservationRow> selected = selectedRows(form);
+        if (selected.isEmpty()) {
+            model.addAttribute("formError", msg("flash.reserve.selectAtLeastOne", locale));
+            return reserveView(model, form, locale);
+        }
+        try {
+            SeriesReservationResponse result =
+                    seriesReservationService.createRows(rowsRequest(form, selected), auth.getName());
+            List<SeriesReservationResponse.Entry> rows = result.rows();
+            authAuditService.recordAddressSeriesReserved(auth.getName(), form.getSubnetId(),
+                    result.network(), rows.size(), rows.get(0).ip(), rows.get(rows.size() - 1).ip());
+            model.addAttribute("result", new BulkUpsertResponse(rows.size(), 0, 0, List.of()));
+            model.addAttribute("activeSection", "addresses");
+            model.addAttribute("pageTitle", msg("pageTitle.reservationResult", locale));
+            return "network/address-reserve-result";
+        } catch (SeriesConflictException e) {
+            applyStatuses(form, selected, e.getPreview());
+            model.addAttribute("formError", msg("flash.reserve.atomic.conflict", locale));
+        } catch (InvalidSeriesException e) {
+            model.addAttribute("formError", msg("flash.reserve.series.invalid", locale, e.getMessage()));
+        } catch (ConflictException e) {
+            model.addAttribute("formError", msg("flash.reserve.atomic.concurrent", locale));
+        } catch (ResourceNotFoundException e) {
+            model.addAttribute("formError", msg("flash.reserve.subnetNotFound", locale));
+        }
+        return reserveView(model, form, locale);
+    }
+
+    /** Lignes cochées, adresse vide comprise (signalée INVALID plutôt qu'ignorée en silence). */
+    private static List<BulkReservationRow> selectedRows(BulkReservationForm form) {
+        return form.getRows().stream().filter(BulkReservationRow::isIncluded).toList();
+    }
+
+    private static SeriesRowsRequest rowsRequest(BulkReservationForm form, List<BulkReservationRow> selected) {
+        return new SeriesRowsRequest(form.getSubnetId(), selected.stream()
+                .map(r -> new SeriesRowsRequest.Row(
+                        r.getAddress() == null ? "" : r.getAddress(),
+                        r.getHostname(), r.getDescription(), r.getMac(), r.isTemporary()))
+                .toList());
+    }
+
+    /** Reporte les statuts du contrôle sur les lignes cochées (les autres sont remises à zéro). */
+    private static void applyStatuses(BulkReservationForm form, List<BulkReservationRow> selected,
+                                      SeriesReservationResponse result) {
+        form.getRows().forEach(r -> r.setStatus(null));
+        for (int i = 0; i < selected.size() && i < result.rows().size(); i++) {
+            selected.get(i).setStatus(result.rows().get(i).status());
+        }
+    }
+
+    private String reserveView(Model model, BulkReservationForm form, Locale locale) {
+        prepareReserveModel(model, form, locale);
+        return "network/address-reserve";
     }
 
     /** Complète form.rows avec de nouvelles IP libres, sans dupliquer les adresses déjà listées. */

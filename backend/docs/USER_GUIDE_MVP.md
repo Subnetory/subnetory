@@ -204,6 +204,19 @@ Cliquer sur une IP proposée remplit automatiquement le champ adresse.
 
 ---
 
+## Réservation en série avec noms incrémentés
+
+Sur la page **Réservation multiple** (`/network/addresses/reserve`, rôles `ADMIN` ou `IP`), le bloc **Réserver une série avec noms incrémentés** génère des adresses contiguës :
+
+1. Choisir le sous-réseau, l'IP de départ, le nombre d'adresses et le pas (1 = adresses consécutives).
+2. Définir le nom : préfixe, compteur de départ, nombre de chiffres du compteur, suffixe (ex. `NTNX-HOST-` + 2 chiffres → `NTNX-HOST-01`, `NTNX-HOST-02`…).
+3. Cliquer sur **Aperçu de la série** : le tableau affiche chaque ligne avec son statut (libre, occupée, passerelle, hors plage). L'IP, le nom, la description, la MAC et l'option temporaire restent modifiables ligne par ligne.
+4. **Vérifier les adresses** revalide le tableau après vos modifications ; **Réserver ces adresses** crée toutes les lignes cochées en une seule opération.
+
+La création est « tout ou rien » : si une adresse est occupée, est la passerelle ou sort du sous-réseau, rien n'est créé et les lignes en cause sont signalées. L'option **Sauter les adresses occupées** les ignore à la place, en gardant le compteur consécutif. Une adresse existante n'est jamais modifiée.
+
+---
+
 ## Searching lists
 
 Each tab under **Network** has a **Search** field. The search covers all pages, not
@@ -371,6 +384,8 @@ La même requête sur `POST /api/v1/addresses/series` crée les adresses `10.10.
 
 - `block` (défaut) : si une adresse est déjà utilisée, est la passerelle ou sort du sous-réseau, la réponse est `409` avec le détail de chaque ligne (`preview`) et rien n'est créé.
 - `skip` : les adresses occupées ou réservées sont sautées, le compteur reste consécutif ; `409` si la plage du sous-réseau ne permet pas d'obtenir `count` adresses.
+
+Pour une liste ajustée ligne par ligne, `POST /api/v1/addresses/series/rows/preview` et `POST /api/v1/addresses/series/rows` acceptent `{"subnetId":1,"rows":[{"ip":"10.10.10.21","hostname":"NTNX-HOST-01"}]}` (champs optionnels : `description`, `mac`, `temporary`) avec les mêmes garanties ; chaque ligne reçoit un statut `AVAILABLE`, `OCCUPIED`, `RESERVED`, `OUT_OF_RANGE`, `INVALID` ou `DUPLICATE`.
 
 Une adresse existante n'est jamais modifiée. Limites : 256 adresses par série, hostname de 100 caractères maximum. Chaque création est tracée dans le journal d'audit (`ADDRESS_SERIES_RESERVED`).
 

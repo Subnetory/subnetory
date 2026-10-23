@@ -16,6 +16,7 @@ import dev.subnetory.domain.Site;
 import dev.subnetory.domain.Subnet;
 import dev.subnetory.dto.SeriesReservationRequest;
 import dev.subnetory.dto.SeriesReservationResponse;
+import dev.subnetory.dto.SeriesRowsRequest;
 import dev.subnetory.exception.ConflictException;
 import dev.subnetory.exception.InvalidSeriesException;
 import dev.subnetory.exception.SeriesConflictException;
@@ -231,12 +232,147 @@ class SeriesReservationServiceTest {
     }
 
     // -------------------------------------------------------
+    // lignes explicites
+    // -------------------------------------------------------
+
+    @Test
+    @DisplayName("previewRows : chaque ligne recoit son statut (libre, occupee, passerelle, hors plage, invalide, doublon)")
+    void previewRows_classifiesEveryRow() {
+        subnet.setGateway("10.10.10.1");
+        when(addressRepository.findOccupiedIpsBetween(SUBNET_ID, "10.10.10.1", "10.10.10.30"))
+                .thenReturn(List.of("10.10.10.22"));
+
+        SeriesReservationResponse response = service.previewRows(rows(
+                row("10.10.10.21", "a"), row("10.10.10.22", "b"), row("10.10.10.1", "c"),
+                row("10.10.11.5", "d"), row("not-an-ip", "e"), row("10.10.10.21", "f"),
+                row(" 010.010.010.030 ", "g"), row("", "h")));
+
+        assertThat(response.mode()).isEqualTo("rows");
+        assertThat(response.canCreate()).isFalse();
+        assertThat(response.requested()).isEqualTo(8);
+        assertThat(response.rows()).extracting(SeriesReservationResponse.Entry::status)
+                .containsExactly("AVAILABLE", "OCCUPIED", "RESERVED", "OUT_OF_RANGE",
+                        "INVALID", "DUPLICATE", "AVAILABLE", "INVALID");
+        assertThat(response.rows().get(6).ip()).isEqualTo("10.10.10.30");
+        verify(addressRepository, never()).saveAllAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("previewRows : toutes les lignes libres -> canCreate")
+    void previewRows_allAvailable() {
+        when(addressRepository.findOccupiedIpsBetween(SUBNET_ID, "10.10.10.21", "10.10.10.40"))
+                .thenReturn(List.of());
+
+        SeriesReservationResponse response = service.previewRows(
+                rows(row("10.10.10.40", "a"), row("10.10.10.21", "b")));
+
+        assertThat(response.canCreate()).isTrue();
+    }
+
+    @Test
+    @DisplayName("previewRows : aucune adresse valide dans la plage -> pas de requete de conflits")
+    void previewRows_noValidAddressSkipsDatabaseLookup() {
+        SeriesReservationResponse response = service.previewRows(
+                rows(row("10.10.11.5", "a"), row("x", "b")));
+
+        assertThat(response.canCreate()).isFalse();
+        verify(addressRepository, never()).findOccupiedIpsBetween(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("previewRows : liste vide, trop longue ou nom trop long refuses")
+    void previewRows_invalidListsAreRejected() {
+        assertThatThrownBy(() -> service.previewRows(rows()))
+                .isInstanceOf(InvalidSeriesException.class);
+
+        SeriesRowsRequest.Row[] tooMany = new SeriesRowsRequest.Row[257];
+        java.util.Arrays.fill(tooMany, row("10.10.10.21", "a"));
+        assertThatThrownBy(() -> service.previewRows(rows(tooMany)))
+                .isInstanceOf(InvalidSeriesException.class)
+                .hasMessageContaining("256");
+
+        assertThatThrownBy(() -> service.previewRows(rows(row("10.10.10.21", "x".repeat(101)))))
+                .isInstanceOf(InvalidSeriesException.class)
+                .hasMessageContaining("100");
+
+        assertThatThrownBy(() -> service.previewRows(rows((SeriesRowsRequest.Row) null)))
+                .isInstanceOf(InvalidSeriesException.class);
+    }
+
+    @Test
+    @DisplayName("createRows : toutes les lignes sont enregistrees en un lot avec leurs attributs")
+    void createRows_savesAllRowsInOneBatch() {
+        when(addressRepository.findOccupiedIpsBetween(SUBNET_ID, "10.10.10.21", "10.10.10.30"))
+                .thenReturn(List.of());
+        SeriesRowsRequest request = rows(
+                new SeriesRowsRequest.Row("10.10.10.30", "NTNX-CVM-01", "CVM 1", "AA:BB:CC:DD:EE:FF", true),
+                new SeriesRowsRequest.Row("10.10.10.21", "  ", "   ", " ", null));
+
+        SeriesReservationResponse response = service.createRows(request, "nahim");
+
+        assertThat(response.canCreate()).isTrue();
+        verify(addressRepository).saveAllAndFlush(savedCaptor.capture());
+        List<Address> saved = savedCaptor.getValue();
+        assertThat(saved).extracting(Address::getAddress).containsExactly("10.10.10.30", "10.10.10.21");
+        assertThat(saved).extracting(Address::getHostname).containsExactly("NTNX-CVM-01", null);
+        assertThat(saved).extracting(Address::getDescription).containsExactly("CVM 1", null);
+        assertThat(saved).extracting(Address::getMac).containsExactly("aa:bb:cc:dd:ee:ff", null);
+        assertThat(saved).extracting(Address::isTemporary).containsExactly(true, false);
+        assertThat(saved).allSatisfy(a -> {
+            assertThat(a.getSubnet()).isSameAs(subnet);
+            assertThat(a.getContext()).isSameAs(subnet.getContext());
+            assertThat(a.getSite()).isSameAs(subnet.getSite());
+            assertThat(a.getModifiedBy()).isEqualTo("nahim");
+            assertThat(a.getDiscoverySource()).isEqualTo("manual");
+        });
+    }
+
+    @Test
+    @DisplayName("createRows : une ligne non libre -> SeriesConflictException avec statuts, rien n'est cree")
+    void createRows_conflictCreatesNothing() {
+        when(addressRepository.findOccupiedIpsBetween(SUBNET_ID, "10.10.10.21", "10.10.10.22"))
+                .thenReturn(List.of("10.10.10.22"));
+
+        assertThatThrownBy(() -> service.createRows(
+                rows(row("10.10.10.21", "a"), row("10.10.10.22", "b")), "nahim"))
+                .isInstanceOfSatisfying(SeriesConflictException.class, e -> {
+                    assertThat(e.getMessage()).contains("1 address(es)").contains("no address was created");
+                    assertThat(e.getPreview().rows()).extracting(SeriesReservationResponse.Entry::status)
+                            .containsExactly("AVAILABLE", "OCCUPIED");
+                });
+
+        verify(addressRepository, never()).saveAllAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("createRows : violation d'unicite concurrente -> ConflictException (transaction annulee)")
+    void createRows_concurrentInsertIsReportedAsConflict() {
+        when(addressRepository.findOccupiedIpsBetween(SUBNET_ID, "10.10.10.21", "10.10.10.21"))
+                .thenReturn(List.of());
+        doThrow(new DataIntegrityViolationException("uq_addresses_address_subnet"))
+                .when(addressRepository).saveAllAndFlush(any());
+
+        assertThatThrownBy(() -> service.createRows(rows(row("10.10.10.21", "a")), "nahim"))
+                .isInstanceOf(ConflictException.class)
+                .isNotInstanceOf(SeriesConflictException.class)
+                .hasMessageContaining("concurrently");
+    }
+
+    // -------------------------------------------------------
     // helpers
     // -------------------------------------------------------
 
     private static SeriesReservationRequest request(String startIp, int count, String occupiedMode) {
         return new SeriesReservationRequest(
                 SUBNET_ID, startIp, count, null, "NTNX-HOST-", null, null, null, occupiedMode, null, null);
+    }
+
+    private static SeriesRowsRequest.Row row(String ip, String hostname) {
+        return new SeriesRowsRequest.Row(ip, hostname, null, null, null);
+    }
+
+    private static SeriesRowsRequest rows(SeriesRowsRequest.Row... rows) {
+        return new SeriesRowsRequest(SUBNET_ID, java.util.Arrays.asList(rows));
     }
 
     private static Subnet buildSubnet(String network, String gateway) {

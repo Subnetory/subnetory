@@ -16,6 +16,11 @@
     </div>
 
     <div th:if="${formError}" class="sn-alert sn-alert--error" th:text="${formError}"></div>
+    <div th:if="${formInfo}" class="sn-alert sn-alert--success" th:text="${formInfo}"></div>
+    <div th:if="${seriesSkipped}" class="sn-alert sn-alert--info">
+        <span th:text="#{reserve.series.skippedNote}">Adresses sautées :</span>
+        <span class="sn-text-mono" th:text="${seriesSkipped}">10.0.0.2</span>
+    </div>
 
     <form th:action="@{/network/addresses/reserve/generate}" th:object="${form}" method="post" novalidate>
 
@@ -84,6 +89,7 @@
                         <tr>
                             <th scope="col" th:text="#{table.include}">Inclure</th>
                             <th scope="col" th:text="#{table.ip}">Adresse IP</th>
+                            <th scope="col" th:if="${form.atomic}" th:text="#{reserve.status}">Statut</th>
                             <th scope="col" th:text="#{table.hostname}">Nom d'hôte</th>
                             <th scope="col" th:text="#{common.description}">Description</th>
                             <th scope="col" th:text="#{table.mac}">MAC</th>
@@ -96,9 +102,21 @@
                                 <input type="checkbox" class="sn-table-checkbox" th:field="*{rows[__${rowStat.index}__].included}"
                                        th:attr="aria-label=#{reserve.include.aria(${row.address})}">
                             </td>
-                            <td class="sn-text-mono">
+                            <td class="sn-text-mono" th:unless="${form.atomic}">
                                 <span th:text="${row.address}">10.0.0.10</span>
                                 <input type="hidden" th:field="*{rows[__${rowStat.index}__].address}">
+                            </td>
+                            <td th:if="${form.atomic}">
+                                <input type="text" th:field="*{rows[__${rowStat.index}__].address}"
+                                       class="sn-input sn-text-mono" maxlength="15" autocomplete="off"
+                                       th:attr="aria-label=#{reserve.address.aria(${rowStat.count})}">
+                            </td>
+                            <td th:if="${form.atomic}">
+                                <span th:if="${row.status != null}" class="sn-badge"
+                                      th:classappend="${row.status == 'AVAILABLE' ? 'sn-badge--green' :
+                                                        (row.status == 'RESERVED' or row.status == 'OUT_OF_RANGE') ? 'sn-badge--orange' :
+                                                        'sn-badge--danger'}"
+                                      th:text="#{${'reserve.status.' + row.status}}">AVAILABLE</span>
                             </td>
                             <td>
                                 <input type="text" th:field="*{rows[__${rowStat.index}__].hostname}"
@@ -124,10 +142,101 @@
                 </table>
             </div>
 
+            <p class="sn-text-muted" th:if="${form.atomic}" th:text="#{reserve.atomic.hint}">
+                Tout ou rien : si une adresse est occupée, aucune n'est créée.
+            </p>
+            <input type="hidden" th:field="*{atomic}">
+
             <div class="sn-form__actions sn-mt-4">
                 <button type="submit" th:formaction="@{/network/addresses/reserve}"
                         class="sn-btn sn-btn--primary" th:text="#{reserve.submit}">Réserver ces adresses</button>
+                <button type="submit" th:if="${form.atomic}" th:formaction="@{/network/addresses/reserve/check}"
+                        class="sn-btn sn-btn--secondary" th:text="#{reserve.check}">Vérifier les adresses</button>
                 <a th:href="@{/network/addresses/reserve}" class="sn-btn sn-btn--ghost" th:text="#{reserve.clearAll}">Tout effacer</a>
+            </div>
+        </div>
+    </form>
+
+    <form th:if="${form.rows.empty}" th:action="@{/network/addresses/reserve/series}" th:object="${form}"
+          method="post" novalidate>
+        <div class="sn-card sn-card--padded sn-mt-5">
+            <div class="sn-card__header">
+                <h2 class="sn-card__title" th:text="#{reserve.series.title}">Ou : réserver une série avec noms incrémentés</h2>
+            </div>
+            <p class="sn-text-muted" th:text="#{reserve.series.help}">
+                Adresses contiguës à partir d'une IP de départ, noms construits avec un compteur
+                (ex. NTNX-HOST-01, NTNX-HOST-02…). Tout ou rien : si une adresse est occupée, aucune n'est créée.
+            </p>
+
+            <div class="sn-form">
+                <div class="sn-form__group">
+                    <label for="seriesSubnetId" class="sn-form__label" th:text="#{address.form.subnet.label}">Sous-réseau</label>
+                    <select id="seriesSubnetId" th:field="*{subnetId}" class="sn-input">
+                        <option value="" th:text="#{select.placeholder.subnet}">— Sélectionner un sous-réseau —</option>
+                        <option th:each="s : ${allSubnets}"
+                                th:value="${s.id}"
+                                th:text="|${s.network} — ${s.siteName}|">Sous-réseau</option>
+                    </select>
+                </div>
+
+                <div class="sn-form__group">
+                    <label for="seriesStartIp" class="sn-form__label" th:text="#{reserve.series.startIp}">IP de départ</label>
+                    <input type="text" id="seriesStartIp" th:field="*{seriesStartIp}"
+                           class="sn-input sn-text-mono" maxlength="15" placeholder="10.10.10.21" autocomplete="off">
+                </div>
+
+                <div class="sn-form__group">
+                    <label for="seriesCount" class="sn-form__label" th:text="#{reserve.series.count}">Nombre d'adresses</label>
+                    <input type="number" id="seriesCount" th:field="*{seriesCount}"
+                           class="sn-input sn-input--narrow" min="1" max="256">
+                </div>
+
+                <div class="sn-form__group">
+                    <label for="seriesStep" class="sn-form__label" th:text="#{reserve.series.step}">Pas entre adresses</label>
+                    <input type="number" id="seriesStep" th:field="*{seriesStep}"
+                           class="sn-input sn-input--narrow" min="1" max="256">
+                </div>
+
+                <div class="sn-form__group">
+                    <label for="seriesPrefix" class="sn-form__label" th:text="#{reserve.series.prefix}">Préfixe du nom</label>
+                    <input type="text" id="seriesPrefix" th:field="*{seriesPrefix}"
+                           class="sn-input" maxlength="90" placeholder="NTNX-HOST-" autocomplete="off">
+                </div>
+
+                <div class="sn-form__group">
+                    <label for="seriesStartCounter" class="sn-form__label" th:text="#{reserve.series.startCounter}">Compteur de départ</label>
+                    <input type="number" id="seriesStartCounter" th:field="*{seriesStartCounter}"
+                           class="sn-input sn-input--narrow" min="0">
+                </div>
+
+                <div class="sn-form__group">
+                    <label for="seriesCounterWidth" class="sn-form__label" th:text="#{reserve.series.counterWidth}">Chiffres du compteur</label>
+                    <input type="number" id="seriesCounterWidth" th:field="*{seriesCounterWidth}"
+                           class="sn-input sn-input--narrow" min="1" max="9">
+                </div>
+
+                <div class="sn-form__group">
+                    <label for="seriesSuffix" class="sn-form__label" th:text="#{reserve.series.suffix}">Suffixe du nom</label>
+                    <input type="text" id="seriesSuffix" th:field="*{seriesSuffix}"
+                           class="sn-input" maxlength="90" autocomplete="off">
+                </div>
+
+                <div class="sn-form__group">
+                    <label for="seriesDescription" class="sn-form__label" th:text="#{common.description}">Description</label>
+                    <input type="text" id="seriesDescription" th:field="*{seriesDescription}"
+                           class="sn-input" maxlength="500" autocomplete="off">
+                </div>
+
+                <div class="sn-form__group">
+                    <label class="sn-form__label">
+                        <input type="checkbox" th:field="*{seriesSkipOccupied}" class="sn-table-checkbox">
+                        <span th:text="#{reserve.series.skipOccupied}">Sauter les adresses occupées (le compteur reste consécutif)</span>
+                    </label>
+                </div>
+
+                <div class="sn-form__actions">
+                    <button type="submit" class="sn-btn sn-btn--primary" th:text="#{reserve.series.preview}">Aperçu de la série</button>
+                </div>
             </div>
         </div>
     </form>

@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import dev.subnetory.domain.AuthAuditLog;
 import dev.subnetory.dto.SeriesReservationRequest;
+import dev.subnetory.dto.SeriesRowsRequest;
 import dev.subnetory.dto.SiteRequest;
 import dev.subnetory.dto.SubnetRequest;
 import dev.subnetory.dto.TokenRequest;
@@ -267,8 +268,128 @@ class SeriesReservationApiIT {
     }
 
     // -------------------------------------------------------
+    // Lignes explicites (/rows)
+    // -------------------------------------------------------
+
+    @Test @Order(12)
+    @DisplayName("POST /series/rows/preview - statut de chaque ligne, sans rien ecrire")
+    void previewRows_returnsStatusPerRow() throws Exception {
+        mvc.perform(post(SERIES_URL + "/rows/preview")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(rows(row("172.18.0.100", "IPMI-01"), row("172.18.0.22", "x"),
+                                row("172.18.0.1", "gw"), row("172.19.0.5", "far"),
+                                row("zzz", "bad"), row("172.18.0.100", "dup"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mode", is("rows")))
+                .andExpect(jsonPath("$.canCreate", is(false)))
+                .andExpect(jsonPath("$.rows[0].status", is("AVAILABLE")))
+                .andExpect(jsonPath("$.rows[1].status", is("OCCUPIED")))
+                .andExpect(jsonPath("$.rows[2].status", is("RESERVED")))
+                .andExpect(jsonPath("$.rows[3].status", is("OUT_OF_RANGE")))
+                .andExpect(jsonPath("$.rows[4].status", is("INVALID")))
+                .andExpect(jsonPath("$.rows[5].status", is("DUPLICATE")));
+
+        mvc.perform(get("/api/v1/addresses")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .param("subnetId", String.valueOf(subnetId))
+                        .param("hostnameContains", "IPMI-"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(0)));
+    }
+
+    @Test @Order(13)
+    @DisplayName("POST /series/rows - cree les lignes (201) avec leurs attributs et les trace dans l'audit")
+    void createRows_persistsRowsAndAudits() throws Exception {
+        mvc.perform(post(SERIES_URL + "/rows")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(rows(
+                                new SeriesRowsRequest.Row("172.18.0.100", "IPMI-01", "BMC 1", "AA:BB:CC:00:00:01", false),
+                                row("172.18.0.105", "IPMI-02"))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.canCreate", is(true)))
+                .andExpect(jsonPath("$.rows", hasSize(2)));
+
+        mvc.perform(get("/api/v1/addresses")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .param("subnetId", String.valueOf(subnetId))
+                        .param("hostnameContains", "IPMI-"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)));
+
+        List<AuthAuditLog> logs = authAuditLogRepository.findByEventType(
+                AuthAuditService.ADDRESS_SERIES_RESERVED, Pageable.unpaged()).getContent();
+        assertThat(logs).anyMatch(log ->
+                "admin".equals(log.getUsername())
+                        && log.getMessage() != null
+                        && log.getMessage().contains("count=2")
+                        && log.getMessage().contains("first=172.18.0.100")
+                        && log.getMessage().contains("last=172.18.0.105"));
+    }
+
+    @Test @Order(14)
+    @DisplayName("POST /series/rows - une ligne occupee -> 409 avec detail, rien de cree")
+    void createRows_conflictReturns409AndCreatesNothing() throws Exception {
+        mvc.perform(post(SERIES_URL + "/rows")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(rows(row("172.18.0.106", "NOPE-01"), row("172.18.0.100", "NOPE-02"))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.preview.canCreate", is(false)))
+                .andExpect(jsonPath("$.preview.rows[0].status", is("AVAILABLE")))
+                .andExpect(jsonPath("$.preview.rows[1].status", is("OCCUPIED")));
+
+        mvc.perform(get("/api/v1/addresses")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .param("subnetId", String.valueOf(subnetId))
+                        .param("hostnameContains", "NOPE-"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(0)));
+    }
+
+    @Test @Order(15)
+    @DisplayName("POST /series/rows - liste vide -> 400 (Bean Validation)")
+    void createRows_emptyListReturns400() throws Exception {
+        mvc.perform(post(SERIES_URL + "/rows")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(rows()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fields.rows").exists());
+    }
+
+    @Test @Order(16)
+    @DisplayName("POST /series/rows - MAC invalide -> 400 (Bean Validation)")
+    void createRows_invalidMacReturns400() throws Exception {
+        mvc.perform(post(SERIES_URL + "/rows")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(rows(new SeriesRowsRequest.Row("172.18.0.110", "M-01", null, "not-a-mac", null))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fields").exists());
+    }
+
+    @Test @Order(17)
+    @DisplayName("POST /series/rows - sans authentification -> 401")
+    void createRows_withoutTokenReturns401() throws Exception {
+        mvc.perform(post(SERIES_URL + "/rows")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(rows(row("172.18.0.120", "X-01"))))
+                .andExpect(status().isUnauthorized());
+    }
+
+    // -------------------------------------------------------
     // helpers
     // -------------------------------------------------------
+
+    private static SeriesRowsRequest.Row row(String ip, String hostname) {
+        return new SeriesRowsRequest.Row(ip, hostname, null, null, null);
+    }
+
+    private String rows(SeriesRowsRequest.Row... rows) throws Exception {
+        return objectMapper.writeValueAsString(new SeriesRowsRequest(subnetId, List.of(rows)));
+    }
 
     private String body(String startIp, int count, String prefix, String occupiedMode) throws Exception {
         return objectMapper.writeValueAsString(new SeriesReservationRequest(

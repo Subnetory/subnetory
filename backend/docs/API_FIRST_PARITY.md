@@ -14,7 +14,7 @@ Subnetory is API-first: every business operation available from the web interfac
 | Available IPs | `/network/subnets/{id}/available-ips` | `GET /api/v1/subnets/{id}/available-ips` |
 | Subnet scan | `/network/subnets/{id}/scan` | `POST /api/v1/subnets/{id}/scan` |
 | Addresses | `/network/addresses` | `/api/v1/addresses` |
-| Serial IP reservation | _(API only for now)_ | `POST /api/v1/addresses/series/preview`, `POST /api/v1/addresses/series` |
+| Serial IP reservation | `/network/addresses/reserve` (series mode), `/reserve/series`, `/reserve/check` | `POST /api/v1/addresses/series/preview`, `POST /api/v1/addresses/series`, `POST /api/v1/addresses/series/rows/preview`, `POST /api/v1/addresses/series/rows` |
 | Address import/export | `/network/addresses/import`, exports | `/api/v1/addresses/import`, `/import/csv`, `/import/xlsx`, exports |
 | Authentication | `/login` | `POST /api/v1/auth/token`, `/logout`, `/logout-all` |
 | Mandatory first password change | `/profile/change-password-required` | `POST /api/v1/auth/change-password-required` |
