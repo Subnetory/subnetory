@@ -281,6 +281,15 @@ public class SeriesReservationService {
      */
     private String firstFreeStart(Subnet subnet, SeriesGroupsRequest.Group group, String mode,
                                   Set<Long> planned) {
+        boolean skip = "skip".equals(mode);
+        int count = skip ? 1 : group.count();
+        long step = group.step() == null ? 1 : group.step();
+        // Bornes explicites avant tout calcul d'adresse : count et step viennent de la requete.
+        if (count < 1 || count > SeriesPlanner.MAX_COUNT || step < 1 || step > SeriesPlanner.MAX_STEP) {
+            throw new InvalidSeriesException("Count must be between 1 and " + SeriesPlanner.MAX_COUNT
+                    + " and step between 1 and " + SeriesPlanner.MAX_STEP + ".");
+        }
+
         Bounds bounds = bounds(subnet);
         Set<Long> blocked = new HashSet<>(planned);
         for (String ip : addressRepository.findOccupiedIpsBetween(
@@ -292,9 +301,6 @@ public class SeriesReservationService {
             blocked.add(bounds.gateway());
         }
 
-        boolean skip = "skip".equals(mode);
-        int count = skip ? 1 : group.count();
-        long step = group.step() == null ? 1 : group.step();
         long start = bounds.firstUsable();
         while (start + (count - 1) * step <= bounds.lastUsable()) {
             int blockedAt = -1;

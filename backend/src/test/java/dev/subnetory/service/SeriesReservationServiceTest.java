@@ -734,6 +734,17 @@ class SeriesReservationServiceTest {
     }
 
     @Test
+    @DisplayName("previewGroups : pas hors bornes sans IP de depart -> InvalidSeriesException")
+    void previewGroups_outOfRangeStepWithoutStartIsRejected() {
+        addSubnet(MGMT_ID, "10.10.20.0/24", 1L);
+        var group = new SeriesGroupsRequest.Group("G", 2, 100_000, "IPMI-", null, null, null, null, MGMT_ID);
+
+        assertThatThrownBy(() -> service.previewGroups(groups(null, 0, null, group)))
+                .isInstanceOf(InvalidSeriesException.class)
+                .hasMessageContaining("step between 1 and");
+    }
+
+    @Test
     @DisplayName("previewGroups : aucun bloc libre assez grand -> InvalidSeriesException")
     void previewGroups_noFreeBlockIsRejected() {
         addSubnet(MGMT_ID, "10.10.20.0/30", 1L);
