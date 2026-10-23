@@ -80,6 +80,7 @@
                         </th>
                         <th th:text="#{table.ip}">Adresse IP</th>
                         <th th:text="#{table.hostname}">Nom d'hôte</th>
+                        <th th:text="#{table.description}">Description</th>
                         <th th:text="#{table.mac}">MAC</th>
                         <th th:text="#{table.subnetCol}">Sous-réseau</th>
                         <th th:text="#{common.site}">Site</th>
@@ -98,6 +99,7 @@
                         </td>
                         <td class="sn-text-mono"><a th:href="@{/network/addresses/__${addr.id}__}" th:text="${addr.address}" class="sn-row-link">192.168.1.10</a></td>
                         <td th:text="${addr.hostname ?: '—'}">srv-web-01</td>
+                        <td class="sn-text-secondary" th:text="${addr.description != null and !addr.description.isBlank() ? addr.description : '—'}" th:title="${addr.description}">Description</td>
                         <td class="sn-text-mono" th:text="${addr.mac ?: '—'}">aa:bb:cc:dd:ee:ff</td>
                         <td class="sn-text-mono sn-text-muted" th:text="${addr.subnetNetwork}">10.0.0.0/24</td>
                         <td class="sn-text-secondary" th:text="${addr.siteName}">Site</td>
@@ -128,7 +130,7 @@
                         </td>
                     </tr>
                     <tr th:if="${addresses.empty}" class="sn-table--empty">
-                        <td th:colspan="${(canManage ? 8 : 7) + (canBulkDelete ? 1 : 0)}" th:text="#{address.empty}">Aucune adresse trouvée.</td>
+                        <td th:colspan="${(canManage ? 9 : 8) + (canBulkDelete ? 1 : 0)}" th:text="#{address.empty}">Aucune adresse trouvée.</td>
                     </tr>
                 </tbody>
             </table>

@@ -21,6 +21,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 * Multiple reservation page, template block: for a **one subnet per role** template (such as the new Nutanix preset), a table appears with one line per role to pick its subnet (the one above by default) and, optionally, its start IP; an empty start IP takes the first free block of the subnet, and the general start IP becomes optional. When several subnets are involved the editable table gets a **Subnet** column, rows are still created together or not at all, and the audit log records one entry per subnet. The templates page offers the new **one subnet per role** allocation.
 * Bulk delete from the Web lists: addresses, sites, subnets and VLANs now have a checkbox column (with a select-all box), a bar showing the number of selected rows and a **Delete selected** button that asks for confirmation. Addresses require `ROLE_ADMIN` or `ROLE_IP`; sites, subnets and VLANs require `ROLE_ADMIN` (the controls are hidden for other roles and the endpoints answer 403). At most 500 rows per request. Rows that no longer exist, are outside the allowed contexts or are still referenced are skipped and counted in the result message; every deleted row is recorded in the audit log as with a single delete, and the user returns to the list they came from. Web only: the API keeps its single `DELETE` endpoints.
 
+### Changed
+
+* Address list: new **Description** column. Subnet choices in the address form and on the multiple reservation page now show the VLAN name (`network — VLAN — site`) when the subnet has one.
+
 ### Fixed
 
 * Delete and other confirmation buttons did nothing in browsers that block or ignore native `confirm()` dialogs (embedded browsers, "prevent this page from creating more dialogs"): the dialog returned "no" without showing anything. Confirmations (`data-confirm` and the bulk delete) now use an in-page dialog with Cancel and Confirm buttons, available in French and English.

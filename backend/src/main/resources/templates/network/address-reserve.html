@@ -36,7 +36,7 @@
                         <option value="" th:text="#{select.placeholder.subnet}">— Sélectionner un sous-réseau —</option>
                         <option th:each="s : ${allSubnets}"
                                 th:value="${s.id}"
-                                th:text="|${s.network} — ${s.siteName}|">Sous-réseau</option>
+                                th:text="${s.vlanName != null ? s.network + ' — ' + s.vlanName + ' — ' + s.siteName : s.network + ' — ' + s.siteName}">Sous-réseau</option>
                     </select>
                 </div>
 
@@ -55,7 +55,7 @@
                 <input type="hidden" th:field="*{subnetId}">
                 <div th:each="s : ${allSubnets}" th:if="${s.id == form.subnetId}">
                     <p class="sn-text-secondary">
-                        <span th:text="#{reserve.selectedSubnet.prefix}">Sous-réseau sélectionné :</span> <strong th:text="|${s.network} — ${s.siteName}|">10.0.0.0/24</strong>
+                        <span th:text="#{reserve.selectedSubnet.prefix}">Sous-réseau sélectionné :</span> <strong th:text="${s.vlanName != null ? s.network + ' — ' + s.vlanName + ' — ' + s.siteName : s.network + ' — ' + s.siteName}">10.0.0.0/24</strong>
                         — <a th:href="@{/network/addresses/reserve}" th:text="#{reserve.selectedSubnet.change}">changer de sous-réseau</a>
                         <span th:text="#{reserve.selectedSubnet.resetHint}">(réinitialise le tableau)</span>
                     </p>

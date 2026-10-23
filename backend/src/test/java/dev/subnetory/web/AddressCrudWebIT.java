@@ -183,6 +183,36 @@ class AddressCrudWebIT {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
+    void list_showsDescriptionColumn() throws Exception {
+        when(addressService.search(any(), any(), any(), any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(java.util.List.of(sampleAddress)));
+
+        mvc.perform(get("/network/addresses"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+                        .string(org.hamcrest.Matchers.allOf(
+                                org.hamcrest.Matchers.containsString("<th>Description</th>"),
+                                org.hamcrest.Matchers.containsString("Serveur web"))));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void getNewForm_subnetChoiceShowsVlanName() throws Exception {
+        var subnet = new dev.subnetory.dto.SubnetResponse(
+                30L, "192.168.1.0/24", null, null, 10L, "Production", 20L, "PAR01",
+                40L, "VLAN-100", null, null, OffsetDateTime.now(), OffsetDateTime.now());
+        when(subnetService.findAll(any(Pageable.class)))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(java.util.List.of(subnet)));
+
+        mvc.perform(get("/network/addresses/new"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+                        .string(org.hamcrest.Matchers.containsString(
+                                "192.168.1.0/24 \u2014 VLAN-100 \u2014 PAR01")));
+    }
+
+    @Test
     @WithMockUser(roles = "READ_ONLY")
     void list_exposesInPageConfirmationLabels() throws Exception {
         mvc.perform(get("/network/addresses"))
