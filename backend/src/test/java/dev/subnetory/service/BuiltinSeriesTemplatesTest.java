@@ -21,7 +21,7 @@ class BuiltinSeriesTemplatesTest {
         assertThat(builtins.all()).extracting(BuiltinSeriesTemplates.Builtin::key).contains(
                 "nutanix-hpe", "nutanix-dell", "nutanix-lenovo", "nutanix-supermicro",
                 "server-hpe", "server-dell", "server-lenovo", "server-supermicro",
-                "proxmox-cluster", "vmware-esxi");
+                "proxmox-cluster", "vmware-esxi", "nutanix-per-network");
         assertThat(builtins.all()).extracting(BuiltinSeriesTemplates.Builtin::key).doesNotHaveDuplicates();
     }
 
@@ -51,6 +51,16 @@ class BuiltinSeriesTemplatesTest {
         assertThat(definition.allocation()).isEqualTo(SeriesTemplateDefinition.SEQUENTIAL);
         List<String> roles = definition.groups().stream().map(SeriesTemplateDefinition.Group::role).toList();
         assertThat(roles).containsExactly("HOST", "CVM", "ILO");
+    }
+
+    @Test
+    @DisplayName("preset Nutanix un sous-reseau par role : IPMI, hotes puis CVM, en mode per-group")
+    void nutanixPerNetworkLayout() {
+        SeriesTemplateDefinition definition = builtins.find("nutanix-per-network").orElseThrow().definition();
+
+        assertThat(definition.allocation()).isEqualTo(SeriesTemplateDefinition.PER_GROUP);
+        List<String> roles = definition.groups().stream().map(SeriesTemplateDefinition.Group::role).toList();
+        assertThat(roles).containsExactly("IPMI", "HOST", "CVM");
     }
 
     @Test

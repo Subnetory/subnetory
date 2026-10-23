@@ -42,6 +42,15 @@ public class BulkReservationRow {
     /** Libellé du groupe d'origine (mode « plusieurs séries ») ; affichage seul. */
     private String group;
 
+    /**
+     * Sous-réseau de la ligne quand la réservation en couvre plusieurs (template « un sous-réseau
+     * par rôle ») ; {@code null} : celui du formulaire. Son accès est contrôlé à la création.
+     */
+    private Long subnetId;
+
+    /** Réseau (CIDR) du sous-réseau de la ligne ; affichage seul. */
+    private String subnetLabel;
+
     public BulkReservationRow() {}
 
     public BulkReservationRow(String address) {
@@ -71,4 +80,10 @@ public class BulkReservationRow {
 
     public String getGroup()               { return group; }
     public void setGroup(String group)     { this.group = group; }
+
+    public Long getSubnetId()                  { return subnetId; }
+    public void setSubnetId(Long subnetId)     { this.subnetId = subnetId; }
+
+    public String getSubnetLabel()                     { return subnetLabel; }
+    public void setSubnetLabel(String subnetLabel)     { this.subnetLabel = subnetLabel; }
 }

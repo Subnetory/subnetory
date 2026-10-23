@@ -668,6 +668,123 @@ class AddressReserveSeriesWebIT {
         verify(seriesTemplateService, never()).expand(any());
     }
 
+    // ── Template « un sous-réseau par rôle » ─────────────────────────────
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void template_perGroup_sendsRoleTargetsAndShowsSubnetColumn() throws Exception {
+        SeriesGroupsResponse preview = groupsResponse(true,
+                new SeriesGroupsResponse.Group("IPMI", 1, 0,
+                        List.of(entry("10.10.20.11", "NTNX01-IPMI-01", "AVAILABLE")), List.of(),
+                        31L, "10.10.20.0/24"),
+                new SeriesGroupsResponse.Group("HOST", 1, 0,
+                        List.of(entry("10.10.10.21", "NTNX01-HOST-01", "AVAILABLE")), List.of(),
+                        30L, "10.10.10.0/24"));
+        when(seriesTemplateService.expand(any())).thenReturn(
+                new SeriesTemplateExpansionResponse(null, preview));
+
+        String html = mvc.perform(post("/network/addresses/reserve/template").with(csrf())
+                        .param("subnetId", "30")
+                        .param("templateKey", "builtin:nutanix-per-network")
+                        .param("templateCluster", "NTNX01")
+                        .param("templateNodes", "1")
+                        .param("templateStartIp", "")
+                        .param("templateRoles[0].role", "IPMI")
+                        .param("templateRoles[0].subnetId", "31")
+                        .param("templateRoles[0].startIp", " 10.10.20.11 ")
+                        .param("templateRoles[1].role", "HOST")
+                        .param("templateRoles[1].subnetId", "")
+                        .param("templateRoles[1].startIp", "")
+                        .param("templateRoles[2].role", "CVM")
+                        .param("templateRoles[2].subnetId", "")
+                        .param("templateRoles[2].startIp", ""))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeDoesNotExist("formError"))
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(html)
+                .contains("name=\"multiSubnet\"")
+                .contains("name=\"rows[0].subnetId\"")
+                .contains("name=\"rows[1].subnetId\"")
+                .contains("10.10.20.0/24")
+                .contains("10.10.10.0/24");
+
+        ArgumentCaptor<SeriesTemplateExpandRequest> captor =
+                ArgumentCaptor.forClass(SeriesTemplateExpandRequest.class);
+        verify(seriesTemplateService).expand(captor.capture());
+        SeriesTemplateExpandRequest sent = captor.getValue();
+        assertThat(sent.startIp()).isNull();
+        // seul le role renseigne est transmis
+        assertThat(sent.roles()).hasSize(1);
+        assertThat(sent.roles().get(0).role()).isEqualTo("IPMI");
+        assertThat(sent.roles().get(0).subnetId()).isEqualTo(31L);
+        assertThat(sent.roles().get(0).startIp()).isEqualTo("10.10.20.11");
+    }
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void template_picker_exposesAllocationAndRolesOfEachTemplate() throws Exception {
+        when(seriesTemplateService.list(any())).thenReturn(List.of(
+                templateResponse("builtin:nutanix-per-network", "Nutanix - un sous-reseau par role", true,
+                        SeriesTemplateDefinition.PER_GROUP, "IPMI", "HOST", "CVM")));
+
+        String html = mvc.perform(post("/network/addresses/reserve/template").with(csrf())
+                        .param("subnetId", "30"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(html)
+                .contains("data-allocation=\"per-group\"")
+                .contains("data-roles=\"IPMI,HOST,CVM\"")
+                .contains("id=\"templateRolesBox\"")
+                .contains("name=\"templateRoles[0].subnetId\"")
+                .contains("name=\"templateRoles[9].startIp\"");
+    }
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void submit_atomic_multiSubnet_sendsRowSubnetsAndAuditsEachSubnet() throws Exception {
+        when(seriesReservationService.createRows(any(), eq("operator"))).thenReturn(response(true,
+                entry("10.10.20.11", "NTNX01-IPMI-01", "AVAILABLE"),
+                entry("10.10.10.21", "NTNX01-HOST-01", "AVAILABLE")));
+
+        mvc.perform(post("/network/addresses/reserve").with(csrf())
+                        .param("subnetId", "30")
+                        .param("atomic", "true")
+                        .param("multiSubnet", "true")
+                        .param("rows[0].address", "10.10.20.11")
+                        .param("rows[0].hostname", "NTNX01-IPMI-01")
+                        .param("rows[0].subnetId", "31")
+                        .param("rows[0].subnetLabel", "10.10.20.0/24")
+                        .param("rows[0].included", "true")
+                        .param("rows[1].address", "10.10.10.21")
+                        .param("rows[1].hostname", "NTNX01-HOST-01")
+                        .param("rows[1].subnetId", "30")
+                        .param("rows[1].subnetLabel", "10.10.10.0/24")
+                        .param("rows[1].included", "true"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("network/address-reserve-result"));
+
+        ArgumentCaptor<SeriesRowsRequest> captor = ArgumentCaptor.forClass(SeriesRowsRequest.class);
+        verify(seriesReservationService).createRows(captor.capture(), eq("operator"));
+        assertThat(captor.getValue().rows()).extracting(SeriesRowsRequest.Row::subnetId)
+                .containsExactly(31L, 30L);
+        verify(authAuditService).recordAddressSeriesReserved(
+                "operator", 31L, "10.10.20.0/24", 1, "10.10.20.11", "10.10.20.11");
+        verify(authAuditService).recordAddressSeriesReserved(
+                "operator", 30L, "10.10.10.0/24", 1, "10.10.10.21", "10.10.10.21");
+    }
+
+    private static SeriesTemplateResponse templateResponse(String key, String name, boolean builtin,
+                                                           String allocation, String... roles) {
+        List<SeriesTemplateDefinition.Group> groups = java.util.Arrays.stream(roles)
+                .map(role -> new SeriesTemplateDefinition.Group(role, null, "{cluster}-{role}-{nn}", null, null))
+                .toList();
+        SeriesTemplateDefinition definition = new SeriesTemplateDefinition(allocation, null, null, null, groups);
+        return new SeriesTemplateResponse(key, builtin, builtin ? null : 7L, builtin ? null : 1L,
+                name, null, definition, null);
+    }
+
     private static SeriesTemplateResponse templateResponse(String key, String name, boolean builtin) {
         SeriesTemplateDefinition definition = new SeriesTemplateDefinition(null, null, null, null, List.of(
                 new SeriesTemplateDefinition.Group("HOST", null, "{cluster}-{role}-{nn}", null, null)));

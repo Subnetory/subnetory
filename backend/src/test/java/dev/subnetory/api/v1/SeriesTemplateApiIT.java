@@ -500,11 +500,52 @@ class SeriesTemplateApiIT {
     }
 
     // -------------------------------------------------------
+    // Un sous-reseau par role (per-group)
+    // -------------------------------------------------------
+
+    @Test @Order(20)
+    @DisplayName("POST /expand - preset per-group : depart et sous-reseau par role, chainage sinon")
+    void expand_perGroupPresetWithRoleTargets() throws Exception {
+        mvc.perform(post(TEMPLATES_URL + "/expand")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(expandBodyWithRoles("builtin:nutanix-per-network", 3, "NTNX04",
+                                new SeriesTemplateExpandRequest.RoleTarget("IPMI", subnetId, "172.19.0.150"),
+                                new SeriesTemplateExpandRequest.RoleTarget("HOST", subnetId, "172.19.0.170"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.preview.canCreate", is(true)))
+                .andExpect(jsonPath("$.preview.groups", hasSize(3)))
+                .andExpect(jsonPath("$.preview.groups[0].label", is("IPMI")))
+                .andExpect(jsonPath("$.preview.groups[0].subnetId", is(subnetId.intValue())))
+                .andExpect(jsonPath("$.preview.groups[0].rows[0].ip", is("172.19.0.150")))
+                .andExpect(jsonPath("$.preview.groups[1].rows[0].ip", is("172.19.0.170")))
+                .andExpect(jsonPath("$.preview.groups[2].rows[0].ip", is("172.19.0.173")))
+                .andExpect(jsonPath("$.preview.groups[2].rows[0].hostname", is("NTNX04-CVM-01")));
+    }
+
+    @Test @Order(21)
+    @DisplayName("POST /expand - cibles par role sur un template sequentiel -> 400")
+    void expand_roleTargetsOnSequentialTemplateReturns400() throws Exception {
+        mvc.perform(post(TEMPLATES_URL + "/expand")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(expandBodyWithRoles("builtin:nutanix-hpe", 3, "NTNX05",
+                                new SeriesTemplateExpandRequest.RoleTarget("HOST", subnetId, "172.19.0.180"))))
+                .andExpect(status().isBadRequest());
+    }
+
+    // -------------------------------------------------------
     // helpers
     // -------------------------------------------------------
 
     private String expandBody(String key, Integer nodes, String cluster, String startIp) throws Exception {
         return objectMapper.writeValueAsString(new SeriesTemplateExpandRequest(
                 subnetId, key, nodes, cluster, null, startIp, null, null, null, null, null));
+    }
+
+    private String expandBodyWithRoles(String key, Integer nodes, String cluster,
+                                       SeriesTemplateExpandRequest.RoleTarget... roles) throws Exception {
+        return objectMapper.writeValueAsString(new SeriesTemplateExpandRequest(
+                subnetId, key, nodes, cluster, null, null, null, null, null, null, null, List.of(roles)));
     }
 }

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import dev.subnetory.dto.SeriesGroupsRequest;
 import dev.subnetory.dto.SeriesTemplateDefinition;
+import dev.subnetory.dto.SeriesTemplateExpandRequest;
 import dev.subnetory.exception.InvalidSeriesException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -269,6 +270,81 @@ class SeriesTemplateExpanderTest {
     // -------------------------------------------------------
     // helpers
     // -------------------------------------------------------
+
+    // -------------------------------------------------------
+    // expand - un sous-reseau par role (per-group)
+    // -------------------------------------------------------
+
+    private static SeriesTemplateDefinition perGroup() {
+        return new SeriesTemplateDefinition(SeriesTemplateDefinition.PER_GROUP, null, null, null,
+                nutanix().groups());
+    }
+
+    private static SeriesTemplateExpander.Params withRoles(String startIp,
+            SeriesTemplateExpandRequest.RoleTarget... roles) {
+        return new SeriesTemplateExpander.Params("NTNX01", null, 4, startIp, null, null, null,
+                null, null, Arrays.asList(roles));
+    }
+
+    @Test
+    @DisplayName("expand per-group : chaque role recoit son sous-reseau et son IP de depart")
+    void expand_perGroupAppliesRoleTargets() {
+        SeriesGroupsRequest request = SeriesTemplateExpander.expand(SUBNET_ID, perGroup(), withRoles(null,
+                new SeriesTemplateExpandRequest.RoleTarget("ILO", 11L, "10.0.10.20"),
+                new SeriesTemplateExpandRequest.RoleTarget("host", 12L, "10.0.20.20"),
+                new SeriesTemplateExpandRequest.RoleTarget("CVM", 13L, null)));
+
+        assertThat(request.startIp()).isNull();
+        assertThat(request.groups()).extracting(SeriesGroupsRequest.Group::subnetId)
+                .containsExactly(12L, 13L, 11L);
+        assertThat(request.groups()).extracting(SeriesGroupsRequest.Group::startIp)
+                .containsExactly("10.0.20.20", null, "10.0.10.20");
+        assertThat(request.groups()).extracting(SeriesGroupsRequest.Group::prefix)
+                .containsExactly("NTNX01-HOST-", "NTNX01-CVM-", "NTNX01-ILO-");
+    }
+
+    @Test
+    @DisplayName("expand per-group : sans cible, les roles suivent le sous-reseau de la demande")
+    void expand_perGroupWithoutTargets() {
+        SeriesGroupsRequest request = SeriesTemplateExpander.expand(SUBNET_ID, perGroup(),
+                withRoles("10.0.0.10"));
+
+        assertThat(request.startIp()).isEqualTo("10.0.0.10");
+        assertThat(request.groups()).allSatisfy(g -> {
+            assertThat(g.subnetId()).isNull();
+            assertThat(g.startIp()).isNull();
+        });
+    }
+
+    @Test
+    @DisplayName("expand : cibles par role refusees hors template per-group, roles inconnus ou en double")
+    void expand_roleTargetsAreChecked() {
+        assertThatThrownBy(() -> SeriesTemplateExpander.expand(SUBNET_ID, nutanix(), withRoles("10.0.0.10",
+                new SeriesTemplateExpandRequest.RoleTarget("HOST", 11L, null))))
+                .isInstanceOf(InvalidSeriesException.class).hasMessageContaining("per-group");
+        assertThatThrownBy(() -> SeriesTemplateExpander.expand(SUBNET_ID, perGroup(), withRoles(null,
+                new SeriesTemplateExpandRequest.RoleTarget("NOPE", 11L, null))))
+                .isInstanceOf(InvalidSeriesException.class).hasMessageContaining("Unknown role");
+        assertThatThrownBy(() -> SeriesTemplateExpander.expand(SUBNET_ID, perGroup(), withRoles(null,
+                new SeriesTemplateExpandRequest.RoleTarget("HOST", 11L, null),
+                new SeriesTemplateExpandRequest.RoleTarget("host", 12L, null))))
+                .isInstanceOf(InvalidSeriesException.class).hasMessageContaining("twice");
+        assertThatThrownBy(() -> SeriesTemplateExpander.expand(SUBNET_ID, perGroup(), withRoles(null,
+                new SeriesTemplateExpandRequest.RoleTarget("HOST", 11L, "not-an-ip"))))
+                .isInstanceOf(InvalidSeriesException.class).hasMessageContaining("start address");
+        assertThatThrownBy(() -> SeriesTemplateExpander.expand(SUBNET_ID, perGroup(), withRoles("bad-ip")))
+                .isInstanceOf(InvalidSeriesException.class).hasMessageContaining("start address");
+        assertThatThrownBy(() -> SeriesTemplateExpander.expand(SUBNET_ID, perGroup(),
+                new SeriesTemplateExpander.Params("NTNX01", null, 4, null, null, null, null, null, null,
+                        Arrays.asList((SeriesTemplateExpandRequest.RoleTarget) null))))
+                .isInstanceOf(InvalidSeriesException.class).hasMessageContaining("role");
+    }
+
+    @Test
+    @DisplayName("validate : l'allocation per-group est acceptee")
+    void validate_acceptsPerGroup() {
+        SeriesTemplateExpander.validate(perGroup());
+    }
 
     private static void assertInvalid(SeriesTemplateDefinition definition, String message) {
         assertThatThrownBy(() -> SeriesTemplateExpander.validate(definition))

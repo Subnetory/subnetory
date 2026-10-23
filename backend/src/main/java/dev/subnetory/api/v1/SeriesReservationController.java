@@ -19,7 +19,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Reservation d'adresses IPv4 en serie avec nommage incremente.
@@ -90,7 +93,17 @@ public class SeriesReservationController {
     public SeriesReservationResponse createRows(@Valid @RequestBody SeriesRowsRequest request,
                                                 Authentication auth) {
         SeriesReservationResponse result = seriesReservationService.createRows(request, auth.getName());
-        audit(auth.getName(), request.subnetId(), result);
+        // Une entree d'audit par sous-reseau touche (les lignes peuvent viser plusieurs sous-reseaux).
+        Map<Long, List<String>> bySubnet = new LinkedHashMap<>();
+        for (int i = 0; i < request.rows().size(); i++) {
+            Long subnetId = request.rows().get(i).subnetId() != null
+                    ? request.rows().get(i).subnetId() : request.subnetId();
+            bySubnet.computeIfAbsent(subnetId, k -> new ArrayList<>()).add(result.rows().get(i).ip());
+        }
+        bySubnet.forEach((subnetId, ips) -> authAuditService.recordAddressSeriesReserved(
+                auth.getName(), subnetId,
+                subnetId.equals(request.subnetId()) ? result.network() : null,
+                ips.size(), ips.get(0), ips.get(ips.size() - 1)));
         return result;
     }
 
@@ -99,7 +112,9 @@ public class SeriesReservationController {
     @Operation(summary = "Apercu de plusieurs series enchainees",
             description = "Rôles requis : ADMIN ou IP. Les groupes (ex. hotes, CVM, IPMI) sont "
                     + "places l'un apres l'autre a partir de startIp, avec gap adresses libres "
-                    + "entre deux groupes. Signale pour chaque ligne AVAILABLE, OCCUPIED, "
+                    + "entre deux groupes. Un groupe peut avoir son propre sous-reseau (subnetId, "
+                    + "meme contexte) et son propre depart (startIp) ; sans depart il suit le groupe "
+                    + "precedent (meme sous-reseau) ou prend le premier bloc libre du sous-reseau. Signale pour chaque ligne AVAILABLE, OCCUPIED, "
                     + "RESERVED (passerelle) ou OUT_OF_RANGE, sans rien enregistrer. "
                     + "occupiedMode : block (defaut) ou skip, pour tous les groupes.")
     public SeriesGroupsResponse previewGroups(@Valid @RequestBody SeriesGroupsRequest request) {
@@ -118,10 +133,17 @@ public class SeriesReservationController {
     public SeriesGroupsResponse createGroups(@Valid @RequestBody SeriesGroupsRequest request,
                                              Authentication auth) {
         SeriesGroupsResponse result = seriesReservationService.createGroups(request, auth.getName());
-        List<SeriesReservationResponse.Entry> rows = result.groups().stream()
-                .flatMap(g -> g.rows().stream()).toList();
-        authAuditService.recordAddressSeriesReserved(auth.getName(), request.subnetId(), result.network(),
-                rows.size(), rows.get(0).ip(), rows.get(rows.size() - 1).ip());
+        // Une entree d'audit par sous-reseau touche (chaque groupe peut avoir le sien).
+        Map<Long, String> networks = new LinkedHashMap<>();
+        Map<Long, List<String>> bySubnet = new LinkedHashMap<>();
+        for (SeriesGroupsResponse.Group group : result.groups()) {
+            Long subnetId = group.subnetId() != null ? group.subnetId() : request.subnetId();
+            networks.putIfAbsent(subnetId, group.network() != null ? group.network() : result.network());
+            group.rows().forEach(r -> bySubnet.computeIfAbsent(subnetId, k -> new ArrayList<>()).add(r.ip()));
+        }
+        bySubnet.forEach((subnetId, ips) -> authAuditService.recordAddressSeriesReserved(
+                auth.getName(), subnetId, networks.get(subnetId),
+                ips.size(), ips.get(0), ips.get(ips.size() - 1)));
         return result;
     }
 

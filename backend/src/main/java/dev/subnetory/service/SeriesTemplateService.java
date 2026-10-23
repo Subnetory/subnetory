@@ -129,7 +129,7 @@ public class SeriesTemplateService {
         SeriesGroupsRequest groups = SeriesTemplateExpander.expand(request.subnetId(), definition,
                 new SeriesTemplateExpander.Params(request.cluster(), request.site(), request.nodes(),
                         request.startIp(), request.gap(), request.step(), request.occupiedMode(),
-                        request.description(), request.temporary()));
+                        request.description(), request.temporary(), request.roles()));
         return new SeriesTemplateExpansionResponse(groups, seriesReservationService.previewGroups(groups));
     }
 

@@ -73,6 +73,14 @@ public class BulkReservationForm {
     private Integer templateGap;
     private Integer templateStep;
     private String templateOccupied;
+    /** Sous-réseau et IP de départ par rôle (templates « un sous-réseau par rôle »). */
+    private List<@Valid TemplateRoleForm> templateRoles = newRoleLines();
+
+    /** Nombre maximal de rôles d'un template. */
+    public static final int ROLE_LINES = 10;
+
+    /** Vrai quand les lignes viennent de plusieurs sous-réseaux : affiche la colonne « sous-réseau ». */
+    private boolean multiSubnet;
 
     /** Vrai quand les lignes viennent d'une série : création atomique, adresse modifiable. */
     private boolean atomic;
@@ -143,8 +151,22 @@ public class BulkReservationForm {
     public String getTemplateOccupied()                        { return templateOccupied; }
     public void setTemplateOccupied(String templateOccupied)   { this.templateOccupied = templateOccupied; }
 
+    public List<TemplateRoleForm> getTemplateRoles()                       { return templateRoles; }
+    public void setTemplateRoles(List<TemplateRoleForm> templateRoles)     { this.templateRoles = templateRoles; }
+
+    public boolean isMultiSubnet()                     { return multiSubnet; }
+    public void setMultiSubnet(boolean multiSubnet)    { this.multiSubnet = multiSubnet; }
+
     public boolean isGrouped()                 { return grouped; }
     public void setGrouped(boolean grouped)    { this.grouped = grouped; }
+
+    private static List<TemplateRoleForm> newRoleLines() {
+        List<TemplateRoleForm> lines = new ArrayList<>();
+        for (int i = 0; i < ROLE_LINES; i++) {
+            lines.add(new TemplateRoleForm());
+        }
+        return lines;
+    }
 
     private static List<SeriesGroupForm> newGroupLines() {
         List<SeriesGroupForm> lines = new ArrayList<>();

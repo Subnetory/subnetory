@@ -2,10 +2,15 @@ package dev.subnetory.util;
 
 import dev.subnetory.dto.SeriesGroupsRequest;
 import dev.subnetory.dto.SeriesTemplateDefinition;
+import dev.subnetory.dto.SeriesTemplateExpandRequest;
 import dev.subnetory.exception.InvalidSeriesException;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -19,7 +24,10 @@ import java.util.regex.Pattern;
  * <p>Mode {@code groups-sequential} : les groupes se suivent a partir de l'IP de depart
  * (ecart configurable). Mode {@code interleaved} : chaque groupe demarre a l'adresse
  * suivante de la premiere et avance par pas de (nombre de groupes x pas), de sorte que les
- * adresses d'un noeud se suivent (hote, CVM, IPMI, puis noeud suivant).</p>
+ * adresses d'un noeud se suivent (hote, CVM, IPMI, puis noeud suivant). Mode
+ * {@code per-group} : comme le mode sequentiel, mais chaque role peut avoir son sous-reseau et son
+ * IP de depart ({@link Params#roles()}) ; sans IP de depart le moteur choisit le premier bloc
+ * libre.</p>
  */
 public final class SeriesTemplateExpander {
 
@@ -37,7 +45,16 @@ public final class SeriesTemplateExpander {
      */
     public record Params(String cluster, String site, Integer nodes, String startIp,
                          Integer gap, Integer step, String occupiedMode,
-                         String description, Boolean temporary) {}
+                         String description, Boolean temporary,
+                         List<SeriesTemplateExpandRequest.RoleTarget> roles) {
+
+        /** Parametres sans cible par role. */
+        public Params(String cluster, String site, Integer nodes, String startIp,
+                      Integer gap, Integer step, String occupiedMode,
+                      String description, Boolean temporary) {
+            this(cluster, site, nodes, startIp, gap, step, occupiedMode, description, temporary, null);
+        }
+    }
 
     /** Modele de nom decoupe : prefixe, largeur du compteur et suffixe (variables non resolues). */
     private record Format(String prefix, int width, String suffix) {}
@@ -53,9 +70,10 @@ public final class SeriesTemplateExpander {
             throw new InvalidSeriesException("The template definition is required.");
         }
         if (!SeriesTemplateDefinition.SEQUENTIAL.equals(definition.allocation())
-                && !SeriesTemplateDefinition.INTERLEAVED.equals(definition.allocation())) {
+                && !SeriesTemplateDefinition.INTERLEAVED.equals(definition.allocation())
+                && !SeriesTemplateDefinition.PER_GROUP.equals(definition.allocation())) {
             throw new InvalidSeriesException(
-                    "The allocation must be groups-sequential or interleaved.");
+                    "The allocation must be groups-sequential, interleaved or per-group.");
         }
         checkRange("groupGap", definition.groupGap(), 0, SeriesPlanner.MAX_STEP);
         checkRange("ipStep", definition.ipStep(), 1, SeriesPlanner.MAX_STEP);
@@ -116,16 +134,20 @@ public final class SeriesTemplateExpander {
             throw new InvalidSeriesException(
                     "Interleaved allocation does not support skipping occupied addresses.");
         }
+        boolean perGroup = SeriesTemplateDefinition.PER_GROUP.equals(definition.allocation());
         String startIp = params.startIp() == null ? "" : params.startIp().trim();
-        if (!IpUtils.isValidIpv4(startIp)) {
+        if (perGroup && startIp.isEmpty()) {
+            startIp = null; // facultative : chaque role peut avoir son depart ou le choix automatique
+        } else if (!IpUtils.isValidIpv4(startIp)) {
             throw new InvalidSeriesException("The start address must be a valid IPv4 address.");
         }
+        Map<String, SeriesTemplateExpandRequest.RoleTarget> targets = roleTargets(definition, params, perGroup);
         String cluster = variable("cluster", params.cluster());
         String site = variable("site", params.site());
 
         List<SeriesTemplateDefinition.Group> templateGroups = definition.groups();
         int groupCount = templateGroups.size();
-        long start = IpUtils.ipv4ToLong(startIp);
+        long start = startIp == null ? 0L : IpUtils.ipv4ToLong(startIp);
         List<SeriesGroupsRequest.Group> groups = new ArrayList<>(groupCount);
         for (int i = 0; i < groupCount; i++) {
             SeriesTemplateDefinition.Group group = templateGroups.get(i);
@@ -153,12 +175,53 @@ public final class SeriesTemplateExpander {
                 groups.add(new SeriesGroupsRequest.Group(label, count, (int) groupStep, prefix,
                         group.startCounter(), format.width(), suffix, IpUtils.longToIpv4(groupStart)));
             } else {
+                SeriesTemplateExpandRequest.RoleTarget target =
+                        targets.get(group.role().toLowerCase(Locale.ROOT));
                 groups.add(new SeriesGroupsRequest.Group(label, count, step, prefix,
-                        group.startCounter(), format.width(), suffix, null));
+                        group.startCounter(), format.width(), suffix,
+                        target == null ? null : target.startIp(),
+                        target == null ? null : target.subnetId()));
             }
         }
         return new SeriesGroupsRequest(subnetId, startIp, interleaved ? 0 : gap, mode,
                 params.description(), params.temporary(), groups);
+    }
+
+    // -------------------------------------------------------
+    // Cibles par role (template per-group)
+    // -------------------------------------------------------
+
+    private static Map<String, SeriesTemplateExpandRequest.RoleTarget> roleTargets(
+            SeriesTemplateDefinition definition, Params params, boolean perGroup) {
+        Map<String, SeriesTemplateExpandRequest.RoleTarget> targets = new HashMap<>();
+        if (params.roles() == null || params.roles().isEmpty()) {
+            return targets;
+        }
+        if (!perGroup) {
+            throw new InvalidSeriesException(
+                    "A subnet or start address per role requires a per-group template.");
+        }
+        Set<String> roles = new HashSet<>();
+        for (SeriesTemplateDefinition.Group group : definition.groups()) {
+            roles.add(group.role().toLowerCase(Locale.ROOT));
+        }
+        for (SeriesTemplateExpandRequest.RoleTarget target : params.roles()) {
+            if (target == null || target.role() == null) {
+                throw new InvalidSeriesException("A role target must name a role.");
+            }
+            String key = target.role().trim().toLowerCase(Locale.ROOT);
+            if (!roles.contains(key)) {
+                throw new InvalidSeriesException("Unknown role in the template: " + target.role());
+            }
+            if (target.startIp() != null && !IpUtils.isValidIpv4(target.startIp().trim())) {
+                throw new InvalidSeriesException(
+                        "The start address of role " + target.role() + " must be a valid IPv4 address.");
+            }
+            if (targets.put(key, target) != null) {
+                throw new InvalidSeriesException("Role " + target.role() + " is given twice.");
+            }
+        }
+        return targets;
     }
 
     // -------------------------------------------------------
