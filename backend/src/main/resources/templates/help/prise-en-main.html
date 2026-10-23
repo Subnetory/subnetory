@@ -98,6 +98,16 @@
             </section>
 
             <section class="sn-help-section">
+                <h2 th:text="#{help.gettingStarted.dashboard.title}">Le tableau de bord</h2>
+                <p th:utext="#{help.gettingStarted.dashboard.body}">La page d'accueil affiche les <strong>sous-réseaux les plus utilisés</strong> du contexte actif (ou de tous vos contextes autorisés) avec leur capacité, les adresses utilisées et le taux d'utilisation, pour repérer d'un coup d'œil les blocs bientôt saturés.</p>
+            </section>
+
+            <section class="sn-help-section">
+                <h2 th:text="#{help.gettingStarted.search.title}">Recherche globale</h2>
+                <p th:utext="#{help.gettingStarted.search.body}">La barre de recherche en haut de chaque page accepte un nom, un code, un VID, un CIDR, une adresse IP ou un nom d'hôte. Les résultats sont regroupés par type et limités aux contextes auxquels vous avez accès.</p>
+            </section>
+
+            <section class="sn-help-section">
                 <h2 th:text="#{help.gettingStarted.further.title}">Pour aller plus loin</h2>
                 <p>
                     <a th:href="@{/help/reseau}" th:text="#{help.card.network.title}">Contextes, sites, VLAN &amp; sous-réseaux</a> — <span th:text="#{help.gettingStarted.further.network}">organiser la

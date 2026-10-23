@@ -86,6 +86,14 @@
             </section>
 
             <section class="sn-help-section">
+                <h2 th:text="#{help.api.series.title}">Réservation en série et templates</h2>
+                <p th:utext="#{help.api.series.intro}">Les fonctions de réservation de l'interface existent aussi par API, réservées à <code>ROLE_ADMIN</code> ou <code>ROLE_IP</code> (la lecture des templates est ouverte à tout compte authentifié).</p>
+                <p th:utext="#{help.api.series.series}">Séries : <code>POST /api/v1/addresses/series/preview</code> puis <code>POST /api/v1/addresses/series</code>. Séries enchaînées : <code>POST /api/v1/addresses/series/groups/preview</code> puis <code>/groups</code>. Lignes éditées : <code>POST /api/v1/addresses/series/rows/preview</code> puis <code>/rows</code>.</p>
+                <p th:utext="#{help.api.series.templates}">Templates : <code>GET /api/v1/series-templates</code>, <code>GET /api/v1/series-templates/{key}</code>, <code>POST</code>, <code>PUT /{id}</code>, <code>DELETE /{id}</code>, <code>POST /{key}/duplicate</code> et <code>POST /expand</code> (calcule les lignes d'un template pour un nombre de nœuds donné).</p>
+                <p class="sn-text-muted" th:utext="#{help.api.series.bulkDelete}">La suppression en masse n'existe que dans l'interface : par API, répétez <code>DELETE /api/v1/{addresses,sites,subnets,vlans}/{id}</code>.</p>
+            </section>
+
+            <section class="sn-help-section">
                 <h2 th:text="#{help.api.monitoring.title}">Supervision</h2>
                 <p th:text="#{help.api.monitoring.intro}">État de santé de l'application, accessible sans authentification :</p>
                 <div class="sn-form__actions">

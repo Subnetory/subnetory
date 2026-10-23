@@ -81,6 +81,13 @@
             </section>
 
             <section class="sn-help-section">
+                <h2 th:text="#{help.network.manage.title}">Modifier, supprimer, supprimer en masse</h2>
+                <p th:utext="#{help.network.manage.body}">Chaque liste (sites, VLAN, sous-réseaux) propose <strong>Modifier</strong> et <strong>Supprimer</strong> par ligne. Un sous-réseau peut aussi être rattaché à un <strong>sous-réseau parent</strong>, et son bouton <strong>Réserver IP</strong> ouvre la réservation multiple avec ce sous-réseau présélectionné.</p>
+                <p th:utext="#{help.network.manage.bulk}">Pour supprimer plusieurs éléments d'un coup, cochez les lignes puis cliquez sur <strong>Supprimer la sélection</strong> et confirmez (500 éléments maximum, irréversible, une trace d'audit par élément). Un élément encore référencé par d'autres données n'est pas supprimé : le message de résultat indique combien l'ont été.</p>
+                <p class="sn-text-muted sn-help-permission" th:utext="#{help.network.manage.permission}">Suppression en masse des sites, VLAN et sous-réseaux : <code>ROLE_ADMIN</code> uniquement.</p>
+            </section>
+
+            <section class="sn-help-section">
                 <h2 th:text="#{help.network.further.title}">Pour aller plus loin</h2>
                 <p>
                     <a th:href="@{/help/adresses-ip}" th:text="#{help.card.addresses.title}">Adresses IP</a> — <span th:text="#{help.network.further.addresses}">créer, rechercher et réserver des
