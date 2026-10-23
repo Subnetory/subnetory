@@ -85,6 +85,10 @@ public class AuthAuditService {
     public static final String ADDRESS_UPDATED = "ADDRESS_UPDATED";
     public static final String ADDRESS_UPSERTED = "ADDRESS_UPSERTED";
     public static final String ADDRESS_BULK_UPSERTED = "ADDRESS_BULK_UPSERTED";
+    public static final String ADDRESS_SERIES_RESERVED = "ADDRESS_SERIES_RESERVED";
+    public static final String SERIES_TEMPLATE_CREATED = "SERIES_TEMPLATE_CREATED";
+    public static final String SERIES_TEMPLATE_UPDATED = "SERIES_TEMPLATE_UPDATED";
+    public static final String SERIES_TEMPLATE_DELETED = "SERIES_TEMPLATE_DELETED";
     public static final String ADDRESS_IMPORT_COMPLETED = "ADDRESS_IMPORT_COMPLETED";
     public static final String ADDRESS_DELETED = "ADDRESS_DELETED";
     public static final String VLAN_CREATED = "VLAN_CREATED";
@@ -409,6 +413,32 @@ public class AuthAuditService {
         record(ADDRESS_BULK_UPSERTED, username, null, null, null, true,
                 "Upsert d'adresses en masse termine. created=" + created + ", updated=" + updated
                         + ", skipped=" + skipped + ", errors=" + errors);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordAddressSeriesReserved(String username, Long subnetId, String network,
+                                            int count, String firstIp, String lastIp) {
+        record(ADDRESS_SERIES_RESERVED, username, null, null, null, true,
+                "Serie d'adresses reservee. subnetId=" + subnetId + ", network=" + network
+                        + ", count=" + count + ", first=" + firstIp + ", last=" + lastIp);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordSeriesTemplateCreated(String username, Long templateId, Long contextId, String name) {
+        record(SERIES_TEMPLATE_CREATED, username, null, null, null, true,
+                "Template de serie cree. id=" + templateId + ", contextId=" + contextId + ", name=" + name);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordSeriesTemplateUpdated(String username, Long templateId, Long contextId, String name) {
+        record(SERIES_TEMPLATE_UPDATED, username, null, null, null, true,
+                "Template de serie modifie. id=" + templateId + ", contextId=" + contextId + ", name=" + name);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordSeriesTemplateDeleted(String username, Long templateId, Long contextId, String name) {
+        record(SERIES_TEMPLATE_DELETED, username, null, null, null, true,
+                "Template de serie supprime. id=" + templateId + ", contextId=" + contextId + ", name=" + name);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

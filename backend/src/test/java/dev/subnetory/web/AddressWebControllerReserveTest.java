@@ -8,6 +8,8 @@ import dev.subnetory.service.ActiveContextService;
 import dev.subnetory.service.AddressService;
 import dev.subnetory.service.AuthAuditService;
 import dev.subnetory.service.IpAllocService;
+import dev.subnetory.service.SeriesReservationService;
+import dev.subnetory.service.SeriesTemplateService;
 import dev.subnetory.service.SubnetService;
 import dev.subnetory.util.ImportFileValidator;
 import dev.subnetory.web.form.BulkReservationForm;
@@ -51,6 +53,8 @@ class AddressWebControllerReserveTest {
     @Mock ImportFileValidator importFileValidator;
     @Mock AuthAuditService authAuditService;
     @Mock MessageSource messageSource;
+    @Mock SeriesReservationService seriesReservationService;
+    @Mock SeriesTemplateService seriesTemplateService;
 
     AddressWebController controller;
     Authentication authentication;
@@ -68,7 +72,7 @@ class AddressWebControllerReserveTest {
         controller = new AddressWebController(
                 addressService, subnetService, ipAllocService,
                 activeContextServiceProvider, importFileValidator, authAuditService,
-                messageSource);
+                messageSource, seriesReservationService, seriesTemplateService);
         authentication = new UsernamePasswordAuthenticationToken("operator", "n/a", List.of());
     }
 

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <div class="sn-page__header">
+        <div>
+            <h1 class="sn-page__title" th:text="#{seriesTemplate.title}">Templates de préparation</h1>
+            <p class="sn-page__subtitle" th:text="#{seriesTemplate.subtitle}">Presets livrés et templates de votre contexte.</p>
+        </div>
+        <div class="sn-page__actions">
+            <a th:href="@{/network/addresses/reserve}" class="sn-btn sn-btn--ghost" th:text="#{seriesTemplate.backToReserve}">Retour à la réservation</a>
+            <a th:if="${canManage}" th:href="@{/network/series-templates/new}" class="sn-btn sn-btn--primary"
+               th:text="#{seriesTemplate.button.new}">+ Nouveau template</a>
+        </div>
+    </div>
+
+    <div th:if="${flashSuccess}" class="sn-alert sn-alert--success" th:text="${flashSuccess}"></div>
+    <div th:if="${flashError}"   class="sn-alert sn-alert--error"   th:text="${flashError}"></div>
+
+    <div class="sn-card">
+        <div class="sn-table-wrapper">
+            <table class="sn-table">
+                <thead>
+                    <tr>
+                        <th scope="col" th:text="#{common.name}">Nom</th>
+                        <th scope="col" th:text="#{seriesTemplate.col.type}">Type</th>
+                        <th scope="col" th:text="#{seriesTemplate.col.groups}">Groupes</th>
+                        <th scope="col" th:text="#{seriesTemplate.col.allocation}">Allocation</th>
+                        <th scope="col" th:if="${canManage}" class="sn-table-col-actions" th:text="#{common.actions}">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="t : ${templates}">
+                        <td>
+                            <strong th:text="${t.name}">Nutanix</strong>
+                            <div class="sn-text-muted" th:if="${t.description}" th:text="${t.description}">Description</div>
+                        </td>
+                        <td>
+                            <span class="sn-badge" th:classappend="${t.builtin} ? 'sn-badge--neutral' : 'sn-badge--green'"
+                                  th:text="${t.builtin} ? #{seriesTemplate.type.builtin} : #{seriesTemplate.type.custom}">Livré</span>
+                        </td>
+                        <td class="sn-text-mono">
+                            <span th:each="g, gStat : ${t.definition.groups}">
+                                <span th:text="${g.role}">HOST</span><span th:unless="${gStat.last}"> → </span>
+                            </span>
+                        </td>
+                        <td class="sn-text-secondary"
+                            th:text="#{${'seriesTemplate.allocation.' + t.definition.allocation}}">Groupes à la suite</td>
+                        <td th:if="${canManage}" class="sn-table-actions">
+                            <a th:href="@{/network/series-templates/new(from=${t.key})}"
+                               class="sn-btn sn-btn--secondary sn-btn--sm" th:text="#{seriesTemplate.action.duplicate}">Dupliquer</a>
+                            <a th:unless="${t.builtin}" th:href="@{/network/series-templates/{id}/edit(id=${t.id})}"
+                               class="sn-btn sn-btn--secondary sn-btn--sm" th:text="#{common.edit}">Modifier</a>
+                            <form th:unless="${t.builtin}" th:action="@{/network/series-templates/{id}/delete(id=${t.id})}"
+                                  method="post" class="sn-inline-form"
+                                  th:attr="data-confirm=#{seriesTemplate.confirm.delete(${t.name})}">
+                                <button type="submit" class="sn-btn sn-btn--danger sn-btn--sm" th:text="#{common.delete}">Supprimer</button>
+                            </form>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

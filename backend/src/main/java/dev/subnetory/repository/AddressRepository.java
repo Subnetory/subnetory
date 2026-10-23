@@ -206,5 +206,22 @@ public interface AddressRepository
     List<String> findAvailableIps(@Param("subnetId") Long subnetId,
                                   @Param("limit") int limit);
 
+    /**
+     * Adresses deja presentes dans un sous-reseau entre deux IPv4 (bornes incluses).
+     * Utilisee par la reservation en serie pour reperer les conflits en une seule
+     * requete. Meme ordre {@code inet} que {@link #findAvailableIps} : les adresses
+     * sont stockees avec un prefixe hote /32 (contrainte {@code chk_addresses_host_prefix}).
+     */
+    @Query(value = """
+            SELECT host(a.address)
+            FROM addresses a
+            WHERE a.subnet_id = :subnetId
+              AND family(a.address) = 4
+              AND a.address BETWEEN CAST(:fromIp AS inet) AND CAST(:toIp AS inet)
+            """, nativeQuery = true)
+    List<String> findOccupiedIpsBetween(@Param("subnetId") Long subnetId,
+                                        @Param("fromIp") String fromIp,
+                                        @Param("toIp") String toIp);
+
     List<Address> findByHostnameStartingWithOrderByHostnameDesc(String prefix);
 }

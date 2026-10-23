@@ -1,0 +1,21 @@
+{
+  "key": "proxmox-cluster",
+  "name": "Proxmox VE cluster (nodes, BMC)",
+  "description": "Proxmox VE cluster: all nodes, then all out-of-band controllers.",
+  "definition": {
+    "allocation": "groups-sequential",
+    "groupGap": 0,
+    "ipStep": 1,
+    "onOccupied": "block",
+    "groups": [
+      {
+        "role": "PVE",
+        "format": "{cluster}-{role}-{nn}"
+      },
+      {
+        "role": "BMC",
+        "format": "{cluster}-{role}-{nn}"
+      }
+    ]
+  }
+}

@@ -204,6 +204,21 @@ Cliquer sur une IP proposée remplit automatiquement le champ adresse.
 
 ---
 
+## Réservation en série avec noms incrémentés
+
+Sur la page **Réservation multiple** (`/network/addresses/reserve`, rôles `ADMIN` ou `IP`), le bloc **Réserver une série avec noms incrémentés** génère des adresses contiguës :
+
+1. Choisir le sous-réseau, l'IP de départ, le nombre d'adresses et le pas (1 = adresses consécutives).
+2. Définir le nom : préfixe, compteur de départ, nombre de chiffres du compteur, suffixe (ex. `NTNX-HOST-` + 2 chiffres → `NTNX-HOST-01`, `NTNX-HOST-02`…).
+3. Cliquer sur **Aperçu de la série** : le tableau affiche chaque ligne avec son statut (libre, occupée, passerelle, hors plage). L'IP, le nom, la description, la MAC et l'option temporaire restent modifiables ligne par ligne.
+4. **Vérifier les adresses** revalide le tableau après vos modifications ; **Réserver ces adresses** crée toutes les lignes cochées en une seule opération.
+
+La création est « tout ou rien » : si une adresse est occupée, est la passerelle ou sort du sous-réseau, rien n'est créé et les lignes en cause sont signalées. L'option **Sauter les adresses occupées** les ignore à la place, en gardant le compteur consécutif. Une adresse existante n'est jamais modifiée.
+
+Pour plusieurs séries à la suite (par exemple les adresses d'un cluster), le bloc **Plusieurs séries enchaînées** place les groupes l'un après l'autre à partir d'une même IP de départ : tous les hôtes, puis toutes les CVM, puis tous les IPMI. Chaque ligne du tableau de groupes a son libellé, son nombre d'adresses, son préfixe de nom, son compteur et son suffixe ; les lignes sans nombre sont ignorées, et **Adresses libres entre deux groupes** laisse un écart optionnel. L'aperçu affiche la colonne **Groupe**, et le reste du parcours (modification des IP et des noms, vérification, création tout ou rien) est identique.
+
+---
+
 ## Searching lists
 
 Each tab under **Network** has a **Search** field. The search covers all pages, not
@@ -376,6 +391,43 @@ Utiliser le token :
 curl -s http://localhost:8080/api/v1/addresses \
   -H "Authorization: Bearer <token>"
 ```
+
+Réserver une série d'adresses avec noms incrémentés (rôles `ADMIN` ou `IP`) :
+```bash
+# Aperçu : rien n'est enregistré
+curl -s -X POST http://localhost:8080/api/v1/addresses/series/preview \
+  -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+  -d '{"subnetId":1,"startIp":"10.10.10.21","count":3,"prefix":"NTNX-HOST-","startCounter":1,"counterWidth":2}'
+```
+
+La même requête sur `POST /api/v1/addresses/series` crée les adresses `10.10.10.21` à `10.10.10.23` nommées `NTNX-HOST-01` à `NTNX-HOST-03`, en une seule transaction. Paramètres : `step` (pas entre adresses, 1 par défaut), `suffix`, `description`, `temporary`, `occupiedMode`.
+
+- `block` (défaut) : si une adresse est déjà utilisée, est la passerelle ou sort du sous-réseau, la réponse est `409` avec le détail de chaque ligne (`preview`) et rien n'est créé.
+- `skip` : les adresses occupées ou réservées sont sautées, le compteur reste consécutif ; `409` si la plage du sous-réseau ne permet pas d'obtenir `count` adresses.
+
+Pour une liste ajustée ligne par ligne, `POST /api/v1/addresses/series/rows/preview` et `POST /api/v1/addresses/series/rows` acceptent `{"subnetId":1,"rows":[{"ip":"10.10.10.21","hostname":"NTNX-HOST-01"}]}` (champs optionnels : `description`, `mac`, `temporary`) avec les mêmes garanties ; chaque ligne reçoit un statut `AVAILABLE`, `OCCUPIED`, `RESERVED`, `OUT_OF_RANGE`, `INVALID` ou `DUPLICATE`.
+
+Pour plusieurs séries à la suite, `POST /api/v1/addresses/series/groups/preview` et `POST /api/v1/addresses/series/groups` acceptent `{"subnetId":1,"startIp":"10.10.10.21","gap":0,"groups":[{"label":"HOST","count":3,"prefix":"NTNX-HOST-"},{"label":"CVM","count":3,"prefix":"NTNX-CVM-"}]}` : chaque groupe démarre après le dernier du précédent (plus `gap` adresses libres) et la réponse détaille chaque groupe. En cas de conflit, la réponse `409` contient `preview.groups` et rien n'est créé. 10 groupes au plus, 256 adresses au total.
+
+Une adresse existante n'est jamais modifiée. Limites : 256 adresses par série, hostname de 100 caractères maximum. Chaque création est tracée dans le journal d'audit (`ADDRESS_SERIES_RESERVED`).
+
+### Templates de préparation (cluster, infrastructure)
+
+Un template décrit une infrastructure type sous forme de données : des groupes (rôle, format de nom) et le comportement de l'allocation. `GET /api/v1/series-templates` liste les presets livrés (Nutanix sur HPE, Dell, Lenovo ou Supermicro, serveurs physiques, Proxmox VE, VMware ESXi ; globaux et en lecture seule) puis les templates personnalisés du contexte (`?contextId=`).
+
+Un format de nom contient exactement un compteur (`{n}`, `{nn}`, `{nnn}`... : le nombre de `n` donne le nombre de chiffres) et peut utiliser `{cluster}`, `{site}` et `{role}` : `{cluster}-{role}-{nn}` donne `NTNX01-HOST-01`. Paramètres du template (tous modifiables à chaque utilisation) : `allocation` (`groups-sequential` : tous les hôtes, puis toutes les CVM, puis tous les IPMI ; `interleaved` : hôte, CVM et IPMI du nœud 1, puis du nœud 2... ; `per-group` : un bloc d'adresses par rôle, chacun dans son propre sous-réseau et à sa propre IP de départ), `groupGap`, `ipStep`, `onOccupied` (`block` ou `skip`, `skip` n'étant pas disponible en mode `interleaved`).
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/series-templates/expand \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"subnetId":1,"key":"builtin:nutanix-hpe","nodes":4,"cluster":"NTNX01","startIp":"10.10.10.21"}'
+```
+
+La réponse contient `preview` (adresses, noms et statuts, rien n'est écrit) et `request`, la demande calculée, à envoyer telle quelle à `POST /api/v1/addresses/series/groups` pour créer toutes les adresses en une transaction. `POST /api/v1/series-templates/builtin:nutanix-hpe/duplicate` (`{"contextId":1,"name":"Mon Nutanix"}`) copie un preset en template personnalisé ; `POST`, `PUT /{id}` et `DELETE /{id}` gèrent les templates personnalisés (rôles `ADMIN` ou `IP`, nom unique par contexte, journalisés `SERIES_TEMPLATE_CREATED`, `_UPDATED` et `_DELETED`).
+
+Dans l'interface, la page **Réservation multiple** propose le bloc « préparer un cluster / une infrastructure » (template, nombre de nœuds, nom du cluster, IP de départ) : le résultat remplit le tableau modifiable, avec le statut de chaque ligne, avant la réservation en tout ou rien. La page **Templates de préparation** (`/network/series-templates`, lien « Gérer les templates ») liste les presets et les templates du contexte ; « Dupliquer » ouvre une copie modifiable d'un preset ou d'un template, et les rôles `ADMIN` et `IP` peuvent créer, modifier et supprimer les templates du contexte.
+
+**Un sous-réseau par rôle.** Pour les infrastructures où l'IPMI, les hôtes et les CVM sont dans des réseaux distincts (gestion, serveurs, stockage...), utilisez un template `per-group` (preset « Nutanix - un sous-réseau par rôle »). `POST /api/v1/series-templates/expand` accepte alors `roles` : une entrée par rôle avec `subnetId` (celui de la demande par défaut) et `startIp` (facultative). Un rôle sans IP de départ prend le premier bloc libre de son sous-réseau, en évitant la passerelle et les adresses déjà prises ; l'`startIp` général devient facultatif. Les groupes de `POST /api/v1/addresses/series/groups` acceptent aussi `subnetId` et `startIp` par groupe, et les lignes de `/series/rows` un `subnetId` : tous les sous-réseaux doivent appartenir au même contexte, l'accès est contrôlé pour chacun, la création reste tout ou rien et le journal d'audit contient une entrée par sous-réseau. Dans l'interface, choisir un template `per-group` fait apparaître un tableau « sous-réseau et IP de départ par rôle » ; le tableau d'aperçu affiche alors une colonne **Sous-réseau**.
 
 ---
 

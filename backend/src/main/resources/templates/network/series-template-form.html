@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::#main-content})}">
+<body>
+<div id="main-content">
+<div class="sn-page">
+
+    <div class="sn-page__header">
+        <div>
+            <h1 class="sn-page__title" th:text="${pageTitle}">Template</h1>
+            <p class="sn-page__subtitle" th:text="#{seriesTemplate.form.subtitle}">Décrivez les groupes d'adresses et leur nommage.</p>
+        </div>
+    </div>
+
+    <div th:if="${formError}" class="sn-alert sn-alert--error" th:text="${formError}"></div>
+
+    <div class="sn-card sn-card--padded sn-form-card">
+        <form th:action="${formAction}" th:object="${form}" method="post" novalidate class="sn-form">
+
+            <input type="hidden" th:field="*{id}" />
+
+            <div class="sn-form__group" th:classappend="${#fields.hasErrors('name')} ? ' sn-form__group--error'">
+                <label for="name" class="sn-form__label">
+                    <span th:text="#{common.name}">Nom</span> <span class="sn-form-required">*</span>
+                </label>
+                <input type="text" id="name" th:field="*{name}" class="sn-input"
+                       th:placeholder="#{seriesTemplate.form.name.placeholder}"
+                       autocomplete="off" maxlength="100" required aria-required="true" />
+                <span class="sn-form__error" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></span>
+            </div>
+
+            <div class="sn-form__group" th:classappend="${#fields.hasErrors('description')} ? ' sn-form__group--error'">
+                <label for="description" class="sn-form__label" th:text="#{common.description}">Description</label>
+                <input type="text" id="description" th:field="*{description}" class="sn-input"
+                       autocomplete="off" maxlength="500" />
+                <span class="sn-form__error" th:if="${#fields.hasErrors('description')}" th:errors="*{description}"></span>
+            </div>
+
+            <div class="sn-form__group" th:classappend="${#fields.hasErrors('contextId')} ? ' sn-form__group--error'">
+                <label for="contextId" class="sn-form__label">
+                    <span th:text="#{common.context}">Contexte</span> <span class="sn-form-required">*</span>
+                </label>
+                <div th:if="${form.id != null}">
+                    <input type="hidden" th:field="*{contextId}" />
+                    <span th:each="ctx : ${allContexts}" th:if="${ctx.id == form.contextId}"
+                          class="sn-text-secondary" th:text="${ctx.name}">Default</span>
+                </div>
+                <select th:if="${form.id == null}" id="contextId" th:field="*{contextId}" class="sn-input"
+                        required aria-required="true">
+                    <option value="" th:text="#{select.placeholder.context}">— Sélectionner un contexte —</option>
+                    <option th:each="ctx : ${allContexts}" th:value="${ctx.id}" th:text="${ctx.name}">Contexte</option>
+                </select>
+                <span class="sn-form__error" th:if="${#fields.hasErrors('contextId')}" th:errors="*{contextId}"></span>
+            </div>
+
+            <div class="sn-form__group">
+                <label for="allocation" class="sn-form__label" th:text="#{seriesTemplate.form.allocation}">Allocation</label>
+                <select id="allocation" th:field="*{allocation}" class="sn-input">
+                    <option value="groups-sequential" th:text="#{seriesTemplate.allocation.groups-sequential}">Groupes à la suite</option>
+                    <option value="interleaved" th:text="#{seriesTemplate.allocation.interleaved}">Entrelacé</option>
+                    <option value="per-group" th:text="#{seriesTemplate.allocation.per-group}">Un sous-réseau par rôle</option>
+                </select>
+            </div>
+
+            <div class="sn-form__group">
+                <label for="groupGap" class="sn-form__label" th:text="#{seriesTemplate.form.groupGap}">Adresses libres entre deux groupes</label>
+                <input type="number" id="groupGap" th:field="*{groupGap}" class="sn-input sn-input--narrow" min="0" max="256">
+            </div>
+
+            <div class="sn-form__group">
+                <label for="ipStep" class="sn-form__label" th:text="#{seriesTemplate.form.ipStep}">Pas entre adresses</label>
+                <input type="number" id="ipStep" th:field="*{ipStep}" class="sn-input sn-input--narrow" min="1" max="256">
+            </div>
+
+            <div class="sn-form__group">
+                <label for="onOccupied" class="sn-form__label" th:text="#{reserve.template.occupied}">Adresse occupée</label>
+                <select id="onOccupied" th:field="*{onOccupied}" class="sn-input">
+                    <option value="block" th:text="#{reserve.template.occupied.block}">Bloquer toute la série</option>
+                    <option value="skip" th:text="#{reserve.template.occupied.skip}">Sauter les adresses occupées</option>
+                </select>
+            </div>
+
+            <h2 class="sn-card__title" th:text="#{seriesTemplate.form.groups.title}">Groupes</h2>
+            <p class="sn-text-muted" th:text="#{seriesTemplate.form.groups.help}">
+                Format du nom : un compteur {nn} et les variables {cluster}, {site}, {role}.
+            </p>
+
+            <div class="sn-table-wrapper">
+                <table class="sn-table">
+                    <thead>
+                        <tr>
+                            <th scope="col" th:text="#{seriesTemplate.form.group.role}">Rôle</th>
+                            <th scope="col" th:text="#{seriesTemplate.form.group.label}">Libellé</th>
+                            <th scope="col" th:text="#{seriesTemplate.form.group.format}">Format du nom</th>
+                            <th scope="col" th:text="#{seriesTemplate.form.group.count}">Nombre fixe</th>
+                            <th scope="col" th:text="#{reserve.series.startCounter}">Compteur de départ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="g, gStat : *{groups}">
+                            <td>
+                                <input type="text" th:field="*{groups[__${gStat.index}__].role}" class="sn-input"
+                                       maxlength="30" placeholder="HOST" autocomplete="off"
+                                       th:attr="aria-label=#{seriesTemplate.form.group.role.aria(${gStat.count})}">
+                            </td>
+                            <td>
+                                <input type="text" th:field="*{groups[__${gStat.index}__].label}" class="sn-input"
+                                       maxlength="50" autocomplete="off"
+                                       th:attr="aria-label=#{seriesTemplate.form.group.label.aria(${gStat.count})}">
+                            </td>
+                            <td>
+                                <input type="text" th:field="*{groups[__${gStat.index}__].format}" class="sn-input sn-text-mono"
+                                       maxlength="100" placeholder="{cluster}-{role}-{nn}" autocomplete="off"
+                                       th:attr="aria-label=#{seriesTemplate.form.group.format.aria(${gStat.count})}">
+                            </td>
+                            <td>
+                                <input type="number" th:field="*{groups[__${gStat.index}__].count}"
+                                       class="sn-input sn-input--narrow" min="1" max="256"
+                                       th:attr="aria-label=#{seriesTemplate.form.group.count.aria(${gStat.count})}">
+                            </td>
+                            <td>
+                                <input type="number" th:field="*{groups[__${gStat.index}__].startCounter}"
+                                       class="sn-input sn-input--narrow" min="0"
+                                       th:attr="aria-label=#{seriesTemplate.form.group.startCounter.aria(${gStat.count})}">
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="sn-form__actions">
+                <button type="submit" class="sn-btn sn-btn--primary" th:text="#{common.save}">Enregistrer</button>
+                <a th:href="${cancelUrl}" class="sn-btn sn-btn--secondary" th:text="#{common.cancel}">Annuler</a>
+            </div>
+
+        </form>
+    </div>
+
+</div>
+</div>
+</body>
+</html>

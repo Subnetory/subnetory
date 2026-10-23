@@ -14,6 +14,8 @@ Subnetory is API-first: every business operation available from the web interfac
 | Available IPs | `/network/subnets/{id}/available-ips` | `GET /api/v1/subnets/{id}/available-ips` |
 | Subnet scan | `/network/subnets/{id}/scan` | `POST /api/v1/subnets/{id}/scan` |
 | Addresses | `/network/addresses` | `/api/v1/addresses` |
+| Serial IP reservation | `/network/addresses/reserve` (series mode), `/reserve/series`, `/reserve/groups`, `/reserve/check` | `POST /api/v1/addresses/series/preview`, `POST /api/v1/addresses/series`, `POST /api/v1/addresses/series/groups/preview`, `POST /api/v1/addresses/series/groups`, `POST /api/v1/addresses/series/rows/preview`, `POST /api/v1/addresses/series/rows` |
+| Series templates | `/network/addresses/reserve` (template block, `/reserve/template`), `/network/series-templates` (list, create, edit, delete, duplicate) | `GET /api/v1/series-templates`, `GET /api/v1/series-templates/{key}`, `POST`, `PUT /{id}`, `DELETE /{id}`, `POST /{key}/duplicate`, `POST /expand` |
 | Bulk delete from lists (addresses: `ROLE_ADMIN`/`ROLE_IP`; sites, subnets, VLANs: `ROLE_ADMIN`) | `POST /network/{addresses,sites,subnets,vlans}/bulk-delete` (checkbox column, "Supprimer la sélection") | Repeated `DELETE /api/v1/{addresses,sites,subnets,vlans}/{id}` — no batch endpoint |
 | Address import/export | `/network/addresses/import`, exports | `/api/v1/addresses/import`, `/import/csv`, `/import/xlsx`, exports |
 | Authentication | `/login` | `POST /api/v1/auth/token`, `/logout`, `/logout-all` |
