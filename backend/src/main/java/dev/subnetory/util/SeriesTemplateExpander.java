@@ -263,8 +263,30 @@ public final class SeriesTemplateExpander {
         return new Format(prefix, width, suffix);
     }
 
+    /**
+     * Vrai si la partie contient une accolade qui n'appartient pas a une variable
+     * complete {@code {lettres}}. Parcours lineaire, sans expression reguliere : le
+     * format est saisi par l'utilisateur (risque de ReDoS polynomial).
+     */
     private static boolean hasStrayBrace(String part) {
-        return TOKEN.matcher(part).replaceAll("").matches(".*[{}].*");
+        int i = 0;
+        while (i < part.length()) {
+            char c = part.charAt(i);
+            if (c == '}') return true;
+            if (c != '{') {
+                i++;
+                continue;
+            }
+            int j = i + 1;
+            while (j < part.length() && isAsciiLetter(part.charAt(j))) j++;
+            if (j == i + 1 || j >= part.length() || part.charAt(j) != '}') return true;
+            i = j + 1;
+        }
+        return false;
+    }
+
+    private static boolean isAsciiLetter(char c) {
+        return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
     }
 
     private static String resolve(String part, String role, String cluster, String site) {
