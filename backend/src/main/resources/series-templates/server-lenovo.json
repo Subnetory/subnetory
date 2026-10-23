@@ -1,0 +1,21 @@
+{
+  "key": "server-lenovo",
+  "name": "Servers - Lenovo (hosts, XCC)",
+  "description": "Physical Lenovo servers: all hosts, then all XCC.",
+  "definition": {
+    "allocation": "groups-sequential",
+    "groupGap": 0,
+    "ipStep": 1,
+    "onOccupied": "block",
+    "groups": [
+      {
+        "role": "HOST",
+        "format": "{cluster}-{role}-{nn}"
+      },
+      {
+        "role": "XCC",
+        "format": "{cluster}-{role}-{nn}"
+      }
+    ]
+  }
+}

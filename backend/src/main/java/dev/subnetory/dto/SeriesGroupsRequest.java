@@ -65,6 +65,8 @@ public record SeriesGroupsRequest(
      * @param startCounter premiere valeur du compteur (1 par defaut)
      * @param counterWidth nombre de chiffres du compteur (2 par defaut)
      * @param suffix       fin du nom
+     * @param startIp      IP de depart propre au groupe ; absente, le groupe demarre apres
+     *                     la fin du groupe precedent (ou a l'IP de depart de la demande)
      */
     public record Group(
             @Size(max = 50, message = "Label must be at most 50 characters")
@@ -91,14 +93,27 @@ public record SeriesGroupsRequest(
             Integer counterWidth,
 
             @Size(max = 90, message = "Suffix must be at most 90 characters")
-            String suffix
+            String suffix,
+
+            @Pattern(
+                regexp = "^$|^((25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)$",
+                message = "Group start address must be a valid IPv4 address (without prefix)"
+            )
+            String startIp
     ) {
+        /** Groupe sans IP de depart propre : il suit le groupe precedent. */
+        public Group(String label, Integer count, Integer step, String prefix,
+                     Long startCounter, Integer counterWidth, String suffix) {
+            this(label, count, step, prefix, startCounter, counterWidth, suffix, null);
+        }
+
         public Group {
             if (step == null) step = 1;
             if (startCounter == null) startCounter = 1L;
             if (counterWidth == null) counterWidth = 2;
             if (prefix == null) prefix = "";
             if (suffix == null) suffix = "";
+            if (startIp != null && startIp.isBlank()) startIp = null;
         }
     }
 }

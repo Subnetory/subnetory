@@ -131,16 +131,17 @@ public class SeriesReservationService {
         SeriesGroupsResponse view = toGroupsResponse(subnet, request, plans);
 
         if (!view.canCreate()) {
-            long conflicts = plans.stream()
-                    .flatMap(gp -> gp.plan().rows().stream())
-                    .filter(r -> r.status() != SeriesPlanner.Status.AVAILABLE)
+            long conflicts = view.groups().stream()
+                    .flatMap(g -> g.rows().stream())
+                    .filter(r -> !STATUS_AVAILABLE.equals(r.status()))
                     .count();
             int missing = plans.stream().mapToInt(gp -> gp.plan().shortfall()).sum();
             throw new SeriesGroupsConflictException(missing > 0
                     ? "Not enough free addresses for the series: " + missing
                             + " address(es) missing; no address was created."
                     : "The series cannot be created: " + conflicts
-                            + " address(es) are occupied, reserved or out of range; no address was created.",
+                            + " address(es) are occupied, reserved, duplicated or out of range;"
+                            + " no address was created.",
                     view);
         }
 
@@ -192,6 +193,9 @@ public class SeriesReservationService {
         String cursor = request.startIp() == null ? null : request.startIp().trim();
         for (int i = 0; i < groups.size(); i++) {
             SeriesGroupsRequest.Group group = groups.get(i);
+            if (group.startIp() != null) {
+                cursor = group.startIp().trim();
+            }
             SeriesReservationRequest single = new SeriesReservationRequest(
                     subnet.getId(), cursor, group.count(), group.step(), group.prefix(),
                     group.startCounter(), group.counterWidth(), group.suffix(),
@@ -214,18 +218,32 @@ public class SeriesReservationService {
 
     private SeriesGroupsResponse toGroupsResponse(Subnet subnet, SeriesGroupsRequest request,
                                                   List<GroupPlan> plans) {
-        List<SeriesGroupsResponse.Group> groups = plans.stream()
-                .map(gp -> new SeriesGroupsResponse.Group(
-                        gp.group().label(),
-                        gp.group().count(),
-                        gp.plan().shortfall(),
-                        gp.plan().rows().stream().map(SeriesReservationService::toEntry).toList(),
-                        gp.plan().skipped().stream().map(SeriesReservationService::toEntry).toList()))
-                .toList();
+        // Chevauchement entre groupes : une adresse deja prise par un groupe precedent
+        // est signalee DUPLICATE dans le groupe suivant.
+        Set<String> seen = new HashSet<>();
+        boolean overlap = false;
+        List<SeriesGroupsResponse.Group> groups = new ArrayList<>(plans.size());
+        for (GroupPlan gp : plans) {
+            List<SeriesReservationResponse.Entry> rows = new ArrayList<>(gp.plan().rows().size());
+            for (SeriesPlanner.Row row : gp.plan().rows()) {
+                String status = row.status().name();
+                if (!seen.add(row.ip())) {
+                    status = STATUS_DUPLICATE;
+                    overlap = true;
+                }
+                rows.add(new SeriesReservationResponse.Entry(row.ip(), row.hostname(), status));
+            }
+            groups.add(new SeriesGroupsResponse.Group(
+                    gp.group().label(),
+                    gp.group().count(),
+                    gp.plan().shortfall(),
+                    rows,
+                    gp.plan().skipped().stream().map(SeriesReservationService::toEntry).toList()));
+        }
         return new SeriesGroupsResponse(
                 subnet.getNetwork(),
                 request.occupiedMode(),
-                plans.stream().allMatch(gp -> gp.plan().canCreate()),
+                !overlap && plans.stream().allMatch(gp -> gp.plan().canCreate()),
                 plans.stream().mapToInt(gp -> gp.group().count()).sum(),
                 groups);
     }

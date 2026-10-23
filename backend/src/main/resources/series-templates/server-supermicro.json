@@ -1,0 +1,21 @@
+{
+  "key": "server-supermicro",
+  "name": "Servers - Supermicro (hosts, IPMI)",
+  "description": "Physical Supermicro servers: all hosts, then all IPMI.",
+  "definition": {
+    "allocation": "groups-sequential",
+    "groupGap": 0,
+    "ipStep": 1,
+    "onOccupied": "block",
+    "groups": [
+      {
+        "role": "HOST",
+        "format": "{cluster}-{role}-{nn}"
+      },
+      {
+        "role": "IPMI",
+        "format": "{cluster}-{role}-{nn}"
+      }
+    ]
+  }
+}
