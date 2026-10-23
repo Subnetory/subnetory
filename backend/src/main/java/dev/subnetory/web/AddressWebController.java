@@ -7,6 +7,8 @@ import dev.subnetory.dto.AvailableIpResponse;
 import dev.subnetory.dto.BulkUpsertRequest;
 import dev.subnetory.dto.BulkUpsertResponse;
 import dev.subnetory.dto.CsvImportResponse;
+import dev.subnetory.dto.SeriesGroupsRequest;
+import dev.subnetory.dto.SeriesGroupsResponse;
 import dev.subnetory.dto.SeriesReservationRequest;
 import dev.subnetory.dto.SeriesReservationResponse;
 import dev.subnetory.dto.SeriesRowsRequest;
@@ -26,6 +28,7 @@ import dev.subnetory.util.CsvSafeValue;
 import dev.subnetory.web.form.AddressForm;
 import dev.subnetory.web.form.BulkReservationForm;
 import dev.subnetory.web.form.BulkReservationRow;
+import dev.subnetory.web.form.SeriesGroupForm;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
@@ -537,6 +540,87 @@ public class AddressWebController {
         return reserveView(model, form, locale);
     }
 
+    /**
+     * Calcule plusieurs séries enchaînées (ex. HOST, puis CVM, puis IPMI à partir d'une
+     * même IP de départ) et les charge dans le tableau, sans rien enregistrer. Les lignes
+     * sans nombre d'adresses sont ignorées ; la création finale passe par les lignes du
+     * tableau (tout ou rien), comme pour une série simple.
+     */
+    @PostMapping("/reserve/groups")
+    @PreAuthorize("hasAnyRole('ADMIN', 'IP')")
+    public String reserveGroups(@ModelAttribute("form") BulkReservationForm form,
+                                BindingResult errors,
+                                Model model,
+                                Locale locale) {
+        form.getRows().clear();
+        form.setAtomic(false);
+        form.setGrouped(false);
+        if (form.getSubnetId() == null) {
+            model.addAttribute("formError", msg("flash.reserve.selectSubnet", locale));
+            return reserveView(model, form, locale);
+        }
+        if (errors.hasErrors()) {
+            model.addAttribute("formError", msg("flash.reserve.series.badNumber", locale));
+            return reserveView(model, form, locale);
+        }
+
+        List<SeriesGroupsRequest.Group> groups = form.getGroups().stream()
+                .filter(g -> g != null && g.getCount() != null)
+                .map(AddressWebController::toGroup)
+                .toList();
+        if (groups.isEmpty()) {
+            model.addAttribute("formError", msg("flash.reserve.groups.none", locale));
+            return reserveView(model, form, locale);
+        }
+
+        SeriesGroupsRequest request = new SeriesGroupsRequest(
+                form.getSubnetId(),
+                form.getSeriesStartIp() == null ? null : form.getSeriesStartIp().trim(),
+                form.getSeriesGap(),
+                form.isSeriesSkipOccupied() ? "skip" : "block",
+                null,
+                false,
+                groups);
+        SeriesGroupsResponse preview;
+        try {
+            preview = seriesReservationService.previewGroups(request);
+        } catch (InvalidSeriesException e) {
+            model.addAttribute("formError", msg("flash.reserve.series.invalid", locale, e.getMessage()));
+            return reserveView(model, form, locale);
+        } catch (ResourceNotFoundException e) {
+            model.addAttribute("formError", msg("flash.reserve.subnetNotFound", locale));
+            return reserveView(model, form, locale);
+        }
+
+        String description = form.getSeriesDescription() == null || form.getSeriesDescription().isBlank()
+                ? null : form.getSeriesDescription();
+        List<String> skipped = new java.util.ArrayList<>();
+        int shortfall = 0;
+        for (SeriesGroupsResponse.Group group : preview.groups()) {
+            for (SeriesReservationResponse.Entry entry : group.rows()) {
+                BulkReservationRow row = new BulkReservationRow(entry.ip());
+                row.setHostname(entry.hostname());
+                row.setDescription(description);
+                row.setStatus(entry.status());
+                row.setGroup(group.label());
+                form.getRows().add(row);
+            }
+            group.skipped().forEach(e -> skipped.add(e.ip()));
+            shortfall += group.shortfall();
+        }
+        form.setAtomic(true);
+        form.setGrouped(true);
+        if (!skipped.isEmpty()) {
+            model.addAttribute("seriesSkipped", String.join(", ", skipped));
+        }
+        if (shortfall > 0) {
+            model.addAttribute("formError", msg("flash.reserve.series.shortfall", locale, shortfall));
+        } else if (!preview.canCreate()) {
+            model.addAttribute("formError", msg("flash.reserve.atomic.conflict", locale));
+        }
+        return reserveView(model, form, locale);
+    }
+
     /** Contrôle les lignes du tableau (mode série) sans rien enregistrer. */
     @PostMapping("/reserve/check")
     @PreAuthorize("hasAnyRole('ADMIN', 'IP')")
@@ -669,6 +753,12 @@ public class AddressWebController {
         for (int i = 0; i < selected.size() && i < result.rows().size(); i++) {
             selected.get(i).setStatus(result.rows().get(i).status());
         }
+    }
+
+    private static SeriesGroupsRequest.Group toGroup(SeriesGroupForm g) {
+        return new SeriesGroupsRequest.Group(
+                g.getLabel() == null || g.getLabel().isBlank() ? null : g.getLabel().trim(),
+                g.getCount(), null, g.getPrefix(), g.getStartCounter(), g.getCounterWidth(), g.getSuffix());
     }
 
     private String reserveView(Model model, BulkReservationForm form, Locale locale) {

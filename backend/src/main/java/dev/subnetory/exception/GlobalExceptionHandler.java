@@ -250,6 +250,20 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Series enchainees impossibles telles quelles : meme principe que
+     * {@link #handleSeriesConflict}, avec un apercu detaille groupe par groupe.
+     */
+    @ExceptionHandler(SeriesGroupsConflictException.class)
+    public ProblemDetail handleSeriesGroupsConflict(SeriesGroupsConflictException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        pd.setType(URI.create(ERROR_BASE + "conflict"));
+        pd.setTitle("Conflict");
+        pd.setProperty("preview", ex.getPreview());
+        pd.setProperty("timestamp", Instant.now());
+        return pd;
+    }
+
+    /**
      * Violation d'une règle anti-lockout côté administration des comptes
      * (correctif 03/08/2026, à l'occasion de l'ajout de la suppression de
      * compte) : jusqu'ici {@link dev.subnetory.service.AdminLockoutException}

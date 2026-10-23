@@ -39,6 +39,9 @@ public class BulkReservationRow {
      */
     private String status;
 
+    /** Libellé du groupe d'origine (mode « plusieurs séries ») ; affichage seul. */
+    private String group;
+
     public BulkReservationRow() {}
 
     public BulkReservationRow(String address) {
@@ -65,4 +68,7 @@ public class BulkReservationRow {
 
     public String getStatus()              { return status; }
     public void setStatus(String status)   { this.status = status; }
+
+    public String getGroup()               { return group; }
+    public void setGroup(String group)     { this.group = group; }
 }

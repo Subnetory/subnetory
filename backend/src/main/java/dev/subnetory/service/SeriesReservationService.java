@@ -2,11 +2,14 @@ package dev.subnetory.service;
 
 import dev.subnetory.domain.Address;
 import dev.subnetory.domain.Subnet;
+import dev.subnetory.dto.SeriesGroupsRequest;
+import dev.subnetory.dto.SeriesGroupsResponse;
 import dev.subnetory.dto.SeriesReservationRequest;
 import dev.subnetory.dto.SeriesReservationResponse;
 import dev.subnetory.dto.SeriesRowsRequest;
 import dev.subnetory.exception.ConflictException;
 import dev.subnetory.exception.InvalidSeriesException;
+import dev.subnetory.exception.SeriesGroupsConflictException;
 import dev.subnetory.exception.SeriesConflictException;
 import dev.subnetory.repository.AddressRepository;
 import dev.subnetory.util.IpUtils;
@@ -94,6 +97,137 @@ public class SeriesReservationService {
                     "An address of the series was reserved concurrently; no address was created.");
         }
         return view;
+    }
+
+    // -------------------------------------------------------
+    // Series enchainees (groupes)
+    // -------------------------------------------------------
+
+    /** Nombre maximal de groupes d'une demande. */
+    public static final int MAX_GROUPS = 10;
+
+    private static final long IPV4_MAX = 0xFFFFFFFFL;
+
+    /** Calcule les groupes enchaines et signale les conflits, sans rien enregistrer. */
+    public SeriesGroupsResponse previewGroups(SeriesGroupsRequest request) {
+        Subnet subnet = subnetService.getEntityById(request.subnetId());
+        return toGroupsResponse(subnet, request, planGroups(subnet, request));
+    }
+
+    /**
+     * Cree tous les groupes dans une seule transaction (tout ou rien). Une adresse
+     * existante n'est jamais modifiee.
+     *
+     * @throws SeriesGroupsConflictException si un groupe ne peut pas etre cree tel quel
+     *                                       (rien n'est cree)
+     * @throws InvalidSeriesException        si les parametres sont invalides
+     * @throws ConflictException             si une adresse a ete reservee en parallele
+     *                                       (rien n'est cree)
+     */
+    @Transactional
+    public SeriesGroupsResponse createGroups(SeriesGroupsRequest request, String currentUser) {
+        Subnet subnet = subnetService.getEntityById(request.subnetId());
+        List<GroupPlan> plans = planGroups(subnet, request);
+        SeriesGroupsResponse view = toGroupsResponse(subnet, request, plans);
+
+        if (!view.canCreate()) {
+            long conflicts = plans.stream()
+                    .flatMap(gp -> gp.plan().rows().stream())
+                    .filter(r -> r.status() != SeriesPlanner.Status.AVAILABLE)
+                    .count();
+            int missing = plans.stream().mapToInt(gp -> gp.plan().shortfall()).sum();
+            throw new SeriesGroupsConflictException(missing > 0
+                    ? "Not enough free addresses for the series: " + missing
+                            + " address(es) missing; no address was created."
+                    : "The series cannot be created: " + conflicts
+                            + " address(es) are occupied, reserved or out of range; no address was created.",
+                    view);
+        }
+
+        List<Address> addresses = new ArrayList<>();
+        for (GroupPlan gp : plans) {
+            for (SeriesPlanner.Row row : gp.plan().rows()) {
+                addresses.add(toEntity(subnet, gp.request(), row, currentUser));
+            }
+        }
+        try {
+            addressRepository.saveAllAndFlush(addresses);
+        } catch (DataIntegrityViolationException e) {
+            throw new ConflictException(
+                    "An address of the series was reserved concurrently; no address was created.");
+        }
+        return view;
+    }
+
+    /** Un groupe et son calcul ; {@code request} est la serie equivalente a partir de son IP de depart. */
+    private record GroupPlan(SeriesGroupsRequest.Group group, SeriesReservationRequest request,
+                             SeriesPlanner.Plan plan) {}
+
+    private List<GroupPlan> planGroups(Subnet subnet, SeriesGroupsRequest request) {
+        List<SeriesGroupsRequest.Group> groups = request.groups();
+        if (groups == null || groups.isEmpty()) {
+            throw new InvalidSeriesException("At least one group is required.");
+        }
+        if (groups.size() > MAX_GROUPS) {
+            throw new InvalidSeriesException("At most " + MAX_GROUPS + " groups are allowed.");
+        }
+        int total = 0;
+        for (SeriesGroupsRequest.Group group : groups) {
+            if (group == null || group.count() == null) {
+                throw new InvalidSeriesException("Every group needs a count.");
+            }
+            total += group.count();
+        }
+        if (total > SeriesPlanner.MAX_COUNT) {
+            throw new InvalidSeriesException(
+                    "At most " + SeriesPlanner.MAX_COUNT + " addresses can be reserved at once.");
+        }
+        int gap = request.gap() == null ? 0 : request.gap();
+        if (gap < 0 || gap > SeriesPlanner.MAX_STEP) {
+            throw new InvalidSeriesException(
+                    "The gap must be between 0 and " + SeriesPlanner.MAX_STEP + ".");
+        }
+
+        List<GroupPlan> plans = new ArrayList<>(groups.size());
+        String cursor = request.startIp() == null ? null : request.startIp().trim();
+        for (int i = 0; i < groups.size(); i++) {
+            SeriesGroupsRequest.Group group = groups.get(i);
+            SeriesReservationRequest single = new SeriesReservationRequest(
+                    subnet.getId(), cursor, group.count(), group.step(), group.prefix(),
+                    group.startCounter(), group.counterWidth(), group.suffix(),
+                    request.occupiedMode(), request.description(), request.temporary());
+            SeriesPlanner.Plan plan = buildPlan(subnet, single);
+            plans.add(new GroupPlan(group, single, plan));
+
+            if (!plan.rows().isEmpty() && i < groups.size() - 1) {
+                String last = plan.rows().get(plan.rows().size() - 1).ip();
+                long next = IpUtils.ipv4ToLong(last) + 1L + gap;
+                if (next > IPV4_MAX) {
+                    throw new InvalidSeriesException(
+                            "The chained series go beyond the IPv4 address space.");
+                }
+                cursor = IpUtils.longToIpv4(next);
+            }
+        }
+        return plans;
+    }
+
+    private SeriesGroupsResponse toGroupsResponse(Subnet subnet, SeriesGroupsRequest request,
+                                                  List<GroupPlan> plans) {
+        List<SeriesGroupsResponse.Group> groups = plans.stream()
+                .map(gp -> new SeriesGroupsResponse.Group(
+                        gp.group().label(),
+                        gp.group().count(),
+                        gp.plan().shortfall(),
+                        gp.plan().rows().stream().map(SeriesReservationService::toEntry).toList(),
+                        gp.plan().skipped().stream().map(SeriesReservationService::toEntry).toList()))
+                .toList();
+        return new SeriesGroupsResponse(
+                subnet.getNetwork(),
+                request.occupiedMode(),
+                plans.stream().allMatch(gp -> gp.plan().canCreate()),
+                plans.stream().mapToInt(gp -> gp.group().count()).sum(),
+                groups);
     }
 
     // -------------------------------------------------------

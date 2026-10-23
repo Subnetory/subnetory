@@ -50,6 +50,17 @@ public class BulkReservationForm {
     private String seriesDescription;
     private boolean seriesSkipOccupied;
 
+    // ── Mode plusieurs séries enchaînées ───────────────────────────────────
+
+    /** Nombre de lignes de groupes proposées dans le formulaire. */
+    public static final int GROUP_LINES = 5;
+
+    private Integer seriesGap = 0;
+    private List<SeriesGroupForm> groups = newGroupLines();
+
+    /** Vrai quand les lignes viennent de plusieurs séries : affiche la colonne « groupe ». */
+    private boolean grouped;
+
     /** Vrai quand les lignes viennent d'une série : création atomique, adresse modifiable. */
     private boolean atomic;
 
@@ -88,6 +99,23 @@ public class BulkReservationForm {
 
     public boolean isSeriesSkipOccupied()                          { return seriesSkipOccupied; }
     public void setSeriesSkipOccupied(boolean seriesSkipOccupied)  { this.seriesSkipOccupied = seriesSkipOccupied; }
+
+    public Integer getSeriesGap()                  { return seriesGap; }
+    public void setSeriesGap(Integer seriesGap)    { this.seriesGap = seriesGap; }
+
+    public List<SeriesGroupForm> getGroups()                   { return groups; }
+    public void setGroups(List<SeriesGroupForm> groups)        { this.groups = groups; }
+
+    public boolean isGrouped()                 { return grouped; }
+    public void setGrouped(boolean grouped)    { this.grouped = grouped; }
+
+    private static List<SeriesGroupForm> newGroupLines() {
+        List<SeriesGroupForm> lines = new ArrayList<>();
+        for (int i = 0; i < GROUP_LINES; i++) {
+            lines.add(new SeriesGroupForm());
+        }
+        return lines;
+    }
 
     public boolean isAtomic()              { return atomic; }
     public void setAtomic(boolean atomic)  { this.atomic = atomic; }

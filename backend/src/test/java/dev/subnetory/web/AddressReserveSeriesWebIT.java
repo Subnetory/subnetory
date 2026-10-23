@@ -2,6 +2,8 @@ package dev.subnetory.web;
 
 import dev.subnetory.backup.RestoreMaintenanceGate;
 import dev.subnetory.config.SecurityConfig;
+import dev.subnetory.dto.SeriesGroupsRequest;
+import dev.subnetory.dto.SeriesGroupsResponse;
 import dev.subnetory.dto.SeriesReservationResponse;
 import dev.subnetory.dto.SeriesReservationResponse.Entry;
 import dev.subnetory.dto.SeriesRowsRequest;
@@ -213,6 +215,177 @@ class AddressReserveSeriesWebIT {
         verify(seriesReservationService, never()).preview(any());
     }
 
+    // ── POST /reserve/groups ─────────────────────────────────────────────
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void groups_preview_rendersGroupColumnAndIgnoresBlankLines() throws Exception {
+        when(seriesReservationService.previewGroups(any())).thenReturn(groupsResponse(true,
+                new SeriesGroupsResponse.Group("HOST", 2, 0, List.of(
+                        entry("10.10.10.21", "H-01", "AVAILABLE"),
+                        entry("10.10.10.22", "H-02", "AVAILABLE")), List.of()),
+                new SeriesGroupsResponse.Group("CVM", 1, 0, List.of(
+                        entry("10.10.10.24", "C-01", "AVAILABLE")), List.of())));
+
+        String html = mvc.perform(post("/network/addresses/reserve/groups").with(csrf())
+                        .param("subnetId", "30")
+                        .param("seriesStartIp", "10.10.10.21")
+                        .param("seriesGap", "1")
+                        .param("seriesDescription", "Nutanix cluster")
+                        .param("groups[0].label", "HOST")
+                        .param("groups[0].count", "2")
+                        .param("groups[0].prefix", "H-")
+                        .param("groups[1].label", "CVM")
+                        .param("groups[1].count", "1")
+                        .param("groups[1].prefix", "C-")
+                        .param("groups[2].label", "")
+                        .param("groups[2].count", ""))
+                .andExpect(status().isOk())
+                .andExpect(view().name("network/address-reserve"))
+                .andExpect(model().attributeDoesNotExist("formError"))
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(html)
+                .contains("name=\"rows[2].address\"")
+                .contains("value=\"10.10.10.24\"")
+                .contains("value=\"Nutanix cluster\"")
+                .contains("name=\"rows[0].group\"")
+                .contains("value=\"CVM\"")
+                .contains("name=\"grouped\"")
+                .contains("name=\"atomic\"");
+
+        ArgumentCaptor<SeriesGroupsRequest> captor = ArgumentCaptor.forClass(SeriesGroupsRequest.class);
+        verify(seriesReservationService).previewGroups(captor.capture());
+        SeriesGroupsRequest sent = captor.getValue();
+        assertThat(sent.subnetId()).isEqualTo(30L);
+        assertThat(sent.startIp()).isEqualTo("10.10.10.21");
+        assertThat(sent.gap()).isEqualTo(1);
+        assertThat(sent.occupiedMode()).isEqualTo("block");
+        assertThat(sent.groups()).extracting(SeriesGroupsRequest.Group::label)
+                .containsExactly("HOST", "CVM");
+        assertThat(sent.groups()).extracting(SeriesGroupsRequest.Group::count)
+                .containsExactly(2, 1);
+    }
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void groups_skipOptionAndSkippedAddresses_areReported() throws Exception {
+        when(seriesReservationService.previewGroups(any())).thenReturn(groupsResponse(true,
+                new SeriesGroupsResponse.Group("HOST", 1, 0,
+                        List.of(entry("10.10.10.23", "H-01", "AVAILABLE")),
+                        List.of(entry("10.10.10.22", null, "OCCUPIED")))));
+
+        String html = mvc.perform(post("/network/addresses/reserve/groups").with(csrf())
+                        .param("subnetId", "30")
+                        .param("seriesStartIp", "10.10.10.22")
+                        .param("seriesSkipOccupied", "true")
+                        .param("groups[0].count", "1"))
+                .andExpect(status().isOk())
+                .andExpect(model().attribute("seriesSkipped", "10.10.10.22"))
+                .andReturn().getResponse().getContentAsString();
+
+        ArgumentCaptor<SeriesGroupsRequest> captor = ArgumentCaptor.forClass(SeriesGroupsRequest.class);
+        verify(seriesReservationService).previewGroups(captor.capture());
+        assertThat(captor.getValue().occupiedMode()).isEqualTo("skip");
+        assertThat(html).contains("10.10.10.22");
+    }
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void groups_conflict_showsErrorAndStatusBadges() throws Exception {
+        when(seriesReservationService.previewGroups(any())).thenReturn(groupsResponse(false,
+                new SeriesGroupsResponse.Group("HOST", 1, 0,
+                        List.of(entry("10.10.10.21", "H-01", "OCCUPIED")), List.of())));
+
+        String html = mvc.perform(post("/network/addresses/reserve/groups").with(csrf())
+                        .param("subnetId", "30")
+                        .param("seriesStartIp", "10.10.10.21")
+                        .param("groups[0].count", "1"))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeExists("formError"))
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(html).contains("sn-alert--error").contains("sn-badge--danger");
+    }
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void groups_shortfall_showsErrorMessage() throws Exception {
+        when(seriesReservationService.previewGroups(any())).thenReturn(groupsResponse(false,
+                new SeriesGroupsResponse.Group("HOST", 3, 2,
+                        List.of(entry("10.10.10.254", "H-01", "AVAILABLE")), List.of())));
+
+        mvc.perform(post("/network/addresses/reserve/groups").with(csrf())
+                        .param("subnetId", "30")
+                        .param("seriesStartIp", "10.10.10.254")
+                        .param("seriesSkipOccupied", "true")
+                        .param("groups[0].count", "3"))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeExists("formError"));
+    }
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void groups_noGroupFilled_showsErrorWithoutCallingService() throws Exception {
+        mvc.perform(post("/network/addresses/reserve/groups").with(csrf())
+                        .param("subnetId", "30")
+                        .param("seriesStartIp", "10.10.10.21")
+                        .param("groups[0].label", "HOST"))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeExists("formError"));
+
+        verify(seriesReservationService, never()).previewGroups(any());
+    }
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void groups_invalidParameters_showsError() throws Exception {
+        when(seriesReservationService.previewGroups(any()))
+                .thenThrow(new InvalidSeriesException("The start address must be a valid IPv4 address."));
+
+        mvc.perform(post("/network/addresses/reserve/groups").with(csrf())
+                        .param("subnetId", "30")
+                        .param("seriesStartIp", "oops")
+                        .param("groups[0].count", "1"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("network/address-reserve"))
+                .andExpect(model().attributeExists("formError"));
+    }
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void groups_notANumber_showsErrorWithoutCallingService() throws Exception {
+        mvc.perform(post("/network/addresses/reserve/groups").with(csrf())
+                        .param("subnetId", "30")
+                        .param("seriesStartIp", "10.10.10.21")
+                        .param("groups[0].count", "abc"))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeExists("formError"));
+
+        verify(seriesReservationService, never()).previewGroups(any());
+    }
+
+    @Test
+    @WithMockUser(username = "operator", roles = "IP")
+    void groups_withoutSubnet_showsErrorWithoutCallingService() throws Exception {
+        mvc.perform(post("/network/addresses/reserve/groups").with(csrf())
+                        .param("groups[0].count", "1"))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeExists("formError"));
+
+        verify(seriesReservationService, never()).previewGroups(any());
+    }
+
+    @Test
+    @WithMockUser(username = "viewer", roles = "NETWORK")
+    void groups_withoutIpRole_isForbidden() throws Exception {
+        mvc.perform(post("/network/addresses/reserve/groups").with(csrf())
+                        .param("subnetId", "30"))
+                .andExpect(status().isForbidden());
+
+        verify(seriesReservationService, never()).previewGroups(any());
+    }
+
     // ── POST /reserve/check ──────────────────────────────────────────────
 
     @Test
@@ -346,6 +519,12 @@ class AddressReserveSeriesWebIT {
 
     private static Entry entry(String ip, String hostname, String status) {
         return new Entry(ip, hostname, status);
+    }
+
+    private static SeriesGroupsResponse groupsResponse(boolean canCreate, SeriesGroupsResponse.Group... groups) {
+        return new SeriesGroupsResponse("10.10.10.0/24", "block", canCreate,
+                java.util.Arrays.stream(groups).mapToInt(SeriesGroupsResponse.Group::requested).sum(),
+                List.of(groups));
     }
 
     private static SeriesReservationResponse response(boolean canCreate, Entry... rows) {

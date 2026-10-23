@@ -88,6 +88,7 @@
                     <thead>
                         <tr>
                             <th scope="col" th:text="#{table.include}">Inclure</th>
+                            <th scope="col" th:if="${form.grouped}" th:text="#{reserve.group}">Groupe</th>
                             <th scope="col" th:text="#{table.ip}">Adresse IP</th>
                             <th scope="col" th:if="${form.atomic}" th:text="#{reserve.status}">Statut</th>
                             <th scope="col" th:text="#{table.hostname}">Nom d'hôte</th>
@@ -101,6 +102,10 @@
                             <td>
                                 <input type="checkbox" class="sn-table-checkbox" th:field="*{rows[__${rowStat.index}__].included}"
                                        th:attr="aria-label=#{reserve.include.aria(${row.address})}">
+                            </td>
+                            <td th:if="${form.grouped}">
+                                <span th:text="${row.group}">HOST</span>
+                                <input type="hidden" th:field="*{rows[__${rowStat.index}__].group}">
                             </td>
                             <td class="sn-text-mono" th:unless="${form.atomic}">
                                 <span th:text="${row.address}">10.0.0.10</span>
@@ -146,6 +151,7 @@
                 Tout ou rien : si une adresse est occupée, aucune n'est créée.
             </p>
             <input type="hidden" th:field="*{atomic}">
+            <input type="hidden" th:field="*{grouped}">
 
             <div class="sn-form__actions sn-mt-4">
                 <button type="submit" th:formaction="@{/network/addresses/reserve}"
@@ -236,6 +242,108 @@
 
                 <div class="sn-form__actions">
                     <button type="submit" class="sn-btn sn-btn--primary" th:text="#{reserve.series.preview}">Aperçu de la série</button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <form th:if="${form.rows.empty}" th:action="@{/network/addresses/reserve/groups}" th:object="${form}"
+          method="post" novalidate>
+        <div class="sn-card sn-card--padded sn-mt-5">
+            <div class="sn-card__header">
+                <h2 class="sn-card__title" th:text="#{reserve.groups.title}">Ou : plusieurs séries enchaînées</h2>
+            </div>
+            <p class="sn-text-muted" th:text="#{reserve.groups.help}">
+                Ex. 3 nœuds : HOST ×3, puis CVM ×3, puis IPMI ×3, à la suite à partir d'une même IP.
+            </p>
+
+            <div class="sn-form">
+                <div class="sn-form__group">
+                    <label for="groupsSubnetId" class="sn-form__label" th:text="#{address.form.subnet.label}">Sous-réseau</label>
+                    <select id="groupsSubnetId" th:field="*{subnetId}" class="sn-input">
+                        <option value="" th:text="#{select.placeholder.subnet}">— Sélectionner un sous-réseau —</option>
+                        <option th:each="s : ${allSubnets}"
+                                th:value="${s.id}"
+                                th:text="|${s.network} — ${s.siteName}|">Sous-réseau</option>
+                    </select>
+                </div>
+
+                <div class="sn-form__group">
+                    <label for="groupsStartIp" class="sn-form__label" th:text="#{reserve.series.startIp}">IP de départ</label>
+                    <input type="text" id="groupsStartIp" th:field="*{seriesStartIp}"
+                           class="sn-input sn-text-mono" maxlength="15" placeholder="10.10.10.21" autocomplete="off">
+                </div>
+
+                <div class="sn-form__group">
+                    <label for="groupsGap" class="sn-form__label" th:text="#{reserve.groups.gap}">Adresses libres entre deux groupes</label>
+                    <input type="number" id="groupsGap" th:field="*{seriesGap}"
+                           class="sn-input sn-input--narrow" min="0" max="256">
+                </div>
+
+                <div class="sn-table-wrapper">
+                    <table class="sn-table">
+                        <thead>
+                            <tr>
+                                <th scope="col" th:text="#{reserve.group}">Groupe</th>
+                                <th scope="col" th:text="#{reserve.series.count}">Nombre d'adresses</th>
+                                <th scope="col" th:text="#{reserve.series.prefix}">Préfixe du nom</th>
+                                <th scope="col" th:text="#{reserve.series.startCounter}">Compteur de départ</th>
+                                <th scope="col" th:text="#{reserve.series.counterWidth}">Chiffres du compteur</th>
+                                <th scope="col" th:text="#{reserve.series.suffix}">Suffixe du nom</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="g, gStat : *{groups}">
+                                <td>
+                                    <input type="text" th:field="*{groups[__${gStat.index}__].label}"
+                                           class="sn-input" maxlength="50" placeholder="HOST" autocomplete="off"
+                                           th:attr="aria-label=#{reserve.groups.label.aria(${gStat.count})}">
+                                </td>
+                                <td>
+                                    <input type="number" th:field="*{groups[__${gStat.index}__].count}"
+                                           class="sn-input sn-input--narrow" min="1" max="256"
+                                           th:attr="aria-label=#{reserve.groups.count.aria(${gStat.count})}">
+                                </td>
+                                <td>
+                                    <input type="text" th:field="*{groups[__${gStat.index}__].prefix}"
+                                           class="sn-input" maxlength="90" autocomplete="off"
+                                           th:attr="aria-label=#{reserve.groups.prefix.aria(${gStat.count})}">
+                                </td>
+                                <td>
+                                    <input type="number" th:field="*{groups[__${gStat.index}__].startCounter}"
+                                           class="sn-input sn-input--narrow" min="0"
+                                           th:attr="aria-label=#{reserve.groups.startCounter.aria(${gStat.count})}">
+                                </td>
+                                <td>
+                                    <input type="number" th:field="*{groups[__${gStat.index}__].counterWidth}"
+                                           class="sn-input sn-input--narrow" min="1" max="9"
+                                           th:attr="aria-label=#{reserve.groups.width.aria(${gStat.count})}">
+                                </td>
+                                <td>
+                                    <input type="text" th:field="*{groups[__${gStat.index}__].suffix}"
+                                           class="sn-input" maxlength="90" autocomplete="off"
+                                           th:attr="aria-label=#{reserve.groups.suffix.aria(${gStat.count})}">
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="sn-form__group">
+                    <label for="groupsDescription" class="sn-form__label" th:text="#{common.description}">Description</label>
+                    <input type="text" id="groupsDescription" th:field="*{seriesDescription}"
+                           class="sn-input" maxlength="500" autocomplete="off">
+                </div>
+
+                <div class="sn-form__group">
+                    <label class="sn-form__label">
+                        <input type="checkbox" id="groupsSkipOccupied" th:field="*{seriesSkipOccupied}" class="sn-table-checkbox">
+                        <span th:text="#{reserve.series.skipOccupied}">Sauter les adresses occupées (le compteur reste consécutif)</span>
+                    </label>
+                </div>
+
+                <div class="sn-form__actions">
+                    <button type="submit" class="sn-btn sn-btn--primary" th:text="#{reserve.groups.preview}">Aperçu des séries</button>
                 </div>
             </div>
         </div>
