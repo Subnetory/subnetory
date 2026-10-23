@@ -15,6 +15,7 @@ import dev.subnetory.service.AddressService;
 import dev.subnetory.service.AuthAuditService;
 import dev.subnetory.service.IpAllocService;
 import dev.subnetory.service.SeriesReservationService;
+import dev.subnetory.service.SeriesTemplateService;
 import dev.subnetory.service.SubnetService;
 import dev.subnetory.util.ImportFileValidator;
 import org.junit.jupiter.api.BeforeEach;
@@ -67,6 +68,7 @@ class AddressWebImportIT {
     @MockitoBean SubnetService subnetService;
     @MockitoBean IpAllocService ipAllocService;
     @MockitoBean SeriesReservationService seriesReservationService;
+    @MockitoBean SeriesTemplateService seriesTemplateService;
     @MockitoBean ActiveContextService activeContextService;
     @MockitoBean AuthAuditService authAuditService;
     @MockitoBean JwtDecoder jwtDecoder;

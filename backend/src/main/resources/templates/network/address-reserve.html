@@ -163,6 +163,103 @@
         </div>
     </form>
 
+    <form th:if="${form.rows.empty}" th:action="@{/network/addresses/reserve/template}" th:object="${form}"
+          method="post" novalidate>
+        <div class="sn-card sn-card--padded sn-mt-5">
+            <div class="sn-card__header">
+                <h2 class="sn-card__title" th:text="#{reserve.template.title}">Ou : préparer un cluster / une infrastructure</h2>
+                <a th:href="@{/network/series-templates}" class="sn-btn sn-btn--ghost sn-btn--sm"
+                   th:text="#{reserve.template.manage}">Gérer les templates</a>
+            </div>
+            <p class="sn-text-muted" th:text="#{reserve.template.help}">
+                Choisissez un template (Nutanix, serveurs, Proxmox, VMware… ou le vôtre), le nombre de nœuds et
+                l'IP de départ : les adresses et les noms sont calculés, vous les ajustez avant de réserver.
+            </p>
+
+            <div class="sn-form">
+                <div class="sn-form__group">
+                    <label for="templateSubnetId" class="sn-form__label" th:text="#{address.form.subnet.label}">Sous-réseau</label>
+                    <select id="templateSubnetId" th:field="*{subnetId}" class="sn-input">
+                        <option value="" th:text="#{select.placeholder.subnet}">— Sélectionner un sous-réseau —</option>
+                        <option th:each="s : ${allSubnets}"
+                                th:value="${s.id}"
+                                th:text="|${s.network} — ${s.siteName}|">Sous-réseau</option>
+                    </select>
+                </div>
+
+                <div class="sn-form__group">
+                    <label for="templateKey" class="sn-form__label" th:text="#{reserve.template.select}">Template</label>
+                    <select id="templateKey" th:field="*{templateKey}" class="sn-input">
+                        <option value="" th:text="#{reserve.template.placeholder}">— Choisir un template —</option>
+                        <optgroup th:label="#{reserve.template.builtin}">
+                            <option th:each="t : ${seriesTemplates}" th:if="${t.builtin}"
+                                    th:value="${t.key}" th:text="${t.name}">Nutanix</option>
+                        </optgroup>
+                        <optgroup th:if="${hasCustomSeriesTemplates}" th:label="#{reserve.template.custom}">
+                            <option th:each="t : ${seriesTemplates}" th:unless="${t.builtin}"
+                                    th:value="${t.key}" th:text="${t.name}">Mon template</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <div class="sn-form__group">
+                    <label for="templateCluster" class="sn-form__label" th:text="#{reserve.template.cluster}">Nom du cluster</label>
+                    <input type="text" id="templateCluster" th:field="*{templateCluster}"
+                           class="sn-input" maxlength="40" placeholder="NTNX01" autocomplete="off">
+                </div>
+
+                <div class="sn-form__group">
+                    <label for="templateSite" class="sn-form__label" th:text="#{reserve.template.site}">Site (si le template l'utilise)</label>
+                    <input type="text" id="templateSite" th:field="*{templateSite}"
+                           class="sn-input" maxlength="40" autocomplete="off">
+                </div>
+
+                <div class="sn-form__group">
+                    <label for="templateNodes" class="sn-form__label" th:text="#{reserve.template.nodes}">Nombre de nœuds</label>
+                    <input type="number" id="templateNodes" th:field="*{templateNodes}"
+                           class="sn-input sn-input--narrow" min="1" max="256">
+                </div>
+
+                <div class="sn-form__group">
+                    <label for="templateStartIp" class="sn-form__label" th:text="#{reserve.series.startIp}">IP de départ</label>
+                    <input type="text" id="templateStartIp" th:field="*{templateStartIp}"
+                           class="sn-input sn-text-mono" maxlength="15" placeholder="10.10.10.21" autocomplete="off">
+                </div>
+
+                <div class="sn-form__group">
+                    <label for="templateGap" class="sn-form__label" th:text="#{reserve.template.gap}">Adresses libres entre deux groupes (vide : valeur du template)</label>
+                    <input type="number" id="templateGap" th:field="*{templateGap}"
+                           class="sn-input sn-input--narrow" min="0" max="256">
+                </div>
+
+                <div class="sn-form__group">
+                    <label for="templateStep" class="sn-form__label" th:text="#{reserve.template.step}">Pas entre adresses (vide : valeur du template)</label>
+                    <input type="number" id="templateStep" th:field="*{templateStep}"
+                           class="sn-input sn-input--narrow" min="1" max="256">
+                </div>
+
+                <div class="sn-form__group">
+                    <label for="templateOccupied" class="sn-form__label" th:text="#{reserve.template.occupied}">Adresse occupée</label>
+                    <select id="templateOccupied" th:field="*{templateOccupied}" class="sn-input">
+                        <option value="" th:text="#{reserve.template.occupied.default}">Selon le template</option>
+                        <option value="block" th:text="#{reserve.template.occupied.block}">Bloquer toute la série</option>
+                        <option value="skip" th:text="#{reserve.template.occupied.skip}">Sauter les adresses occupées</option>
+                    </select>
+                </div>
+
+                <div class="sn-form__group">
+                    <label for="templateDescription" class="sn-form__label" th:text="#{common.description}">Description</label>
+                    <input type="text" id="templateDescription" th:field="*{seriesDescription}"
+                           class="sn-input" maxlength="500" autocomplete="off">
+                </div>
+
+                <div class="sn-form__actions">
+                    <button type="submit" class="sn-btn sn-btn--primary" th:text="#{reserve.template.preview}">Aperçu du template</button>
+                </div>
+            </div>
+        </div>
+    </form>
+
     <form th:if="${form.rows.empty}" th:action="@{/network/addresses/reserve/series}" th:object="${form}"
           method="post" novalidate>
         <div class="sn-card sn-card--padded sn-mt-5">

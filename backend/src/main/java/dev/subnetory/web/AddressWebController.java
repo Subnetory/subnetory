@@ -12,6 +12,9 @@ import dev.subnetory.dto.SeriesGroupsResponse;
 import dev.subnetory.dto.SeriesReservationRequest;
 import dev.subnetory.dto.SeriesReservationResponse;
 import dev.subnetory.dto.SeriesRowsRequest;
+import dev.subnetory.dto.SeriesTemplateExpandRequest;
+import dev.subnetory.dto.SeriesTemplateExpansionResponse;
+import dev.subnetory.dto.SeriesTemplateResponse;
 import dev.subnetory.csv.CsvParseException;
 import dev.subnetory.exception.ConflictException;
 import dev.subnetory.exception.InvalidSeriesException;
@@ -22,6 +25,7 @@ import dev.subnetory.service.AddressService;
 import dev.subnetory.service.AuthAuditService;
 import dev.subnetory.service.IpAllocService;
 import dev.subnetory.service.SeriesReservationService;
+import dev.subnetory.service.SeriesTemplateService;
 import dev.subnetory.service.SubnetService;
 import dev.subnetory.util.ImportFileValidator;
 import dev.subnetory.util.CsvSafeValue;
@@ -83,6 +87,7 @@ public class AddressWebController {
     private final AuthAuditService authAuditService;
     private final MessageSource messageSource;
     private final SeriesReservationService seriesReservationService;
+    private final SeriesTemplateService seriesTemplateService;
 
     public AddressWebController(AddressService addressService,
                                 SubnetService subnetService,
@@ -91,7 +96,8 @@ public class AddressWebController {
                                 ImportFileValidator importFileValidator,
                                 AuthAuditService authAuditService,
                                 MessageSource messageSource,
-                                SeriesReservationService seriesReservationService) {
+                                SeriesReservationService seriesReservationService,
+                                SeriesTemplateService seriesTemplateService) {
         this.addressService = addressService;
         this.subnetService  = subnetService;
         this.ipAllocService = ipAllocService;
@@ -100,6 +106,7 @@ public class AddressWebController {
         this.authAuditService = authAuditService;
         this.messageSource = messageSource;
         this.seriesReservationService = seriesReservationService;
+        this.seriesTemplateService = seriesTemplateService;
     }
 
     private String msg(String key, Locale locale, Object... args) {
@@ -592,33 +599,63 @@ public class AddressWebController {
             return reserveView(model, form, locale);
         }
 
+        return showGroupsPreview(form, preview, model, locale);
+    }
+
+    /**
+     * Applique un template (preset ou personnalisé) au sous-réseau choisi : calcule les séries
+     * enchaînées (nombre de nœuds, nom du cluster, IP de départ) et charge le résultat dans le
+     * tableau, sans rien enregistrer. La création finale passe par les lignes du tableau
+     * (tout ou rien), comme pour les autres modes.
+     */
+    @PostMapping("/reserve/template")
+    @PreAuthorize("hasAnyRole('ADMIN', 'IP')")
+    public String reserveTemplate(@ModelAttribute("form") BulkReservationForm form,
+                                  BindingResult errors,
+                                  Model model,
+                                  Locale locale) {
+        form.getRows().clear();
+        form.setAtomic(false);
+        form.setGrouped(false);
+        if (form.getSubnetId() == null) {
+            model.addAttribute("formError", msg("flash.reserve.selectSubnet", locale));
+            return reserveView(model, form, locale);
+        }
+        if (errors.hasErrors()) {
+            model.addAttribute("formError", msg("flash.reserve.series.badNumber", locale));
+            return reserveView(model, form, locale);
+        }
+        if (form.getTemplateKey() == null || form.getTemplateKey().isBlank()) {
+            model.addAttribute("formError", msg("flash.reserve.template.none", locale));
+            return reserveView(model, form, locale);
+        }
+
+        String occupied = form.getTemplateOccupied() == null || form.getTemplateOccupied().isBlank()
+                ? null : form.getTemplateOccupied();
         String description = form.getSeriesDescription() == null || form.getSeriesDescription().isBlank()
                 ? null : form.getSeriesDescription();
-        List<String> skipped = new java.util.ArrayList<>();
-        int shortfall = 0;
-        for (SeriesGroupsResponse.Group group : preview.groups()) {
-            for (SeriesReservationResponse.Entry entry : group.rows()) {
-                BulkReservationRow row = new BulkReservationRow(entry.ip());
-                row.setHostname(entry.hostname());
-                row.setDescription(description);
-                row.setStatus(entry.status());
-                row.setGroup(group.label());
-                form.getRows().add(row);
-            }
-            group.skipped().forEach(e -> skipped.add(e.ip()));
-            shortfall += group.shortfall();
+        SeriesTemplateExpansionResponse expansion;
+        try {
+            expansion = seriesTemplateService.expand(new SeriesTemplateExpandRequest(
+                    form.getSubnetId(),
+                    form.getTemplateKey().trim(),
+                    form.getTemplateNodes(),
+                    form.getTemplateCluster(),
+                    form.getTemplateSite(),
+                    form.getTemplateStartIp() == null ? null : form.getTemplateStartIp().trim(),
+                    form.getTemplateGap(),
+                    form.getTemplateStep(),
+                    occupied,
+                    description,
+                    false));
+        } catch (InvalidSeriesException e) {
+            model.addAttribute("formError", msg("flash.reserve.series.invalid", locale, e.getMessage()));
+            return reserveView(model, form, locale);
+        } catch (ResourceNotFoundException e) {
+            model.addAttribute("formError", msg("flash.reserve.template.notFound", locale));
+            return reserveView(model, form, locale);
         }
-        form.setAtomic(true);
-        form.setGrouped(true);
-        if (!skipped.isEmpty()) {
-            model.addAttribute("seriesSkipped", String.join(", ", skipped));
-        }
-        if (shortfall > 0) {
-            model.addAttribute("formError", msg("flash.reserve.series.shortfall", locale, shortfall));
-        } else if (!preview.canCreate()) {
-            model.addAttribute("formError", msg("flash.reserve.atomic.conflict", locale));
-        }
-        return reserveView(model, form, locale);
+        return showGroupsPreview(form, expansion.preview(), model, locale);
     }
 
     /** Contrôle les lignes du tableau (mode série) sans rien enregistrer. */
@@ -761,6 +798,41 @@ public class AddressWebController {
                 g.getCount(), null, g.getPrefix(), g.getStartCounter(), g.getCounterWidth(), g.getSuffix());
     }
 
+    /**
+     * Charge dans le tableau les lignes d'un aperçu de séries enchaînées (saisie manuelle des
+     * groupes ou template) : IP, nom, groupe et statut de chaque ligne, sans rien enregistrer.
+     */
+    private String showGroupsPreview(BulkReservationForm form, SeriesGroupsResponse preview,
+                                     Model model, Locale locale) {
+        String description = form.getSeriesDescription() == null || form.getSeriesDescription().isBlank()
+                ? null : form.getSeriesDescription();
+        List<String> skipped = new java.util.ArrayList<>();
+        int shortfall = 0;
+        for (SeriesGroupsResponse.Group group : preview.groups()) {
+            for (SeriesReservationResponse.Entry entry : group.rows()) {
+                BulkReservationRow row = new BulkReservationRow(entry.ip());
+                row.setHostname(entry.hostname());
+                row.setDescription(description);
+                row.setStatus(entry.status());
+                row.setGroup(group.label());
+                form.getRows().add(row);
+            }
+            group.skipped().forEach(e -> skipped.add(e.ip()));
+            shortfall += group.shortfall();
+        }
+        form.setAtomic(true);
+        form.setGrouped(true);
+        if (!skipped.isEmpty()) {
+            model.addAttribute("seriesSkipped", String.join(", ", skipped));
+        }
+        if (shortfall > 0) {
+            model.addAttribute("formError", msg("flash.reserve.series.shortfall", locale, shortfall));
+        } else if (!preview.canCreate()) {
+            model.addAttribute("formError", msg("flash.reserve.atomic.conflict", locale));
+        }
+        return reserveView(model, form, locale);
+    }
+
     private String reserveView(Model model, BulkReservationForm form, Locale locale) {
         prepareReserveModel(model, form, locale);
         return "network/address-reserve";
@@ -793,6 +865,9 @@ public class AddressWebController {
         model.addAttribute("pageTitle", msg("pageTitle.bulkReserve", locale));
         Long activeContextId = activeContextService == null
                 ? null : activeContextService.getCurrentRequestContext();
+        List<SeriesTemplateResponse> templates = seriesTemplateService.list(activeContextId);
+        model.addAttribute("seriesTemplates", templates);
+        model.addAttribute("hasCustomSeriesTemplates", templates.stream().anyMatch(t -> !t.builtin()));
         model.addAttribute("allSubnets", activeContextId == null
                 ? subnetService.findAll(Pageable.unpaged())
                 : subnetService.findByContext(activeContextId, Pageable.unpaged()));

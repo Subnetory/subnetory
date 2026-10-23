@@ -235,6 +235,9 @@ class SeriesTemplateExpanderTest {
         assertInvalid(def(group("HOST", "{foo}-{nn}", null, null)), "Unknown variable {foo}");
         assertInvalid(def(group("HOST", "{n1}-{nn}", null, null)), "Unbalanced braces");
         assertInvalid(def(group("HOST", "{nn}-}", null, null)), "Unbalanced braces");
+        assertInvalid(def(group("HOST", "{cluster}{}-{nn}", null, null)), "Unbalanced braces");
+        assertInvalid(def(group("HOST", "}{cluster}-{nn}", null, null)), "Unbalanced braces");
+        assertInvalid(def(group("HOST", "{".repeat(90) + "-{nn}", null, null)), "Unbalanced braces");
         assertInvalid(def(group("HOST", " ", null, null)), "name format is required");
         assertInvalid(def(group("HOST", null, null, null)), "name format is required");
     }
