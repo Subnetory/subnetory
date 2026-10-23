@@ -14,6 +14,8 @@ import dev.subnetory.security.RateLimitingAuthenticationSuccessHandler;
 import dev.subnetory.service.AddressService;
 import dev.subnetory.service.AuthAuditService;
 import dev.subnetory.service.IpAllocService;
+import dev.subnetory.service.SeriesReservationService;
+import dev.subnetory.service.SeriesTemplateService;
 import dev.subnetory.service.SubnetService;
 import dev.subnetory.util.ImportFileValidator;
 import org.junit.jupiter.api.BeforeEach;
@@ -59,6 +61,8 @@ class AddressCrudWebIT {
     @MockitoBean AddressService addressService;
     @MockitoBean SubnetService subnetService;
     @MockitoBean IpAllocService ipAllocService;
+    @MockitoBean SeriesReservationService seriesReservationService;
+    @MockitoBean SeriesTemplateService seriesTemplateService;
     @MockitoBean AuthAuditService authAuditService;
     @MockitoBean JwtDecoder jwtDecoder;
     @MockitoBean SubnetoryUserDetailsService userDetailsService;
@@ -206,6 +210,18 @@ class AddressCrudWebIT {
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
                         .string(org.hamcrest.Matchers.containsString(
                                 "192.168.1.0/24 \u2014 VLAN-100 \u2014 PAR01")));
+    }
+
+    @Test
+    @WithMockUser(roles = "READ_ONLY")
+    void list_exposesInPageConfirmationLabels() throws Exception {
+        mvc.perform(get("/network/addresses"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+                        .string(org.hamcrest.Matchers.allOf(
+                                org.hamcrest.Matchers.containsString("data-i18n-confirm-ok=\""),
+                                org.hamcrest.Matchers.containsString("data-i18n-confirm-cancel=\""),
+                                org.hamcrest.Matchers.containsString("data-i18n-confirm-title=\""))));
     }
 
     @Test
@@ -449,6 +465,63 @@ class AddressCrudWebIT {
                 .andExpect(flash().attributeExists("flashSuccess"));
 
         verify(addressService).delete(1L);
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN", username = "testadmin")
+    void postBulkDelete_success_auditsEachAddress() throws Exception {
+        when(addressService.deleteAll(any())).thenReturn(java.util.List.of(sampleAddress));
+
+        mvc.perform(post("/network/addresses/bulk-delete").with(csrf()).param("ids", "1"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/network/addresses"))
+                .andExpect(flash().attributeExists("flashSuccess"));
+
+        verify(authAuditService).recordAddressDeleted(
+                eq("testadmin"), eq(sampleAddress.id()), eq(sampleAddress.address()));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void postBulkDelete_someSkipped_flashesError() throws Exception {
+        when(addressService.deleteAll(any())).thenReturn(java.util.List.of(sampleAddress));
+
+        mvc.perform(post("/network/addresses/bulk-delete").with(csrf())
+                        .param("ids", "1").param("ids", "999"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(flash().attributeExists("flashError"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void postBulkDelete_noSelection_doesNotDelete() throws Exception {
+        mvc.perform(post("/network/addresses/bulk-delete").with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(flash().attributeExists("flashError"));
+
+        verify(addressService, never()).deleteAll(any());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void postBulkDelete_tooMany_doesNotDelete() throws Exception {
+        var req = post("/network/addresses/bulk-delete").with(csrf());
+        for (int i = 1; i <= BulkDelete.MAX + 1; i++) req.param("ids", String.valueOf(i));
+
+        mvc.perform(req)
+                .andExpect(status().is3xxRedirection())
+                .andExpect(flash().attributeExists("flashError"));
+
+        verify(addressService, never()).deleteAll(any());
+    }
+
+    @Test
+    @WithMockUser(roles = "NETWORK")
+    void postBulkDelete_roleNetworkOnly_returns403() throws Exception {
+        mvc.perform(post("/network/addresses/bulk-delete").with(csrf()).param("ids", "1"))
+                .andExpect(status().isForbidden());
+
+        verify(addressService, never()).deleteAll(any());
     }
 
     @Test

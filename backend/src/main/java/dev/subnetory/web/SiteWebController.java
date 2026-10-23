@@ -12,7 +12,9 @@ import dev.subnetory.web.form.SiteForm;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.MessageSource;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -85,6 +87,7 @@ public class SiteWebController {
         model.addAttribute("contexts", contextService.findAll(PageRequest.of(0, 100, Sort.by("name"))));
         model.addAttribute("selectedContextId", selectedContextId);
         model.addAttribute("canManage", canManage(authentication));
+        model.addAttribute("canBulkDelete", BulkDelete.hasAnyRole(authentication, "ROLE_ADMIN"));
         model.addAttribute("activeSection", "sites");
         model.addAttribute("pageTitle", msg("nav.sites", locale));
         return "network/sites";
@@ -232,6 +235,29 @@ public class SiteWebController {
         } catch (DataIntegrityViolationException e) {
             flash.addFlashAttribute("flashError", msg("flash.site.deleteConflict", locale));
         }
+        return ReturnTo.redirect("/network/sites");
+    }
+
+    // ── Suppression en masse ───────────────────────────────────────────────
+
+    @PostMapping("/bulk-delete")
+    @PreAuthorize("hasRole('ADMIN')")
+    public String bulkDelete(@RequestParam(name = "ids", required = false) List<Long> ids,
+                             Authentication auth, RedirectAttributes flash, Locale locale) {
+        Set<Long> selected = BulkDelete.select(ids, flash, messageSource, locale);
+        if (selected == null) return ReturnTo.redirect("/network/sites");
+        int deleted = 0;
+        for (Long id : selected) {
+            try {
+                SiteResponse item = siteService.findById(id);
+                siteService.delete(id);
+                authAuditService.recordSiteDeleted(auth.getName(), id, item.name());
+                deleted++;
+            } catch (ResourceNotFoundException | DataIntegrityViolationException e) {
+                // Introuvable, hors contexte accessible ou encore reference : compte comme non supprime.
+            }
+        }
+        BulkDelete.flashResult(deleted, selected.size() - deleted, flash, messageSource, locale);
         return ReturnTo.redirect("/network/sites");
     }
 

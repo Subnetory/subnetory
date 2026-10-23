@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- Barre de suppression en masse (liste a cases a cocher). Le formulaire est hors du
+     tableau ; les cases s'y rattachent via form="bulk-delete-form". Voir app.js. -->
+<form th:fragment="bar(action)" id="bulk-delete-form" method="post" th:action="${action}">
+    <input type="hidden" name="returnTo" th:value="${returnTo}" th:if="${returnTo != null}">
+    <div class="sn-bulk-bar" data-bulk-bar="bulk-delete-form" hidden>
+        <span class="sn-bulk-bar__count" data-bulk-count aria-live="polite"></span>
+        <button type="submit" class="sn-btn sn-btn--danger sn-btn--sm" th:text="#{bulk.delete}">Supprimer la sélection</button>
+        <button type="button" class="sn-btn sn-btn--ghost sn-btn--sm" data-bulk-clear th:text="#{bulk.clear}">Tout désélectionner</button>
+    </div>
+</form>
+</body>
+</html>

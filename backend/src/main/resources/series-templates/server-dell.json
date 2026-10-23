@@ -1,0 +1,21 @@
+{
+  "key": "server-dell",
+  "name": "Servers - Dell (hosts, iDRAC)",
+  "description": "Physical Dell servers: all hosts, then all iDRAC.",
+  "definition": {
+    "allocation": "groups-sequential",
+    "groupGap": 0,
+    "ipStep": 1,
+    "onOccupied": "block",
+    "groups": [
+      {
+        "role": "HOST",
+        "format": "{cluster}-{role}-{nn}"
+      },
+      {
+        "role": "IDRAC",
+        "format": "{cluster}-{role}-{nn}"
+      }
+    ]
+  }
+}

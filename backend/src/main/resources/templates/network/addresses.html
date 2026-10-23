@@ -67,10 +67,17 @@
     </div>
 
     <div class="sn-card">
+
+        <th:block th:if="${canBulkDelete}"><th:block th:replace="~{layout/bulk :: bar(@{/network/addresses/bulk-delete})}"></th:block></th:block>
+
         <div class="sn-table-wrapper">
             <table class="sn-table">
                 <thead>
                     <tr>
+                        <th th:if="${canBulkDelete}" class="sn-table-col-select">
+                            <input type="checkbox" data-bulk-select-all="bulk-delete-form"
+                                   th:aria-label="#{bulk.selectAll}" th:title="#{bulk.selectAll}">
+                        </th>
                         <th th:text="#{table.ip}">Adresse IP</th>
                         <th th:text="#{table.hostname}">Nom d'hôte</th>
                         <th th:text="#{table.description}">Description</th>
@@ -85,6 +92,11 @@
                 <tbody>
                     <tr th:each="addr : ${addresses}" class="clickable"
                         th:attr="data-href=@{/network/addresses/{id}(id=${addr.id})}">
+                        <td th:if="${canBulkDelete}" class="sn-table-col-select" data-no-row-nav>
+                            <input type="checkbox" name="ids" th:value="${addr.id}" form="bulk-delete-form"
+                                   data-bulk-item="bulk-delete-form"
+                                   th:aria-label="#{bulk.selectRow(${addr.address})}">
+                        </td>
                         <td class="sn-text-mono"><a th:href="@{/network/addresses/__${addr.id}__}" th:text="${addr.address}" class="sn-row-link">192.168.1.10</a></td>
                         <td th:text="${addr.hostname ?: '—'}">srv-web-01</td>
                         <td class="sn-text-secondary" th:text="${addr.description != null and !addr.description.isBlank() ? addr.description : '—'}" th:title="${addr.description}">Description</td>
@@ -118,7 +130,7 @@
                         </td>
                     </tr>
                     <tr th:if="${addresses.empty}" class="sn-table--empty">
-                        <td th:colspan="${canManage ? 9 : 8}" th:text="#{address.empty}">Aucune adresse trouvée.</td>
+                        <td th:colspan="${(canManage ? 9 : 8) + (canBulkDelete ? 1 : 0)}" th:text="#{address.empty}">Aucune adresse trouvée.</td>
                     </tr>
                 </tbody>
             </table>

@@ -54,6 +54,7 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * Controller web pour les sous-réseaux.
@@ -169,6 +170,7 @@ public class SubnetWebController {
         model.addAttribute("selectedSiteId", siteId);
         model.addAttribute("selectedVlanId", vlanId);
         model.addAttribute("canScan", canManage);
+        model.addAttribute("canBulkDelete", BulkDelete.hasAnyRole(auth, "ROLE_ADMIN"));
         model.addAttribute("canManage", canManage);
         model.addAttribute("activeSection", "subnets");
         model.addAttribute("pageTitle", msg("nav.subnets", locale));
@@ -532,6 +534,29 @@ public class SubnetWebController {
         } catch (DataIntegrityViolationException e) {
             flash.addFlashAttribute("flashError", msg("flash.subnet.deleteConflict", locale));
         }
+        return ReturnTo.redirect("/network/subnets");
+    }
+
+    // ── Suppression en masse ───────────────────────────────────────────────
+
+    @PostMapping("/bulk-delete")
+    @PreAuthorize("hasRole('ADMIN')")
+    public String bulkDelete(@RequestParam(name = "ids", required = false) List<Long> ids,
+                             Authentication auth, RedirectAttributes flash, Locale locale) {
+        Set<Long> selected = BulkDelete.select(ids, flash, messageSource, locale);
+        if (selected == null) return ReturnTo.redirect("/network/subnets");
+        int deleted = 0;
+        for (Long id : selected) {
+            try {
+                SubnetResponse item = subnetService.findById(id);
+                subnetService.delete(id);
+                authAuditService.recordSubnetDeleted(auth.getName(), id, item.network());
+                deleted++;
+            } catch (ResourceNotFoundException | DataIntegrityViolationException e) {
+                // Introuvable, hors contexte accessible ou encore reference : compte comme non supprime.
+            }
+        }
+        BulkDelete.flashResult(deleted, selected.size() - deleted, flash, messageSource, locale);
         return ReturnTo.redirect("/network/subnets");
     }
 

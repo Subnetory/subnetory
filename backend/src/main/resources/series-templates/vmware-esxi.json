@@ -1,0 +1,21 @@
+{
+  "key": "vmware-esxi",
+  "name": "VMware ESXi cluster (hosts, BMC)",
+  "description": "VMware ESXi cluster: all hosts, then all out-of-band controllers.",
+  "definition": {
+    "allocation": "groups-sequential",
+    "groupGap": 0,
+    "ipStep": 1,
+    "onOccupied": "block",
+    "groups": [
+      {
+        "role": "ESXI",
+        "format": "{cluster}-{role}-{nn}"
+      },
+      {
+        "role": "BMC",
+        "format": "{cluster}-{role}-{nn}"
+      }
+    ]
+  }
+}

@@ -76,10 +76,16 @@
     </form>
 
     <div class="sn-card">
+        <th:block th:if="${canBulkDelete}"><th:block th:replace="~{layout/bulk :: bar(@{/network/subnets/bulk-delete})}"></th:block></th:block>
+
         <div class="sn-table-wrapper">
             <table class="sn-table">
                 <thead>
                     <tr>
+                        <th th:if="${canBulkDelete}" class="sn-table-col-select">
+                            <input type="checkbox" data-bulk-select-all="bulk-delete-form"
+                                   th:aria-label="#{bulk.selectAll}" th:title="#{bulk.selectAll}">
+                        </th>
                         <th th:text="#{table.network}">Réseau</th>
                         <th th:text="#{common.description}">Description</th>
                         <th th:text="#{table.gateway}">Passerelle</th>
@@ -95,6 +101,11 @@
                 <tbody>
                     <tr th:each="row : ${subnets}" class="clickable"
                         th:attr="data-href=@{/network/addresses(subnetId=${row.id})}">
+                        <td th:if="${canBulkDelete}" class="sn-table-col-select" data-no-row-nav>
+                            <input type="checkbox" name="ids" th:value="${row.id}" form="bulk-delete-form"
+                                   data-bulk-item="bulk-delete-form"
+                                   th:aria-label="#{bulk.selectRow(${row.network})}">
+                        </td>
                         <td>
                             <span class="sn-text-mono" th:text="${row.network}">10.0.0.0/24</span>
                         </td>
@@ -140,7 +151,7 @@
                         </td>
                     </tr>
                     <tr th:if="${subnets.empty}" class="sn-table--empty">
-                        <td th:colspan="${6 + (canScan ? 1 : 0) + (canManage ? 1 : 0)}" th:text="#{subnet.empty}">Aucun sous-réseau enregistré.</td>
+                        <td th:colspan="${6 + (canScan ? 1 : 0) + (canManage ? 1 : 0) + (canBulkDelete ? 1 : 0)}" th:text="#{subnet.empty}">Aucun sous-réseau enregistré.</td>
                     </tr>
                 </tbody>
             </table>
