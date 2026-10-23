@@ -124,6 +124,56 @@ class SiteCrudWebIT {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN", username = "testadmin")
+    void postBulkDelete_success_auditsEachDeleted() throws Exception {
+        when(siteService.findById(1L)).thenReturn(sampleSite);
+
+        mvc.perform(post("/network/sites/bulk-delete").with(csrf()).param("ids", "1"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/network/sites"))
+                .andExpect(flash().attributeExists("flashSuccess"));
+
+        verify(siteService).delete(1L);
+        verify(authAuditService).recordSiteDeleted(
+                eq("testadmin"), eq(1L), eq(sampleSite.name()));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void postBulkDelete_unknownOrInUse_reportedAsNotDeleted() throws Exception {
+        doThrow(new ResourceNotFoundException("Site", 999L)).when(siteService).findById(999L);
+        when(siteService.findById(3L)).thenReturn(sampleSite);
+        doThrow(new org.springframework.dao.DataIntegrityViolationException("fk"))
+                .when(siteService).delete(3L);
+
+        mvc.perform(post("/network/sites/bulk-delete").with(csrf())
+                        .param("ids", "999").param("ids", "3"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(flash().attributeExists("flashError"));
+
+        verify(authAuditService, never()).recordSiteDeleted(any(), any(), any());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void postBulkDelete_noSelection_doesNotDelete() throws Exception {
+        mvc.perform(post("/network/sites/bulk-delete").with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(flash().attributeExists("flashError"));
+
+        verify(siteService, never()).delete(any());
+    }
+
+    @Test
+    @WithMockUser(roles = "IP")
+    void postBulkDelete_nonAdmin_returns403() throws Exception {
+        mvc.perform(post("/network/sites/bulk-delete").with(csrf()).param("ids", "1"))
+                .andExpect(status().isForbidden());
+
+        verify(siteService, never()).delete(any());
+    }
+
+    @Test
     @WithMockUser(roles = "ADMIN")
     void postDelete_withoutCsrf_returns403() throws Exception {
         mvc.perform(post("/network/sites/1/delete"))

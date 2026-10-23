@@ -31,6 +31,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.OffsetDateTime;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
@@ -120,6 +121,56 @@ class VlanCrudWebIT {
                 .andExpect(status().isForbidden());
 
         verify(vlanService, never()).create(any());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN", username = "testadmin")
+    void postBulkDelete_success_auditsEachDeleted() throws Exception {
+        when(vlanService.findById(1L)).thenReturn(sampleVlan);
+
+        mvc.perform(post("/network/vlans/bulk-delete").with(csrf()).param("ids", "1"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/network/vlans"))
+                .andExpect(flash().attributeExists("flashSuccess"));
+
+        verify(vlanService).delete(1L);
+        verify(authAuditService).recordVlanDeleted(
+                eq("testadmin"), eq(1L), anyString());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void postBulkDelete_unknownOrInUse_reportedAsNotDeleted() throws Exception {
+        doThrow(new ResourceNotFoundException("Vlan", 999L)).when(vlanService).findById(999L);
+        when(vlanService.findById(3L)).thenReturn(sampleVlan);
+        doThrow(new org.springframework.dao.DataIntegrityViolationException("fk"))
+                .when(vlanService).delete(3L);
+
+        mvc.perform(post("/network/vlans/bulk-delete").with(csrf())
+                        .param("ids", "999").param("ids", "3"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(flash().attributeExists("flashError"));
+
+        verify(authAuditService, never()).recordVlanDeleted(any(), any(), any());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void postBulkDelete_noSelection_doesNotDelete() throws Exception {
+        mvc.perform(post("/network/vlans/bulk-delete").with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(flash().attributeExists("flashError"));
+
+        verify(vlanService, never()).delete(any());
+    }
+
+    @Test
+    @WithMockUser(roles = "IP")
+    void postBulkDelete_nonAdmin_returns403() throws Exception {
+        mvc.perform(post("/network/vlans/bulk-delete").with(csrf()).param("ids", "1"))
+                .andExpect(status().isForbidden());
+
+        verify(vlanService, never()).delete(any());
     }
 
     @Test
