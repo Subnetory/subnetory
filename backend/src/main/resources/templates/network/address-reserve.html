@@ -190,7 +190,7 @@
                         <option value="" th:text="#{select.placeholder.subnet}">— Sélectionner un sous-réseau —</option>
                         <option th:each="s : ${allSubnets}"
                                 th:value="${s.id}"
-                                th:text="|${s.network} — ${s.siteName}|">Sous-réseau</option>
+                                th:text="${s.vlanName != null ? s.network + ' — ' + s.vlanName + ' — ' + s.siteName : s.network + ' — ' + s.siteName}">Sous-réseau</option>
                     </select>
                 </div>
 
@@ -263,7 +263,7 @@
                                             <option value="" th:text="#{reserve.template.roles.subnet.default}">— Sous-réseau ci-dessus —</option>
                                             <option th:each="s : ${allSubnets}"
                                                     th:value="${s.id}"
-                                                    th:text="|${s.network} — ${s.siteName}|">Sous-réseau</option>
+                                                    th:text="${s.vlanName != null ? s.network + ' — ' + s.vlanName + ' — ' + s.siteName : s.network + ' — ' + s.siteName}">Sous-réseau</option>
                                         </select>
                                     </td>
                                     <td>
@@ -329,7 +329,7 @@
                         <option value="" th:text="#{select.placeholder.subnet}">— Sélectionner un sous-réseau —</option>
                         <option th:each="s : ${allSubnets}"
                                 th:value="${s.id}"
-                                th:text="|${s.network} — ${s.siteName}|">Sous-réseau</option>
+                                th:text="${s.vlanName != null ? s.network + ' — ' + s.vlanName + ' — ' + s.siteName : s.network + ' — ' + s.siteName}">Sous-réseau</option>
                     </select>
                 </div>
 
@@ -412,7 +412,7 @@
                         <option value="" th:text="#{select.placeholder.subnet}">— Sélectionner un sous-réseau —</option>
                         <option th:each="s : ${allSubnets}"
                                 th:value="${s.id}"
-                                th:text="|${s.network} — ${s.siteName}|">Sous-réseau</option>
+                                th:text="${s.vlanName != null ? s.network + ' — ' + s.vlanName + ' — ' + s.siteName : s.network + ' — ' + s.siteName}">Sous-réseau</option>
                     </select>
                 </div>
 
