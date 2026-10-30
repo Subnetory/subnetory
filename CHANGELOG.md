@@ -24,10 +24,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 * In-app help completed: the IP addresses page now covers the four modes of the multiple reservation (free IP list, series with incremented names, chained series, cluster template), template management, single and bulk deletion and the Description column; the networks page covers edit/delete/bulk delete and the per-subnet **Reserve IP** shortcut; getting started adds the dashboard and global search; the API page lists the series and template endpoints; the admin roles table mentions the new rights. French and English bundles, with a test (`HelpMessagesCoverageTest`) checking that every help key exists in all bundles.
+* The one-subnet-per-role allocation (`per-group`, as in Nutanix Foundation) is now named **Range Auto Fill** in the interface, the built-in Nutanix preset, the in-app help and the user guide. No behaviour change.
 * Address list: new **Description** column. Subnet choices in the address form and on the multiple reservation page now show the VLAN name (`network — VLAN — site`) when the subnet has one.
 
 ### Fixed
 
+* VLAN name in subnet choices: the template, per-role, series and chained-series subnet selects of the multiple reservation page and the parent subnet select of the subnet form now show `network — VLAN — site` like the address form (they only showed `network — site`). The global search results also show the address Description.
 * Delete and other confirmation buttons did nothing in browsers that block or ignore native `confirm()` dialogs (embedded browsers, "prevent this page from creating more dialogs"): the dialog returned "no" without showing anything. Confirmations (`data-confirm` and the bulk delete) now use an in-page dialog with Cancel and Confirm buttons, available in French and English.
 
 ## [0.9.1] - 2026-10-03

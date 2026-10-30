@@ -113,6 +113,7 @@
             <tr th:each="a : ${result.addresses()}">
                 <td class="sn-text-mono"><a class="sn-row-link" th:href="@{/network/addresses/{id}(id=${a.id})}" th:text="${a.address}">10.0.0.1</a></td>
                 <td th:text="${a.hostname ?: '—'}">—</td>
+                <td class="sn-text-secondary" th:text="${a.description ?: '—'}">—</td>
                 <td class="sn-text-secondary" th:text="${a.subnetNetwork}">10.0.0.0/24</td>
                 <td th:if="${canManageIp}" class="sn-table-actions">
                     <a th:href="@{/network/addresses/{id}/edit(id=${a.id}, returnTo=${returnTo})}"
