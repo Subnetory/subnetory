@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-11-10
+
 ### Added
 
 * Serial IPv4 reservation with incremented naming. API: `POST /api/v1/addresses/series/preview` computes the series (start IP, count, step, hostname prefix, counter start and width, suffix) and reports each row as `AVAILABLE`, `OCCUPIED`, `RESERVED` (gateway) or `OUT_OF_RANGE` without writing anything; `POST /api/v1/addresses/series` creates the whole series in a single transaction. By default an occupied IP blocks the series (409 with the per-row `preview`, nothing created); `occupiedMode: skip` skips occupied IPs while keeping the counter consecutive. Existing addresses are never modified. Roles `ADMIN` or `IP`; each creation is recorded in the audit log as `ADDRESS_SERIES_RESERVED`.
